@@ -108,7 +108,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div>
             <h1 className="font-display font-black text-4xl">
-              Hey, {data.user.name || data.user.email.split("@")[0]} 👋
+              Hey, {data.user.name || data.user.email.split("@")[0]}
             </h1>
             <p className="opacity-70 mt-1">{data.user.email}</p>
           </div>

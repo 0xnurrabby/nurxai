@@ -18,18 +18,18 @@ export default function Home() {
         </h1>
         <p className="mt-6 max-w-2xl mx-auto text-lg">
           NurAi reads each tweet you reply to and instantly suggests 4 witty,
-          contextual replies — emotion-aware, human-toned, never robotic.
+          contextual replies. Emotion-aware, human-toned, never robotic.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link href="/signup" className="nb-btn nb-btn-primary text-lg">
-            Start trial — $2
+            Start trial - $2
           </Link>
           <Link href="/pricing" className="nb-btn nb-btn-warn text-lg">
             See plans
           </Link>
         </div>
         <p className="mt-4 text-sm opacity-70">
-          ⚡ Pay with crypto • No credit card • Cancel anytime
+          Pay with crypto. No credit card. Cancel anytime.
         </p>
       </section>
 
@@ -41,15 +41,15 @@ export default function Home() {
         <div className="mt-10 grid md:grid-cols-3 gap-5">
           {[
             {
-              title: "🚀 Crypto / Web3 builders",
-              text: "Engage with 100s of tweets daily without burning out. Build your CT presence faster."
+              title: "Crypto / Web3 builders",
+              text: "Engage with hundreds of tweets daily without burning out. Build your CT presence faster."
             },
             {
-              title: "📈 Growth-focused creators",
-              text: "Replies are the #1 way to grow on X. NurAi makes meaningful engagement effortless."
+              title: "Growth-focused creators",
+              text: "Replies are the number one way to grow on X. NurAi makes meaningful engagement effortless."
             },
             {
-              title: "💼 Founders & marketers",
+              title: "Founders and marketers",
               text: "Spend less time crafting replies. More time on what actually matters."
             }
           ].map((x) => (
@@ -68,10 +68,10 @@ export default function Home() {
         </h2>
         <div className="mt-10 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
           {[
-            { t: "Context-aware", d: "Reads the tweet's emotion, tone, and topic before suggesting." },
-            { t: "Human-feel", d: "Casual, witty, micro-imperfect — never sounds like AI." },
+            { t: "Context-aware", d: "Reads the tweet's emotion, tone, and topic. Even sees attached images on Pro and Premium." },
+            { t: "Human feel", d: "Casual, witty, sometimes imperfect. Never sounds like AI. No emojis, no clichés." },
             { t: "One-click paste", d: "Tap a suggestion to drop it into the X reply box, ready to send." },
-            { t: "Privacy first", d: "No DMs, no history, no X password. Just the tweet you're replying to." }
+            { t: "Privacy first", d: "No DMs, no history, no X password. Just the public tweet you're replying to." }
           ].map((x) => (
             <div key={x.t} className="nb-card p-6">
               <h3 className="font-display font-black text-xl">{x.t}</h3>
@@ -91,7 +91,7 @@ export default function Home() {
             { n: "1", t: "Install", d: "Add NurAi from the Chrome Web Store. 30 seconds." },
             { n: "2", t: "Sign up", d: "Create an account here. Pick a plan or start trial." },
             { n: "3", t: "Open X", d: "Click reply on any tweet. NurAi panel opens automatically." },
-            { n: "4", t: "Click & send", d: "Pick a suggestion, hit Reply. That's it." }
+            { n: "4", t: "Click and send", d: "Pick a suggestion, hit Reply. That's it." }
           ].map((x) => (
             <div key={x.n} className="nb-card p-6">
               <div
@@ -115,13 +115,13 @@ export default function Home() {
             Why everyone picks Premium
           </h2>
           <p className="mt-3 max-w-2xl mx-auto">
-            Pro gets you 250 comments/day for $10. Premium gets you{" "}
-            <strong>1,500 comments/day for just $30</strong> — that's{" "}
-            <strong>6× more replies</strong> for only 3× the price. Plus GPT-4o
-            (the smarter model). No-brainer math.
+            Pro gets you 150 replies per day for $10. Premium gets you{" "}
+            <strong>500 replies per day for just $30</strong>, that's{" "}
+            <strong>3.3x more replies</strong> for only 3x the price. Plus
+            full GPT-4o (the smartest model) and image understanding.
           </p>
           <Link href="/pricing" className="nb-btn mt-6 inline-block">
-            Compare plans →
+            Compare plans
           </Link>
         </div>
       </section>
@@ -135,15 +135,15 @@ export default function Home() {
           {[
             {
               name: "Ryan B.",
-              text: "Always cautious about media tools, but NurAi was a relief — works directly on X without my login info. Replies sound incredibly natural."
+              text: "Always cautious about media tools, but NurAi was a relief. Works directly on X without my login info. Replies sound incredibly natural."
             },
             {
               name: "Md Devil",
-              text: "Honestly changed how I reply on X. Instead of overthinking, I click & choose. The AI gets my tone perfectly. Total game-changer."
+              text: "Honestly changed how I reply on X. Instead of overthinking, I click and choose. The AI gets my tone perfectly. Total game-changer."
             },
             {
               name: "Md. Rakib",
-              text: "Working properly for a few days of testing — really helping me grow my X account."
+              text: "Working properly for a few days of testing. Really helping me grow my X account."
             },
             {
               name: "King B.",
@@ -159,13 +159,9 @@ export default function Home() {
             }
           ].map((r) => (
             <div key={r.name} className="nb-card p-6">
-              <div className="flex items-center gap-2">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <span key={s}>⭐</span>
-                ))}
-              </div>
+              <div className="text-sm font-bold opacity-70">5/5</div>
               <p className="mt-3">{r.text}</p>
-              <p className="mt-3 font-bold">— {r.name}</p>
+              <p className="mt-3 font-bold">- {r.name}</p>
             </div>
           ))}
         </div>
@@ -177,34 +173,34 @@ export default function Home() {
           Frequently asked
         </h2>
         <div className="mt-10 space-y-4">
-                    {[
+          {[
             {
               q: "Can NurAi understand images in tweets?",
-              a: "Yes! Pro and Premium plans support full image understanding. NurAi sees the photos, charts, and memes attached to tweets and crafts replies that reference them naturally."
+              a: "Yes. Pro and Premium plans support full image understanding. NurAi sees the photos, charts, and memes attached to tweets and crafts replies that reference them naturally."
             },
             {
               q: "How human do the replies actually sound?",
-              a: "We obsess over this. NurAi NEVER uses emojis (they're a dead giveaway), avoids AI clichés like 'Great point!' or 'Absolutely!', and uses natural human imperfections — fragmented sentences, casual contractions, lowercase starts. Most people who use it say nobody can tell it's AI."
+              a: "We obsess over this. NurAi never uses emojis (they're a dead giveaway), avoids AI clichés like 'Great point!' or 'Absolutely!', and uses natural human imperfections like fragmented sentences, casual contractions, and lowercase starts. Most users say nobody can tell it's AI."
             },
             {
               q: "What if the first 4 replies aren't great?",
-              a: "Hit Regenerate. NurAi will produce 4 completely different replies, with different angles and tones — never repeating itself. Each regenerate counts toward your daily limit."
+              a: "Hit Regenerate. NurAi will produce 4 completely different replies, with different angles and tones, never repeating itself. Each regenerate counts toward your daily limit."
             },
             {
               q: "Can I customize NurAi's writing style?",
-              a: "Absolutely. In Settings, pick from 7 styles: Default, Funny, Short & punchy, Productive, Professional, Supportive, or Contrarian. You can also add a custom style note (e.g. 'I'm a Solana dev who loves dad jokes')."
+              a: "Yes. In Settings, pick from 7 styles: Default, Funny, Short and punchy, Productive, Professional, Supportive, or Contrarian. You can also add a custom style note (e.g. 'I'm a Solana dev who loves dad jokes')."
             },
             {
               q: "What are 'project contexts'?",
-              a: "If you focus on specific projects (Base, Solana, your startup, etc.), you can save knowledge about them in Settings → Projects. NurAi will use this context to write insider-feeling replies that show you actually know the space — not generic AI takes."
+              a: "If you focus on specific projects (Base, Solana, your startup, etc.), you can save knowledge about them in Settings. NurAi will use this context to write insider-feeling replies that show you actually know the space, not generic AI takes."
             },
             {
               q: "Do you store my X login or password?",
-              a: "Never. NurAi runs entirely in your browser. We don't have access to your X password, DMs, or login session — only the public tweet text and images you're actively replying to."
+              a: "Never. NurAi runs entirely in your browser. We don't have access to your X password, DMs, or login session. Only the public tweet text and images you're actively replying to."
             },
             {
               q: "Will Twitter/X ban me for using this?",
-              a: "No. NurAi only suggests replies — you click 'Use' and send manually. It's no different from copying text from anywhere else. We never auto-post."
+              a: "No. NurAi only suggests replies. You click 'Use' and send manually. It's no different from copying text from anywhere else. We never auto-post."
             },
             {
               q: "Why crypto-only payments?",
@@ -212,22 +208,21 @@ export default function Home() {
             },
             {
               q: "What's the difference between Pro and Premium?",
-              a: "Pro = 150 replies/day with GPT-4o-mini + image understanding ($10/mo). Premium = 500 replies/day with the FULL GPT-4o model + image understanding ($30/mo). Premium replies are noticeably more clever and human — and you get 3.3× more of them."
+              a: "Pro gives 150 replies per day with GPT-4o-mini and image understanding ($10/month). Premium gives 500 replies per day with the full GPT-4o model and image understanding ($30/month). Premium replies are noticeably more clever and human, and you get 3.3x more of them."
             },
             {
               q: "Can I cancel anytime?",
-              a: "Yes. NurAi never auto-renews. Your access ends when your current period expires. Click Cancel anytime to stop future renewal — no questions asked."
+              a: "Yes. NurAi never auto-renews. Your access ends when your current period expires. Click Cancel anytime to stop future renewal. No questions asked."
             },
             {
               q: "Is there a free trial?",
-              a: "The $2 / 10-day trial gives you 30 replies per day — enough to test for a real week and a half before committing."
+              a: "The $2 / 10-day trial gives you 30 replies per day, enough to test for a real week and a half before committing."
             },
             {
               q: "How do I get help?",
-              a: "Email support@nurxai.com or message us on Telegram @Nur_Xai. We respond within 24 hours."
+              a: "Email probably.nothing.to.say@gmail.com or message us on Telegram @Nur_Xai. We respond within 24 hours."
             }
           ].map((f, i) => (
-
             <details key={i} className="nb-card p-5 cursor-pointer">
               <summary className="font-display font-black text-lg">
                 {f.q}
@@ -246,7 +241,7 @@ export default function Home() {
         <div className="mt-10 nb-card p-7" style={{ background: "var(--accent3)" }}>
           <ol className="space-y-4 list-decimal pl-6">
             <li>
-              <strong>Install the extension</strong> from the Chrome Web Store{" "}
+              Install the extension from the Chrome Web Store{" "}
               <a
                 href="https://chromewebstore.google.com/detail/odapbgkbdpalphekkmibliclmedgmlhb"
                 target="_blank"
@@ -257,20 +252,16 @@ export default function Home() {
               </a>
               .
             </li>
+            <li>Sign up on this site (use the button below).</li>
+            <li>Pick a plan. Start with the $2 trial.</li>
             <li>
-              <strong>Sign up</strong> on this site (use the button below).
+              Click the NurAi icon in your Chrome toolbar. It auto-links to your account.
             </li>
             <li>
-              <strong>Pick a plan</strong> — start with the $1 trial.
+              Open X, click reply on any tweet. NurAi pops up with 4 suggestions.
             </li>
             <li>
-              <strong>Click the NurAi icon</strong> in your Chrome toolbar — it auto-links to your account.
-            </li>
-            <li>
-              <strong>Open X</strong>, click reply on any tweet — NurAi pops up with 4 suggestions.
-            </li>
-            <li>
-              <strong>Click "Use"</strong> on any suggestion — it pastes into the reply box.
+              Click "Use" on any suggestion. It pastes into the reply box.
             </li>
           </ol>
           <div className="mt-6 flex gap-3 flex-wrap">
@@ -286,10 +277,10 @@ export default function Home() {
           Stop overthinking replies.
         </h2>
         <p className="mt-4 text-lg">
-          Try NurAi for $2. If you don't love it, you've lost a buck.
+          Try NurAi for $2. If you don't love it, you've lost two bucks.
         </p>
         <Link href="/signup" className="nb-btn nb-btn-primary mt-8 inline-block text-lg">
-          Start trial →
+          Start trial
         </Link>
       </section>
 
@@ -320,7 +311,7 @@ export default function Home() {
           <div>
             <div className="font-bold">Support</div>
             <ul className="mt-2 space-y-1">
-              <li>Email: support@nurxai.com</li>
+              <li>Email: probably.nothing.to.say@gmail.com</li>
               <li>Telegram: @Nur_Xai</li>
               <li><Link href="/privacy" className="underline">Privacy Policy</Link></li>
               <li><Link href="/terms" className="underline">Terms of Service</Link></li>
@@ -329,7 +320,7 @@ export default function Home() {
         </div>
         <div className="border-t-2 border-ink dark:border-nightInk">
           <div className="max-w-6xl mx-auto px-5 py-4 text-sm text-center opacity-70">
-            © {new Date().getFullYear()} NurAi. Crypto payments via NOWPayments.
+            Copyright {new Date().getFullYear()} NurAi. Crypto payments via NOWPayments.
           </div>
         </div>
       </footer>

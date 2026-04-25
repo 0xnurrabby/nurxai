@@ -31,6 +31,7 @@ export default function Navbar() {
           NurAi
         </Link>
         <div className="flex items-center gap-2 flex-wrap">
+          <Link href="/" className="nb-btn">Home</Link>
           <Link href="/pricing" className="nb-btn">Pricing</Link>
           {mounted && loggedIn ? (
             <>

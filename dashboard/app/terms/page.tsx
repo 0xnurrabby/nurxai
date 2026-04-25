@@ -68,7 +68,7 @@ export default function Terms() {
 
           <h2 className="font-bold text-xl mt-6">9. Contact</h2>
           <p className="mt-2">
-            Email <strong>support@nurxai.com</strong> or Telegram <strong>@Nur_Xai</strong>.
+            Email <strong>probably.nothing.to.say@gmail.com</strong> or Telegram <strong>@Nur_Xai</strong>.
           </p>
         </div>
       </main>
