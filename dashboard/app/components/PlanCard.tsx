@@ -55,7 +55,7 @@ export default function PlanCard({ plan }: { plan: Plan }) {
       <div className="mt-2 flex items-baseline gap-1">
         <span className="font-display font-black text-4xl">${plan.priceUSD}</span>
         <span className="text-sm font-semibold opacity-70">
-          / {plan.days === 1 ? "1 day" : "month"}
+          / {plan.days === 1 ? "1 day" : plan.days < 30 ? `${plan.days} days` : "month"}
         </span>
       </div>
 

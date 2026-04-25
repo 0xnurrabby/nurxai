@@ -3,12 +3,12 @@ export const PLANS = {
     key: "trial",
     name: "Trial",
     priceUSD: 2,
-    days: 1,
-    dailyLimit: 200,
+    days: 10,
+    dailyLimit: 50,
     model: "gpt-4o-mini",
     perks: [
-      "200 comments / day",
-      "1 day full access",
+      "50 comments / day",
+      "10 days full access",
       "Try before you commit"
     ]
   },
@@ -57,3 +57,4 @@ export const PLANS = {
 } as const;
 
 export type PlanKey = keyof typeof PLANS;
+
