@@ -22,7 +22,7 @@ export default function Home() {
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link href="/signup" className="nb-btn nb-btn-primary text-lg">
-            Start trial — $1.05
+            Start trial — $2
           </Link>
           <Link href="/pricing" className="nb-btn nb-btn-warn text-lg">
             See plans
@@ -277,7 +277,7 @@ export default function Home() {
           Stop overthinking replies.
         </h2>
         <p className="mt-4 text-lg">
-          Try NurAi for $1.05. If you don't love it, you've lost a buck.
+          Try NurAi for $2. If you don't love it, you've lost a buck.
         </p>
         <Link href="/signup" className="nb-btn nb-btn-primary mt-8 inline-block text-lg">
           Start trial →

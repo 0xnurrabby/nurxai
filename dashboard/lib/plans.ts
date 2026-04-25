@@ -2,11 +2,15 @@ export const PLANS = {
   trial: {
     key: "trial",
     name: "Trial",
-    priceUSD: 1.05,
+    priceUSD: 2,
     days: 1,
     dailyLimit: 200,
     model: "gpt-4o-mini",
-    perks: ["200 comments / day", "1 day full access", "Try before you commit"]
+    perks: [
+      "200 comments / day",
+      "1 day full access",
+      "Try before you commit"
+    ]
   },
   starter: {
     key: "starter",
@@ -15,7 +19,11 @@ export const PLANS = {
     days: 30,
     dailyLimit: 100,
     model: "gpt-4o-mini",
-    perks: ["100 comments / day", "Standard model", "Email support"]
+    perks: [
+      "100 comments / day",
+      "Standard model",
+      "Email support"
+    ]
   },
   pro: {
     key: "pro",
@@ -24,7 +32,11 @@ export const PLANS = {
     days: 30,
     dailyLimit: 250,
     model: "gpt-4o-mini",
-    perks: ["250 comments / day", "Standard model", "Priority queue"]
+    perks: [
+      "250 comments / day",
+      "Standard model",
+      "Priority queue"
+    ]
   },
   premium: {
     key: "premium",

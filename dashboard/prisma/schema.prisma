@@ -12,6 +12,7 @@ model User {
   email         String         @unique
   passwordHash  String
   name          String?
+  isAdmin       Boolean        @default(false)
   createdAt     DateTime       @default(now())
   subscriptions Subscription[]
   usage         UsageLog[]
