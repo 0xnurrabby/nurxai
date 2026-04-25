@@ -2,7 +2,7 @@ export const PLANS = {
   trial: {
     key: "trial",
     name: "Trial",
-    priceUSD: 1,
+    priceUSD: 1.05,
     days: 1,
     dailyLimit: 200,
     model: "gpt-4o-mini",

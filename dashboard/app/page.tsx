@@ -22,7 +22,7 @@ export default function Home() {
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link href="/signup" className="nb-btn nb-btn-primary text-lg">
-            Start trial — $1
+            Start trial — $1.05
           </Link>
           <Link href="/pricing" className="nb-btn nb-btn-warn text-lg">
             See plans
@@ -208,7 +208,7 @@ export default function Home() {
             },
             {
               q: "Is there a free trial?",
-              a: "Yes. The $1 / 1-day trial gives you 200 replies — enough to test it for an entire day before committing."
+              a: "Yes. The $1.05 / 1-day trial gives you 200 replies — enough to test it for an entire day before committing."
             },
             {
               q: "Where is my data stored?",
@@ -277,7 +277,7 @@ export default function Home() {
           Stop overthinking replies.
         </h2>
         <p className="mt-4 text-lg">
-          Try NurAi for $1. If you don't love it, you've lost a dollar.
+          Try NurAi for $1.05. If you don't love it, you've lost a buck.
         </p>
         <Link href="/signup" className="nb-btn nb-btn-primary mt-8 inline-block text-lg">
           Start trial →
