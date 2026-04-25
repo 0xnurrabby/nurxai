@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String?
+  createdAt     DateTime       @default(now())
+  subscriptions Subscription[]
+  usage         UsageLog[]
+  payments      Payment[]
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  plan      String
+  status    String
+  startsAt  DateTime @default(now())
+  endsAt    DateTime
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+}
+
+model UsageLog {
+  id     String @id @default(cuid())
+  userId String
+  day    String
+  count  Int    @default(0)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, day])
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  userId     String
+  provider   String
+  providerId String   @unique
+  amount     Decimal
+  currency   String
+  plan       String
+  status     String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  event     String
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+}

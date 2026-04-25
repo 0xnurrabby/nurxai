@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "NurAi — AI Reply for X",
+  "version": "2.0.0",
+  "description": "AI-powered, human-like reply suggestions for X/Twitter.",
+  "default_locale": "en",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "19": "icons/icon-19.png",
+    "38": "icons/icon-38.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "19": "icons/icon-19.png",
+      "38": "icons/icon-38.png"
+    },
+    "default_title": "NurAi"
+  },
+  "background": {
+    "service_worker": "scripts/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["scripts/contentscript.js"],
+      "css": ["styles/nurai.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage", "scripting", "activeTab"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://nurxai.vercel.app/*"
+  ],
+  "externally_connectable": {
+    "matches": ["https://nurxai.vercel.app/*"]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://nurxai.vercel.app"
+  }
+}

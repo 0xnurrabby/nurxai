@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #fafaf7;
+  --ink: #0f1419;
+  --card: #ffffff;
+  --accent: #b8e1ff;
+  --accent2: #c4f0c2;
+  --accent3: #fff89c;
+  --muted: #6b7280;
+}
+.dark {
+  --paper: #1a1a1a;
+  --ink: #f3f3f5;
+  --card: #222222;
+  --accent: #1e3a52;
+  --accent2: #2d4d2c;
+  --accent3: #4a4a1a;
+  --muted: #a1a1aa;
+}
+
+html, body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+@layer components {
+  /* Neo-brutalism — bold borders, no shadows, flat colors */
+  .nb-card {
+    background: var(--card);
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+  }
+  .nb-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 10px 18px; font-weight: 800; cursor: pointer;
+    border: 2px solid var(--ink); border-radius: 10px;
+    background: var(--card); color: var(--ink);
+    transition: transform .08s ease, background .15s ease, filter .15s ease;
+  }
+  .nb-btn:hover { filter: brightness(.96); }
+  .nb-btn:active { transform: translateY(1px); }
+  .nb-btn-primary { background: var(--accent); }
+  .nb-btn-success { background: var(--accent2); }
+  .nb-btn-warn    { background: var(--accent3); }
+  .nb-input {
+    width: 100%; padding: 11px 13px;
+    background: var(--card); color: var(--ink);
+    border: 2px solid var(--ink); border-radius: 10px;
+    outline: none;
+  }
+  .nb-input:focus { background: var(--accent3); }
+  .nb-tag {
+    display: inline-block; padding: 3px 10px;
+    border: 2px solid var(--ink); border-radius: 999px;
+    font-size: 12px; font-weight: 800; background: var(--accent3);
+  }
+  .nb-divider {
+    border-top: 2px solid var(--ink);
+  }
+}
