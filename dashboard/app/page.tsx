@@ -177,10 +177,30 @@ export default function Home() {
           Frequently asked
         </h2>
         <div className="mt-10 space-y-4">
-          {[
+                    {[
+            {
+              q: "Can NurAi understand images in tweets?",
+              a: "Yes! Pro and Premium plans support full image understanding. NurAi sees the photos, charts, and memes attached to tweets and crafts replies that reference them naturally."
+            },
+            {
+              q: "How human do the replies actually sound?",
+              a: "We obsess over this. NurAi NEVER uses emojis (they're a dead giveaway), avoids AI clichés like 'Great point!' or 'Absolutely!', and uses natural human imperfections — fragmented sentences, casual contractions, lowercase starts. Most people who use it say nobody can tell it's AI."
+            },
+            {
+              q: "What if the first 4 replies aren't great?",
+              a: "Hit Regenerate. NurAi will produce 4 completely different replies, with different angles and tones — never repeating itself. Each regenerate counts toward your daily limit."
+            },
+            {
+              q: "Can I customize NurAi's writing style?",
+              a: "Absolutely. In Settings, pick from 7 styles: Default, Funny, Short & punchy, Productive, Professional, Supportive, or Contrarian. You can also add a custom style note (e.g. 'I'm a Solana dev who loves dad jokes')."
+            },
+            {
+              q: "What are 'project contexts'?",
+              a: "If you focus on specific projects (Base, Solana, your startup, etc.), you can save knowledge about them in Settings → Projects. NurAi will use this context to write insider-feeling replies that show you actually know the space — not generic AI takes."
+            },
             {
               q: "Do you store my X login or password?",
-              a: "Never. NurAi runs entirely in your browser. We don't have access to your X password, DMs, or login session — only the public tweet text you're actively replying to."
+              a: "Never. NurAi runs entirely in your browser. We don't have access to your X password, DMs, or login session — only the public tweet text and images you're actively replying to."
             },
             {
               q: "Will Twitter/X ban me for using this?",
@@ -188,37 +208,26 @@ export default function Home() {
             },
             {
               q: "Why crypto-only payments?",
-              a: "Crypto is global, fast, and lower-fee than card processors. We accept BTC, ETH, USDT, USDC, BNB, and 100+ coins via NOWPayments. Your subscription activates within minutes of confirmation."
+              a: "Crypto is global, fast, and lower-fee than card processors. We accept BTC, USDT, TRX, LTC, and many more via NOWPayments. Your subscription activates within minutes of confirmation."
             },
             {
               q: "What's the difference between Pro and Premium?",
-              a: "Pro = 250 replies/day with GPT-4o-mini ($10/mo). Premium = 1,500 replies/day with GPT-4o, the smartest model ($30/mo). Premium replies are noticeably better and you get 6× more of them."
+              a: "Pro = 150 replies/day with GPT-4o-mini + image understanding ($10/mo). Premium = 500 replies/day with the FULL GPT-4o model + image understanding ($30/mo). Premium replies are noticeably more clever and human — and you get 3.3× more of them."
             },
             {
               q: "Can I cancel anytime?",
-              a: "Yes. Just don't renew. Your access ends when your current period expires. No hidden fees, no auto-charges."
-            },
-            {
-              q: "Does NurAi work on Twitter mobile or other browsers?",
-              a: "Currently Chrome desktop only (and Chrome-based browsers like Brave, Edge). Mobile support is on the roadmap."
-            },
-            {
-              q: "How accurate are the suggestions?",
-              a: "NurAi uses GPT-4o-mini (Trial/Starter/Pro) and GPT-4o (Premium) — among the best language models available. Suggestions match the tweet's tone and emotion. You can regenerate anytime if you don't like the first set."
+              a: "Yes. NurAi never auto-renews. Your access ends when your current period expires. Click Cancel anytime to stop future renewal — no questions asked."
             },
             {
               q: "Is there a free trial?",
-              a: "Yes. The $1.05 / 1-day trial gives you 200 replies — enough to test it for an entire day before committing."
-            },
-            {
-              q: "Where is my data stored?",
-              a: "Account info (email) is stored in our secure database (encrypted). Tweet text is sent to OpenAI for processing only — not stored. Read our Privacy Policy for full details."
+              a: "The $2 / 10-day trial gives you 30 replies per day — enough to test for a real week and a half before committing."
             },
             {
               q: "How do I get help?",
               a: "Email support@nurxai.com or message us on Telegram @Nur_Xai. We respond within 24 hours."
             }
           ].map((f, i) => (
+
             <details key={i} className="nb-card p-5 cursor-pointer">
               <summary className="font-display font-black text-lg">
                 {f.q}

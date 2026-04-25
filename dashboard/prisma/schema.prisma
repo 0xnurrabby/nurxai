@@ -8,15 +8,20 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  name          String?
-  isAdmin       Boolean        @default(false)
-  createdAt     DateTime       @default(now())
-  subscriptions Subscription[]
-  usage         UsageLog[]
-  payments      Payment[]
+  id              String         @id @default(cuid())
+  email           String         @unique
+  passwordHash    String
+  name            String?
+  isAdmin         Boolean        @default(false)
+  // Personalization
+  replyStyle      String         @default("default") // default, funny, short, productive, professional, witty
+  customStyleNote String?        @db.Text // optional user's own style note
+  createdAt       DateTime       @default(now())
+  subscriptions   Subscription[]
+  usage           UsageLog[]
+  payments        Payment[]
+  projects        Project[]
+  generations     Generation[]
 }
 
 model Subscription {
@@ -52,6 +57,45 @@ model Payment {
   status     String
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id        String          @id @default(cuid())
+  userId    String
+  name      String
+  contexts  ProjectContext[]
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  user      User            @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model ProjectContext {
+  id        String   @id @default(cuid())
+  projectId String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Generation {
+  id            String   @id @default(cuid())
+  userId        String
+  contextHash   String
+  suggestions   Json
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  costUSD       Decimal  @default(0)
+  model         String
+  hadImage      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, contextHash])
+  @@index([createdAt])
 }
 
 model AuditLog {

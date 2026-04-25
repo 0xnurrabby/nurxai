@@ -4,11 +4,13 @@ export const PLANS = {
     name: "Trial",
     priceUSD: 2,
     days: 10,
-    dailyLimit: 50,
+    dailyLimit: 30,
     model: "gpt-4o-mini",
+    vision: false,
     perks: [
-      "50 comments / day",
+      "30 comments / day",
       "10 days full access",
+      "Standard model",
       "Try before you commit"
     ]
   },
@@ -17,11 +19,13 @@ export const PLANS = {
     name: "Starter",
     priceUSD: 5,
     days: 30,
-    dailyLimit: 100,
+    dailyLimit: 60,
     model: "gpt-4o-mini",
+    vision: false,
     perks: [
-      "100 comments / day",
-      "Standard model",
+      "60 comments / day",
+      "Standard model (text only)",
+      "Personalization styles",
       "Email support"
     ]
   },
@@ -30,11 +34,14 @@ export const PLANS = {
     name: "Pro",
     priceUSD: 10,
     days: 30,
-    dailyLimit: 250,
+    dailyLimit: 150,
     model: "gpt-4o-mini",
+    vision: true,
     perks: [
-      "250 comments / day",
-      "Standard model",
+      "150 comments / day",
+      "Standard model + IMAGE understanding 🖼",
+      "Personalization styles",
+      "Project contexts",
       "Priority queue"
     ]
   },
@@ -43,13 +50,15 @@ export const PLANS = {
     name: "Premium",
     priceUSD: 30,
     days: 30,
-    dailyLimit: 1500,
+    dailyLimit: 500,
     model: "gpt-4o",
+    vision: true,
     perks: [
-      "1,500 comments / day  (6× Pro)",
-      "GPT-4o premium model",
-      "Custom prompt templates",
-      "Multiple X accounts",
+      "500 comments / day  (3.3× Pro)",
+      "GPT-4o premium model — masterpiece replies",
+      "Full image + post understanding",
+      "Unlimited project contexts",
+      "All personalization styles",
       "Priority support"
     ],
     featured: true
@@ -58,3 +67,36 @@ export const PLANS = {
 
 export type PlanKey = keyof typeof PLANS;
 
+// Reply style presets
+export const REPLY_STYLES = {
+  default: {
+    name: "Default",
+    description: "Balanced, friendly, human"
+  },
+  funny: {
+    name: "Funny",
+    description: "Witty, playful, light humor"
+  },
+  short: {
+    name: "Short & punchy",
+    description: "Brief, max 60 chars"
+  },
+  productive: {
+    name: "Productive",
+    description: "Adds value, asks insightful questions"
+  },
+  professional: {
+    name: "Professional",
+    description: "Polished, work-appropriate"
+  },
+  supportive: {
+    name: "Supportive",
+    description: "Empathetic, encouraging"
+  },
+  contrarian: {
+    name: "Contrarian",
+    description: "Politely challenges, brings new angle"
+  }
+} as const;
+
+export type ReplyStyle = keyof typeof REPLY_STYLES;

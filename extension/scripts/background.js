@@ -48,7 +48,7 @@ function validateSuggestions(arr) {
 }
 
 /* ---------- Backend call ---------- */
-async function callGenerate(context) {
+async function callGenerate(context, imageUrls, regenerate, previousSuggestions) {
   const r = await get(CONFIG.STORAGE_KEYS.TOKEN);
   const token = r[CONFIG.STORAGE_KEYS.TOKEN];
   if (!token) return { ok: false, error: "NOT_LOGGED_IN" };
@@ -64,7 +64,7 @@ async function callGenerate(context) {
         "X-Install-Id": installId,
         "X-Client-Version": chrome.runtime.getManifest().version
       },
-      body: JSON.stringify({ context })
+      body: JSON.stringify({ context, imageUrls, regenerate, previousSuggestions })
     });
   } catch (e) {
     log.error("network", e);
@@ -86,28 +86,33 @@ async function callGenerate(context) {
   return { ok: true, suggestions: validateSuggestions(data.suggestions), usage: data.usage };
 }
 
-async function handleGenerate(rawCtx) {
+async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions) {
   const ctx = sanitizeContext(rawCtx);
   if (!ctx) return { ok: false, error: "EMPTY_CONTEXT" };
   if (!tryAcquire()) return { ok: false, error: "RATE_LIMIT_LOCAL" };
 
-  const key = await hashCtx(ctx);
-  const cache = await readCache();
-  const hit = cache[key];
-  if (hit && Date.now() - hit.ts < CONFIG.SUGGESTION_CACHE_TTL_MS) {
-    return { ok: true, suggestions: hit.suggestions, cached: true };
+  // For regenerate, skip cache (always fresh)
+  if (!regenerate) {
+    const key = await hashCtx(ctx);
+    const cache = await readCache();
+    const hit = cache[key];
+    if (hit && Date.now() - hit.ts < CONFIG.SUGGESTION_CACHE_TTL_MS) {
+      return { ok: true, suggestions: hit.suggestions, cached: true };
+    }
   }
 
-  const result = await callGenerate(ctx);
-  if (result.ok) {
+  const result = await callGenerate(ctx, imageUrls || [], !!regenerate, previousSuggestions || []);
+  if (result.ok && !regenerate) {
+    const key = await hashCtx(ctx);
+    const cache = await readCache();
     cache[key] = { ts: Date.now(), suggestions: result.suggestions };
     await writeCache(cache);
-    await audit("generate_ok", { count: result.suggestions.length });
-  } else {
-    await audit("generate_fail", { error: result.error });
   }
+  if (result.ok) await audit("generate_ok", { count: result.suggestions.length, regen: regenerate });
+  else await audit("generate_fail", { error: result.error });
   return result;
 }
+
 
 /* ---------- Internal messages (sender validation) ---------- */
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -122,8 +127,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   switch (msg.type) {
     case "NURAI_GENERATE":
-      handleGenerate(msg.context || "").then(sendResponse);
+      handleGenerate(
+        msg.context || "",
+        msg.imageUrls || [],
+        !!msg.regenerate,
+        msg.previousSuggestions || []
+      ).then(sendResponse);
       return true;
+
 
     case "NURAI_AUTH_STATUS":
       get([CONFIG.STORAGE_KEYS.TOKEN, CONFIG.STORAGE_KEYS.USER]).then(r => {

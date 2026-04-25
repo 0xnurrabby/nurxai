@@ -11,13 +11,25 @@
     const c = dlg.querySelector('div[contenteditable="true"][data-testid="tweetTextarea_0"]');
     return c && c.offsetParent ? c : null;
   };
-  function getTweetContext() {
+   function getTweetContext() {
     const dlg = findDialog();
     const article = dlg?.querySelector("article");
-    if (!article) return "";
-    return Array.from(article.querySelectorAll("div[lang]"))
-      .map(d => d.innerText).join("\n").trim().slice(0, 800);
+    if (!article) return { text: "", imageUrls: [] };
+
+    const text = Array.from(article.querySelectorAll("div[lang]"))
+      .map(d => d.innerText).join("\n").trim().slice(0, 1500);
+
+    // Extract image URLs (skip avatars - they have small size)
+    const imgs = Array.from(article.querySelectorAll('img[src*="twimg.com"]'));
+    const imageUrls = imgs
+      .map(img => img.src)
+      .filter(src => !src.includes("profile_images") && !src.includes("emoji"))
+      .map(src => src.replace(/&name=\w+/, "&name=large"))
+      .slice(0, 4);
+
+    return { text, imageUrls };
   }
+
 
   let host, shadow, panel, listEl;
 
@@ -175,6 +187,7 @@
     c.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
   }
 
+  let lastSuggestions = [];
   let inflight = false;
   async function generateAndShow(force = false) {
     if (inflight && !force) return;
@@ -182,9 +195,19 @@
     await buildPanelShell();
     showLoader();
     try {
-      const ctx = getTweetContext();
-      if (!ctx) { showError("No tweet context found."); return; }
-      const resp = await chrome.runtime.sendMessage({ type: "NURAI_GENERATE", context: ctx });
+      const { text, imageUrls } = getTweetContext();
+      if (!text) { showError("No tweet context found."); return; }
+
+      const isRegenerate = !!force && lastSuggestions.length > 0;
+
+      const resp = await chrome.runtime.sendMessage({
+        type: "NURAI_GENERATE",
+        context: text,
+        imageUrls,
+        regenerate: isRegenerate,
+        previousSuggestions: isRegenerate ? lastSuggestions : []
+      });
+
       if (!resp || !resp.ok) {
         const map = {
           NOT_LOGGED_IN:    ["Please sign in to use NurAi.", "login"],
@@ -201,6 +224,7 @@
         return;
       }
       if (!resp.suggestions?.length) { showError("No suggestions returned."); return; }
+      lastSuggestions = resp.suggestions.slice();
       showSuggestions(resp.suggestions);
     } catch {
       showError("Unexpected error.");
@@ -208,6 +232,7 @@
       inflight = false;
     }
   }
+
 
   let lastHad = false;
   const obs = new MutationObserver(() => {

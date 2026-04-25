@@ -5,11 +5,17 @@ import ThemeToggle from "./ThemeToggle";
 
 export default function Navbar() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    setLoggedIn(!!localStorage.getItem("nurxai_jwt"));
+    const token = localStorage.getItem("nurxai_jwt");
+    setLoggedIn(!!token);
+    try {
+      const u = JSON.parse(localStorage.getItem("nurxai_user") || "null");
+      setIsAdmin(!!u?.isAdmin);
+    } catch {}
   }, []);
 
   function logout() {
@@ -24,17 +30,17 @@ export default function Navbar() {
         <Link href="/" className="font-display font-black text-2xl tracking-tight">
           NurAi
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <Link href="/pricing" className="nb-btn">Pricing</Link>
           {mounted && loggedIn ? (
             <>
               <Link href="/dashboard" className="nb-btn nb-btn-primary">Dashboard</Link>
+              <Link href="/settings" className="nb-btn">Settings</Link>
+              {isAdmin && <Link href="/admin" className="nb-btn nb-btn-warn">Admin</Link>}
               <button onClick={logout} className="nb-btn">Sign out</button>
             </>
           ) : (
-            <>
-              <Link href="/login" className="nb-btn nb-btn-primary">Sign in</Link>
-            </>
+            <Link href="/login" className="nb-btn nb-btn-primary">Sign in</Link>
           )}
           <ThemeToggle />
         </div>

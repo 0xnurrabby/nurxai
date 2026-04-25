@@ -19,7 +19,14 @@ type Stats = {
   totalPayments: number;
   todayUsage: number;
   revenue: string;
+  tokens?: {
+    allTime: { input: number; output: number; cost: string };
+    today: { input: number; output: number; cost: string };
+    last30d: { input: number; output: number; cost: string };
+  };
+  profitMargin?: { revenue: number; cost: number; profit: number };
 };
+
 
 const PLAN_OPTIONS = ["trial", "starter", "pro", "premium"];
 
@@ -145,30 +152,65 @@ export default function AdminPage() {
       <main className="max-w-6xl mx-auto px-5 py-8">
         <h1 className="font-display font-black text-4xl">Admin Panel</h1>
 
-        {stats && (
-          <div className="grid md:grid-cols-5 gap-4 mt-6">
-            <div className="nb-card p-4" style={{ background: "var(--accent3)" }}>
-              <div className="text-sm font-bold opacity-70">Total Users</div>
-              <div className="font-display font-black text-3xl">{stats.totalUsers}</div>
+                {stats && (
+          <>
+            <div className="grid md:grid-cols-5 gap-4 mt-6">
+              <div className="nb-card p-4" style={{ background: "var(--accent3)" }}>
+                <div className="text-sm font-bold opacity-70">Total Users</div>
+                <div className="font-display font-black text-3xl">{stats.totalUsers}</div>
+              </div>
+              <div className="nb-card p-4" style={{ background: "var(--accent2)" }}>
+                <div className="text-sm font-bold opacity-70">Active Subs</div>
+                <div className="font-display font-black text-3xl">{stats.activeSubs}</div>
+              </div>
+              <div className="nb-card p-4" style={{ background: "var(--accent)" }}>
+                <div className="text-sm font-bold opacity-70">Payments</div>
+                <div className="font-display font-black text-3xl">{stats.totalPayments}</div>
+              </div>
+              <div className="nb-card p-4">
+                <div className="text-sm font-bold opacity-70">Today Usage</div>
+                <div className="font-display font-black text-3xl">{stats.todayUsage}</div>
+              </div>
+              <div className="nb-card p-4">
+                <div className="text-sm font-bold opacity-70">Revenue (USD)</div>
+                <div className="font-display font-black text-3xl">${stats.revenue}</div>
+              </div>
             </div>
-            <div className="nb-card p-4" style={{ background: "var(--accent2)" }}>
-              <div className="text-sm font-bold opacity-70">Active Subs</div>
-              <div className="font-display font-black text-3xl">{stats.activeSubs}</div>
-            </div>
-            <div className="nb-card p-4" style={{ background: "var(--accent)" }}>
-              <div className="text-sm font-bold opacity-70">Payments</div>
-              <div className="font-display font-black text-3xl">{stats.totalPayments}</div>
-            </div>
-            <div className="nb-card p-4">
-              <div className="text-sm font-bold opacity-70">Today Usage</div>
-              <div className="font-display font-black text-3xl">{stats.todayUsage}</div>
-            </div>
-            <div className="nb-card p-4">
-              <div className="text-sm font-bold opacity-70">Revenue (USD)</div>
-              <div className="font-display font-black text-3xl">${stats.revenue}</div>
-            </div>
-          </div>
+
+            {stats.tokens && (
+              <div className="grid md:grid-cols-3 gap-4 mt-4">
+                <div className="nb-card p-4">
+                  <div className="text-sm font-bold opacity-70">Tokens Today</div>
+                  <div className="font-display font-black text-2xl">
+                    {(stats.tokens.today.input + stats.tokens.today.output).toLocaleString()}
+                  </div>
+                  <div className="text-xs opacity-70 mt-1">
+                    cost ~${parseFloat(stats.tokens.today.cost).toFixed(4)}
+                  </div>
+                </div>
+                <div className="nb-card p-4">
+                  <div className="text-sm font-bold opacity-70">Tokens 30 days</div>
+                  <div className="font-display font-black text-2xl">
+                    {(stats.tokens.last30d.input + stats.tokens.last30d.output).toLocaleString()}
+                  </div>
+                  <div className="text-xs opacity-70 mt-1">
+                    cost ~${parseFloat(stats.tokens.last30d.cost).toFixed(2)}
+                  </div>
+                </div>
+                <div className="nb-card p-4" style={{ background: "var(--accent2)" }}>
+                  <div className="text-sm font-bold opacity-70">All-time Profit</div>
+                  <div className="font-display font-black text-2xl">
+                    ${(stats.profitMargin?.profit || 0).toFixed(2)}
+                  </div>
+                  <div className="text-xs opacity-70 mt-1">
+                    revenue ${stats.profitMargin?.revenue.toFixed(2)} − cost ${stats.profitMargin?.cost.toFixed(4)}
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
+
 
         <div className="mt-8 flex gap-3">
           <input
