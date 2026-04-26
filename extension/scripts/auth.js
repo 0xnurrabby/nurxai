@@ -3,7 +3,7 @@
   if (window.__NURAI_AUTH_OPEN__) return;
   window.__NURAI_AUTH_OPEN__ = true;
 
-  const WEB_BASE = "https://nurxai.vercel.app";
+  const WEB_BASE = "https://www.nurxai.xyz";
   const HOST_ID = "nurai-auth-host";
 
   function open() {

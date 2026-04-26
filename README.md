@@ -7,4 +7,4 @@ AI-powered reply suggestions for X/Twitter.
 - dashboard/ - Next.js website deployed to Vercel
 
 ## URLs
-- Production: https://nurxai.vercel.app
+- Production: https://www.nurxai.xyz

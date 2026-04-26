@@ -34,12 +34,12 @@
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",
-    "https://nurxai.vercel.app/*"
+    "https://www.nurxai.xyz/*"
   ],
   "externally_connectable": {
-    "matches": ["https://nurxai.vercel.app/*"]
+    "matches": ["https://www.nurxai.xyz/*"]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://nurxai.vercel.app"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://www.nurxai.xyz"
   }
 }

@@ -1,7 +1,7 @@
 // config.js — central configuration constants for NurAi extension
 export const CONFIG = Object.freeze({
-  API_BASE: "https://nurxai.vercel.app/api",
-  WEB_BASE: "https://nurxai.vercel.app",
+  API_BASE: "https://www.nurxai.xyz/api",
+  WEB_BASE: "https://www.nurxai.xyz",
 
   MAX_TWEET_CONTEXT_LENGTH: 800,
   MAX_SUGGESTION_LENGTH: 280,

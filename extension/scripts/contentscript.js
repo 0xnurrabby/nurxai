@@ -2,7 +2,7 @@
 (function () {
   const HOST_ID = "nurai-suggestions-host";
   const POS_KEY = "nurai_panel_pos";
-  const WEB_BASE = "https://nurxai.vercel.app";
+  const WEB_BASE = "https://www.nurxai.xyz";
 
   const findDialog = () => document.querySelector('div[role="dialog"]');
   const findComposer = () => {
