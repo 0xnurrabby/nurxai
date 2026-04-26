@@ -23,31 +23,83 @@ const PRICES: Record<string, { input: number; output: number }> = {
  * silently falls back to "I can't see the image". By fetching server-side
  * and inlining as base64 we guarantee the model actually sees it.
  *
- * Returns null on any failure so the caller can fall back gracefully.
+ * Returns null on any failure so the caller can fall back to URL passthrough.
  */
 async function fetchImageAsDataUrl(url: string): Promise<string | null> {
-  try {
-    const resp = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        Accept:
-          "image/avif,image/webp,image/jpeg,image/png,image/*;q=0.8,*/*;q=0.5",
-        Referer: "https://twitter.com/"
-      },
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!resp.ok) return null;
-    const ct = (resp.headers.get("content-type") || "image/jpeg")
-      .split(";")[0]
-      .trim();
-    if (!ct.startsWith("image/")) return null;
-    const buf = Buffer.from(await resp.arrayBuffer());
-    if (buf.length === 0 || buf.length > 5 * 1024 * 1024) return null; // hard cap 5 MB
-    return `data:${ct};base64,${buf.toString("base64")}`;
-  } catch {
-    return null;
+  // We try a couple of variants because some sizes are rate-limited.
+  const candidates = [
+    url,
+    url.replace(/&name=\w+/, "&name=large"),
+    url.replace(/&name=\w+/, "&name=medium"),
+    url.replace(/&name=\w+/, "")
+  ];
+  // De-duplicate while preserving order.
+  const seen = new Set<string>();
+  const tries = candidates.filter((u) => {
+    if (seen.has(u)) return false;
+    seen.add(u);
+    return true;
+  });
+
+  for (const candidate of tries) {
+    try {
+      const resp = await fetch(candidate, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          Accept:
+            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          Referer: "https://x.com/",
+          "Sec-Fetch-Dest": "image",
+          "Sec-Fetch-Mode": "no-cors",
+          "Sec-Fetch-Site": "cross-site"
+        },
+        signal: AbortSignal.timeout(15000),
+        redirect: "follow"
+      });
+      if (!resp.ok) {
+        console.warn(
+          "[vision] fetch non-OK",
+          resp.status,
+          candidate.slice(0, 90)
+        );
+        continue;
+      }
+      const ctHeader = resp.headers.get("content-type") || "";
+      const ct = ctHeader.split(";")[0].trim() || "image/jpeg";
+      if (!ct.startsWith("image/")) {
+        console.warn("[vision] non-image content-type", ct, candidate.slice(0, 90));
+        continue;
+      }
+      const buf = Buffer.from(await resp.arrayBuffer());
+      if (buf.length === 0) {
+        console.warn("[vision] empty body", candidate.slice(0, 90));
+        continue;
+      }
+      if (buf.length > 8 * 1024 * 1024) {
+        console.warn("[vision] too large", buf.length, candidate.slice(0, 90));
+        continue;
+      }
+      console.log(
+        "[vision] fetched",
+        ct,
+        buf.length,
+        "bytes from",
+        candidate.slice(0, 90)
+      );
+      return `data:${ct};base64,${buf.toString("base64")}`;
+    } catch (e: any) {
+      console.warn(
+        "[vision] fetch threw",
+        e?.name || "?",
+        e?.message || "?",
+        candidate.slice(0, 90)
+      );
+      // try next candidate
+    }
   }
+  return null;
 }
 
 function styleInstruction(style: string, customNote?: string | null): string {
@@ -122,7 +174,11 @@ CORE RULES (NEVER BREAK):
 9. Vary the 4 replies in tone, length, and angle. No two should feel similar.
 ${
   hasImage
-    ? '10. The post HAS an image attached. You CAN see it. Reference specific visual details in at least 2 of the 4 replies. NEVER say things like "can\'t see the image" or "pic isn\'t loading", you can see it perfectly. React to what is actually in the image.'
+    ? `10. AN IMAGE IS ATTACHED AND YOU CAN SEE IT FULLY. This is non-negotiable.
+   - At least 2 of the 4 replies MUST reference a SPECIFIC visual detail from the image: a label, a button, a UI element, a face/object, a color, a number, a piece of on-screen text, etc. Quote it or describe it precisely.
+   - You are STRICTLY FORBIDDEN from saying or implying any of: "can't see the image", "pic isn't loading", "no image", "without the pic", "image didn't load", "from what I can tell", "looks like the image", or any other phrase that suggests you don't see the picture. If you write any such phrase, the reply is invalid.
+   - Do not be vague. "nice pic" or "love the image" are forbidden. Pick something concrete you actually see.
+   - The image is the joke/context most of the time. Engage with what is IN it, not just the tweet text.`
     : "10. This is a text-only post. Focus on the words."
 }
 
@@ -176,14 +232,37 @@ export async function POST(req: NextRequest) {
   // images, we ignore them for non-vision plans. For vision-eligible plans
   // we download the images server-side and inline as base64 data URLs so
   // OpenAI does not have to fetch from twimg.com (which it sometimes can't).
-  let imageDataUrls: string[] = [];
+  // If our server-side fetch fails we still hand the raw URL to OpenAI as a
+  // last-resort fallback rather than dropping vision entirely.
+  type ImagePart = { type: "image_url"; image_url: { url: string; detail: "auto" } };
+  const imageParts: ImagePart[] = [];
+  let imagesInlined = 0;
+  let imagesUrlFallback = 0;
   if (plan.vision && rawImageUrls.length > 0) {
-    const fetched = await Promise.all(
-      rawImageUrls.slice(0, 3).map(fetchImageAsDataUrl)
-    );
-    imageDataUrls = fetched.filter((u): u is string => !!u);
+    for (const u of rawImageUrls.slice(0, 3)) {
+      const dataUrl = await fetchImageAsDataUrl(u);
+      if (dataUrl) {
+        imagesInlined++;
+        imageParts.push({ type: "image_url", image_url: { url: dataUrl, detail: "auto" } });
+      } else {
+        imagesUrlFallback++;
+        imageParts.push({ type: "image_url", image_url: { url: u, detail: "auto" } });
+      }
+    }
   }
-  const useVision = imageDataUrls.length > 0;
+  const useVision = imageParts.length > 0;
+  if (plan.vision && rawImageUrls.length > 0) {
+    console.log(
+      "[vision] plan=",
+      plan.key,
+      "received=",
+      rawImageUrls.length,
+      "inlined=",
+      imagesInlined,
+      "url-fallback=",
+      imagesUrlFallback
+    );
+  }
 
   const isRegenerate = !!body?.regenerate;
   const previousSuggestions: string[] = Array.isArray(body?.previousSuggestions)
@@ -238,10 +317,7 @@ export async function POST(req: NextRequest) {
               ? `\n\nIMPORTANT: I already have these replies. Generate 4 COMPLETELY DIFFERENT ones, different angles, different vibes, different sentence structures. Avoid any similarity:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
               : "")
         },
-        ...imageDataUrls.map((dataUrl) => ({
-          type: "image_url",
-          image_url: { url: dataUrl, detail: "auto" }
-        }))
+        ...imageParts
       ]
     };
   } else {
