@@ -10,7 +10,14 @@ type AdminUser = {
   isAdmin: boolean;
   createdAt: string;
   subscriptions: Array<{ plan: string; status: string; endsAt: string }>;
-  _count: { payments: number };
+  _count: { payments: number; generations: number };
+  gen: {
+    total: number;
+    usedToday: number;
+    inputTokens: number;
+    outputTokens: number;
+    costUSD: string;
+  };
 };
 
 type Stats = {
@@ -36,6 +43,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [forbidden, setForbidden] = useState(false);
+  const [resetUser, setResetUser] = useState<AdminUser | null>(null);
   const router = useRouter();
 
   function getToken() {
@@ -232,6 +240,10 @@ export default function AdminPage() {
                 <th className="p-3 text-left">Email</th>
                 <th className="p-3 text-left">Plan</th>
                 <th className="p-3 text-left">Expires</th>
+                <th className="p-3 text-left" title="Comments generated all-time">Gens</th>
+                <th className="p-3 text-left" title="Comments generated today">Today</th>
+                <th className="p-3 text-left" title="Total tokens (input + output)">Tokens</th>
+                <th className="p-3 text-left" title="Total OpenAI cost">Cost</th>
                 <th className="p-3 text-left">Pmts</th>
                 <th className="p-3 text-left">Admin</th>
                 <th className="p-3 text-left">Actions</th>
@@ -240,6 +252,8 @@ export default function AdminPage() {
             <tbody>
               {users.map((u) => {
                 const sub = u.subscriptions[0];
+                const totalTokens =
+                  (u.gen?.inputTokens || 0) + (u.gen?.outputTokens || 0);
                 return (
                   <tr key={u.id} className="border-b border-ink/20 dark:border-nightInk/20">
                     <td className="p-3">
@@ -257,6 +271,14 @@ export default function AdminPage() {
                     </td>
                     <td className="p-3 text-xs">
                       {sub ? new Date(sub.endsAt).toLocaleDateString() : "—"}
+                    </td>
+                    <td className="p-3 font-bold">
+                      {(u.gen?.total || 0).toLocaleString()}
+                    </td>
+                    <td className="p-3">{u.gen?.usedToday || 0}</td>
+                    <td className="p-3 text-xs">{totalTokens.toLocaleString()}</td>
+                    <td className="p-3 text-xs">
+                      ${parseFloat(u.gen?.costUSD || "0").toFixed(4)}
                     </td>
                     <td className="p-3">{u._count.payments}</td>
                     <td className="p-3">
@@ -295,6 +317,13 @@ export default function AdminPage() {
                         )}
                         <button
                           className="nb-btn text-xs px-2 py-1"
+                          style={{ background: "#fff89c" }}
+                          onClick={() => setResetUser(u)}
+                        >
+                          Reset PW
+                        </button>
+                        <button
+                          className="nb-btn text-xs px-2 py-1"
                           style={{ background: "#ff8a8a", color: "#fff" }}
                           onClick={() => deleteUser(u.id, u.email)}
                         >
@@ -306,12 +335,169 @@ export default function AdminPage() {
                 );
               })}
               {users.length === 0 && (
-                <tr><td colSpan={6} className="p-6 text-center opacity-60">No users found.</td></tr>
+                <tr><td colSpan={10} className="p-6 text-center opacity-60">No users found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {resetUser && (
+          <ResetPasswordModal
+            user={resetUser}
+            onClose={() => setResetUser(null)}
+          />
+        )}
       </main>
     </>
+  );
+}
+
+function ResetPasswordModal({
+  user,
+  onClose
+}: {
+  user: AdminUser;
+  onClose: () => void;
+}) {
+  const [mode, setMode] = useState<"plain" | "hash">("plain");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordHash, setPasswordHash] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function submit() {
+    setBusy(true);
+    setMsg("");
+    try {
+      const token = localStorage.getItem("nurxai_jwt");
+      const body: any = { userId: user.id };
+      if (mode === "plain") {
+        if (newPassword.length < 6) {
+          setMsg("Password must be at least 6 characters.");
+          setBusy(false);
+          return;
+        }
+        body.newPassword = newPassword;
+      } else {
+        if (!passwordHash.startsWith("$2") || passwordHash.length < 50) {
+          setMsg("Hash must start with $2 and be at least 50 chars.");
+          setBusy(false);
+          return;
+        }
+        body.passwordHash = passwordHash.trim();
+      }
+      const r = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) {
+        setMsg(`Password reset for ${user.email}`);
+        setTimeout(onClose, 1500);
+      } else {
+        setMsg(d.message || d.error || "Reset failed.");
+      }
+    } catch (e: any) {
+      setMsg(e?.message || "Network error.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center p-4"
+      style={{ background: "rgba(0,0,0,0.45)" }}
+      onClick={onClose}
+    >
+      <div
+        className="nb-card p-6 max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="font-display font-black text-2xl">Reset password</h2>
+        <p className="text-sm opacity-70 mt-1">
+          For: <strong>{user.email}</strong>
+        </p>
+
+        <div className="mt-4 flex gap-2 text-sm">
+          <button
+            className={`nb-btn flex-1 ${mode === "plain" ? "nb-btn-primary" : ""}`}
+            onClick={() => setMode("plain")}
+          >
+            New plaintext
+          </button>
+          <button
+            className={`nb-btn flex-1 ${mode === "hash" ? "nb-btn-primary" : ""}`}
+            onClick={() => setMode("hash")}
+          >
+            Bcrypt hash
+          </button>
+        </div>
+
+        {mode === "plain" ? (
+          <div className="mt-4">
+            <label className="font-semibold text-sm">
+              New password (min 6 chars)
+            </label>
+            <input
+              type="text"
+              className="nb-input mt-1"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="newPass123"
+            />
+            <p className="text-xs opacity-60 mt-1">
+              Send this to the user via Telegram. They sign in immediately,
+              and can change it from settings later.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <label className="font-semibold text-sm">
+              Bcrypt hash (starts with $2)
+            </label>
+            <textarea
+              className="nb-input mt-1 font-mono text-xs"
+              rows={3}
+              value={passwordHash}
+              onChange={(e) => setPasswordHash(e.target.value)}
+              placeholder="$2a$10$..."
+            />
+            <p className="text-xs opacity-60 mt-1">
+              Paste a previously-known bcrypt hash if the user is bringing
+              their own.
+            </p>
+          </div>
+        )}
+
+        {msg && (
+          <p
+            className="mt-3 text-sm font-semibold"
+            style={{
+              color: msg.toLowerCase().includes("reset") ? "#0a7d2e" : "#b00020"
+            }}
+          >
+            {msg}
+          </p>
+        )}
+
+        <div className="mt-5 flex gap-2 justify-end">
+          <button className="nb-btn" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            className="nb-btn nb-btn-primary"
+            onClick={submit}
+            disabled={busy}
+          >
+            {busy ? "Saving..." : "Reset"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

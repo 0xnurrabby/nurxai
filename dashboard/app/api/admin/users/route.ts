@@ -34,11 +34,48 @@ export async function GET(req: NextRequest) {
         orderBy: { endsAt: "desc" },
         take: 1
       },
-      _count: { select: { payments: true } }
+      _count: { select: { payments: true, generations: true } }
     },
     orderBy: { createdAt: "desc" },
     take: 100
   });
 
-  return NextResponse.json({ users });
+  // Aggregate per-user token + cost in a single query.
+  const userIds = users.map((u) => u.id);
+  const stats =
+    userIds.length === 0
+      ? []
+      : await prisma.generation.groupBy({
+          by: ["userId"],
+          where: { userId: { in: userIds } },
+          _sum: { inputTokens: true, outputTokens: true, costUSD: true }
+        });
+  const statsByUser = new Map(stats.map((s) => [s.userId, s]));
+
+  // Today's per-user usage (from UsageLog).
+  const today = new Date().toISOString().slice(0, 10);
+  const todayUsage =
+    userIds.length === 0
+      ? []
+      : await prisma.usageLog.findMany({
+          where: { userId: { in: userIds }, day: today },
+          select: { userId: true, count: true }
+        });
+  const todayByUser = new Map(todayUsage.map((u) => [u.userId, u.count]));
+
+  const enriched = users.map((u) => {
+    const s = statsByUser.get(u.id);
+    return {
+      ...u,
+      gen: {
+        total: u._count.generations,
+        usedToday: todayByUser.get(u.id) || 0,
+        inputTokens: s?._sum.inputTokens || 0,
+        outputTokens: s?._sum.outputTokens || 0,
+        costUSD: s?._sum.costUSD?.toString() || "0"
+      }
+    };
+  });
+
+  return NextResponse.json({ users: enriched });
 }
