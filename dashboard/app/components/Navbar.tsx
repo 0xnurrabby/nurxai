@@ -27,7 +27,18 @@ export default function Navbar() {
   return (
     <header className="border-b-2 border-ink dark:border-nightInk">
       <nav className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
-        <Link href="/" className="font-display font-black text-2xl tracking-tight">
+        <Link
+          href="/"
+          className="flex items-center gap-2 font-display font-black text-2xl tracking-tight"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icon.png"
+            alt="NurAi"
+            width={28}
+            height={28}
+            className="rounded-md border-2 border-ink dark:border-nightInk"
+          />
           NurAi
         </Link>
         <div className="flex items-center gap-2 flex-wrap">

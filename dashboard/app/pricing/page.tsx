@@ -31,7 +31,7 @@ export default function Pricing() {
   async function cancelSubscription() {
     if (
       !confirm(
-        "Cancel subscription? You'll keep access until the current period ends, but it won't renew automatically (note: NurAi never auto-renews anyway)."
+        "Cancel subscription? You will keep access until the current period ends, but it will not renew automatically (note: NurAi never auto-renews anyway)."
       )
     )
       return;
@@ -44,7 +44,7 @@ export default function Pricing() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (r.ok) {
-        alert("✅ Subscription cancelled. Access remains until end date.");
+        alert("Subscription cancelled. Access remains until end date.");
         setCurrentPlan(null);
         setEndsAt(null);
       } else {
@@ -66,9 +66,10 @@ export default function Pricing() {
         <h1 className="font-display font-black text-4xl md:text-5xl text-center">
           Pick your plan
         </h1>
-        <p className="mt-3 text-center max-w-xl mx-auto">
-          Pay with crypto (BTC, ETH, USDT, and more). Cancel anytime —
-          subscription simply ends.
+        <p className="mt-3 text-center max-w-2xl mx-auto">
+          Pay with <strong>Base Pay</strong> for one-tap USDC (instant, no
+          fees, smart wallet) or <strong>NowPayments</strong> for BTC, ETH,
+          USDT and 100+ other coins. Cancel anytime, subscription simply ends.
         </p>
 
         {currentPlan && (
@@ -92,7 +93,7 @@ export default function Pricing() {
               onClick={cancelSubscription}
               disabled={cancelling}
             >
-              {cancelling ? "Cancelling…" : "Cancel subscription"}
+              {cancelling ? "Cancelling..." : "Cancel subscription"}
             </button>
           </div>
         )}
@@ -103,15 +104,54 @@ export default function Pricing() {
           ))}
         </div>
 
+        {/* Base Pay marketing block */}
         <div
           className="mt-10 nb-card p-6"
+          style={{ background: "var(--accent2)" }}
+        >
+          <div className="flex items-start gap-4 flex-wrap">
+            <div className="flex-1 min-w-[260px]">
+              <h3 className="font-display font-black text-2xl">
+                Why pay with Base?
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed">
+                Base Pay is the fastest way to pay online with crypto. One
+                tap. USDC settles in under 2 seconds on the Base chain. Zero
+                gas for you, gas is sponsored. Zero card fees, zero FX, zero
+                chargebacks. Pay directly from your Base Account or Coinbase
+                Account, the full amount goes to NurAi, no middleman skimming.
+              </p>
+              <ul className="mt-4 text-sm space-y-1">
+                <li>+ One-tap checkout, no card numbers, no copying addresses</li>
+                <li>+ USDC = always 1 dollar, no volatility while paying</li>
+                <li>+ Instant: most payments confirm in under 2 seconds</li>
+                <li>+ You keep custody, NurAi never touches your wallet</li>
+              </ul>
+            </div>
+            <div className="flex-1 min-w-[220px]">
+              <h3 className="font-display font-black text-xl">
+                Or pay any other crypto
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed">
+                Prefer BTC, ETH, USDT (TRC-20 / ERC-20), TON, SOL, BNB, or
+                100+ other coins? NowPayments handles those. Slightly slower
+                because it waits for on-chain confirmation, but works from
+                any wallet.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="mt-6 nb-card p-6"
           style={{ background: "var(--accent3)" }}
         >
-          <h3 className="font-display font-black text-xl">💡 Premium math</h3>
+          <h3 className="font-display font-black text-xl">Premium math</h3>
           <p className="mt-2 text-sm">
-            Pro = 250 / day = $0.0013 per comment. Premium = 1,500 / day = $0.00067
-            per comment. That's almost <strong>half the cost per comment</strong>,
-            plus GPT-4o (a much smarter model).
+            Pro = 150 / day = $0.0022 per comment. Premium = 500 / day =
+            $0.002 per comment, on the smarter GPT-4o model with full image
+            understanding. Premium is dramatically better at picking up
+            nuance, sarcasm, and visual detail.
           </p>
         </div>
 
@@ -134,8 +174,19 @@ export default function Pricing() {
           <details className="mt-3 cursor-pointer">
             <summary className="font-bold">What if my payment fails?</summary>
             <p className="mt-2 text-sm">
-              No charge happens until crypto confirms on-chain. If it fails,
-              just retry — no money lost.
+              No charge happens until the payment confirms. If it fails, just
+              retry, no money lost.
+            </p>
+          </details>
+          <details className="mt-3 cursor-pointer">
+            <summary className="font-bold">
+              Why are some features locked on lower plans?
+            </summary>
+            <p className="mt-2 text-sm">
+              Each tier targets a different need. Trial is for testing the
+              tone. Starter unlocks all 7 personalization styles. Pro adds
+              image understanding and project contexts. Premium uses GPT-4o
+              for masterpiece quality and unlimited project contexts.
             </p>
           </details>
         </div>

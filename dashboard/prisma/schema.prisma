@@ -49,14 +49,19 @@ model UsageLog {
 model Payment {
   id         String   @id @default(cuid())
   userId     String
-  provider   String
-  providerId String   @unique
+  provider   String   // "nowpayments" | "basepay"
+  providerId String   @unique // NOWP order_id, or our basepay orderId
   amount     Decimal
   currency   String
   plan       String
-  status     String
+  status     String   // "waiting" | "confirmed" | "failed"
+  txHash     String?  // base mainnet tx hash (basepay only)
+  payerAddr  String?  // sender address (basepay only)
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([txHash])
 }
 
 model Project {
