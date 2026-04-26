@@ -1,3 +1,8 @@
+// Quality tier drives the system prompt strength + temperature + max_tokens
+// in the generate route. allowStyles / allowProjects / vision are hard gates
+// that the API enforces (refuses non-default style writes, refuses project
+// creation, ignores image URLs) so a trial user can never accidentally
+// access a higher-tier feature.
 export const PLANS = {
   trial: {
     key: "trial",
@@ -7,10 +12,13 @@ export const PLANS = {
     dailyLimit: 30,
     model: "gpt-4o-mini",
     vision: false,
+    allowStyles: false,
+    allowProjects: false,
+    qualityTier: "standard",
     perks: [
       "30 comments / day",
       "10 days full access",
-      "Standard model",
+      "Standard model (text only)",
       "Try before you commit"
     ]
   },
@@ -22,10 +30,14 @@ export const PLANS = {
     dailyLimit: 60,
     model: "gpt-4o-mini",
     vision: false,
+    allowStyles: true,
+    allowProjects: false,
+    qualityTier: "high",
     perks: [
       "60 comments / day",
       "Standard model (text only)",
-      "Personalization styles",
+      "All personalization styles",
+      "Custom style note",
       "Email support"
     ]
   },
@@ -37,10 +49,13 @@ export const PLANS = {
     dailyLimit: 150,
     model: "gpt-4o-mini",
     vision: true,
+    allowStyles: true,
+    allowProjects: true,
+    qualityTier: "high",
     perks: [
       "150 comments / day",
-      "Standard model + IMAGE understanding 🖼",
-      "Personalization styles",
+      "Standard model + IMAGE understanding",
+      "All personalization styles",
       "Project contexts",
       "Priority queue"
     ]
@@ -53,9 +68,12 @@ export const PLANS = {
     dailyLimit: 500,
     model: "gpt-4o",
     vision: true,
+    allowStyles: true,
+    allowProjects: true,
+    qualityTier: "masterpiece",
     perks: [
-      "500 comments / day  (3.3× Pro)",
-      "GPT-4o premium model — masterpiece replies",
+      "500 comments / day (3.3x Pro)",
+      "GPT-4o premium model, masterpiece replies",
       "Full image + post understanding",
       "Unlimited project contexts",
       "All personalization styles",

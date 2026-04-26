@@ -5,7 +5,7 @@ import { PLANS, PlanKey, REPLY_STYLES, ReplyStyle } from "@/lib/plans";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
-export const maxDuration = 45;
+export const maxDuration = 60;
 
 const MAX_CTX = 1500;
 
@@ -15,30 +15,71 @@ const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o": { input: 2.50, output: 10.00 }
 };
 
+/**
+ * Download a Twitter image and return a base64 data URL.
+ *
+ * Why: when we hand `pbs.twimg.com/...` URLs to OpenAI, OpenAI's fetcher is
+ * sometimes blocked by Twitter (rate-limit or hot-link rules). The model
+ * silently falls back to "I can't see the image". By fetching server-side
+ * and inlining as base64 we guarantee the model actually sees it.
+ *
+ * Returns null on any failure so the caller can fall back gracefully.
+ */
+async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        Accept:
+          "image/avif,image/webp,image/jpeg,image/png,image/*;q=0.8,*/*;q=0.5",
+        Referer: "https://twitter.com/"
+      },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!resp.ok) return null;
+    const ct = (resp.headers.get("content-type") || "image/jpeg")
+      .split(";")[0]
+      .trim();
+    if (!ct.startsWith("image/")) return null;
+    const buf = Buffer.from(await resp.arrayBuffer());
+    if (buf.length === 0 || buf.length > 5 * 1024 * 1024) return null; // hard cap 5 MB
+    return `data:${ct};base64,${buf.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
 function styleInstruction(style: string, customNote?: string | null): string {
-  const s = REPLY_STYLES[style as ReplyStyle];
   let base = "";
   switch (style) {
     case "funny":
-      base = "Style: WITTY and PLAYFUL. Light humor, clever wordplay, a touch of absurdity when fitting. Never cringe, never forced.";
+      base =
+        "Style: WITTY and PLAYFUL. Light humor, clever wordplay, a touch of absurdity when fitting. Never cringe, never forced.";
       break;
     case "short":
-      base = "Style: SHORT and PUNCHY. Maximum 60 characters per reply. Sharp, memorable, like a great one-liner.";
+      base =
+        "Style: SHORT and PUNCHY. Maximum 60 characters per reply. Sharp, memorable, like a great one-liner.";
       break;
     case "productive":
-      base = "Style: VALUE-ADDING. Add a useful insight, ask a thoughtful question, or contribute meaningfully to the conversation.";
+      base =
+        "Style: VALUE-ADDING. Add a useful insight, ask a thoughtful question, or contribute meaningfully to the conversation.";
       break;
     case "professional":
-      base = "Style: POLISHED and PROFESSIONAL. Work-appropriate, articulate, but still warm and human.";
+      base =
+        "Style: POLISHED and PROFESSIONAL. Work-appropriate, articulate, but still warm and human.";
       break;
     case "supportive":
-      base = "Style: EMPATHETIC and ENCOURAGING. Acknowledge feelings, lift the person up, be the friend they need.";
+      base =
+        "Style: EMPATHETIC and ENCOURAGING. Acknowledge feelings, lift the person up, be the friend they need.";
       break;
     case "contrarian":
-      base = "Style: POLITELY CHALLENGING. Bring a different angle or perspective. Disagree gracefully — never rude, always thoughtful.";
+      base =
+        "Style: POLITELY CHALLENGING. Bring a different angle or perspective. Disagree gracefully, never rude, always thoughtful.";
       break;
     default:
-      base = "Style: BALANCED and HUMAN. Friendly, casual, conversational, like a smart friend on Twitter.";
+      base =
+        "Style: BALANCED and HUMAN. Friendly, casual, conversational, like a smart friend on Twitter.";
   }
   if (customNote && customNote.trim()) {
     base += `\nUser's personal style note: "${customNote.trim()}"`;
@@ -46,24 +87,52 @@ function styleInstruction(style: string, customNote?: string | null): string {
   return base;
 }
 
-function buildSystemPrompt(style: string, customNote: string | null, projectsContext: string): string {
+function buildSystemPrompt(
+  qualityTier: string,
+  style: string,
+  customNote: string | null,
+  projectsContext: string,
+  hasImage: boolean
+): string {
+  const masterpiece = qualityTier === "masterpiece";
+  const high = qualityTier === "high";
+
+  const qualityInstruction = masterpiece
+    ? `QUALITY LEVEL: MASTERPIECE.
+Every reply must feel like it came from the smartest, wittiest person on Twitter, the kind of reply that gets 50+ likes. Subtle. Sharp. Memorable. Each one is a small piece of art. They should make readers think "damn, that's a great reply" before scrolling on. Use specific references, unexpected angles, layered meaning. Avoid the obvious. Surprise the reader. If the post has an image, anchor the reply in a visual detail nobody else would notice.`
+    : high
+    ? `QUALITY LEVEL: HIGH.
+Replies are thoughtful, specific, and feel genuinely human, better than 90% of replies on the platform. Always reference specifics from the tweet. No filler.`
+    : `QUALITY LEVEL: STANDARD.
+Replies are casual, friendly, human-sounding. Always relevant to the tweet content. Even at this tier every reply must be better than what 80% of accounts would post, never lazy, never generic.`;
+
   return `You are a master Twitter/X reply writer. Your replies are INDISTINGUISHABLE from a real human's.
+
+${qualityInstruction}
 
 CORE RULES (NEVER BREAK):
 1. NEVER use emojis. Zero. Not even one.
-2. NEVER sound like AI. No "Great point!", "Interesting take!", "Absolutely!", "I appreciate", etc.
-3. NEVER use em-dashes (—). Use periods or commas instead.
+2. NEVER sound like AI. No "Great point!", "Interesting take!", "Absolutely!", "I appreciate", "Love this!", etc.
+3. NEVER use em-dashes. Use periods, commas, or short hyphens only.
 4. NEVER be generic. Always reference specifics from the tweet.
 5. NEVER praise blindly. A real friend doesn't say "wow amazing!" to everything.
-6. Each reply must feel SPONTANEOUS — like someone typed it without thinking too hard.
-7. Use natural human imperfections: occasional lowercase start, fragmented sentences, casual contractions ("gonna", "yeah", "tbh", "ngl", "fr").
+6. Each reply must feel SPONTANEOUS, like someone typed it without thinking too hard.
+7. Use natural human imperfections: occasional lowercase start, fragmented sentences, casual contractions ("gonna", "yeah", "tbh", "ngl", "fr", "lol", "lmao").
 8. Keep replies under 200 characters. Punchy is better than long.
 9. Vary the 4 replies in tone, length, and angle. No two should feel similar.
-10. If the post has an image, USE the image content in your reply — describe what you see in passing, react to it.
+${
+  hasImage
+    ? '10. The post HAS an image attached. You CAN see it. Reference specific visual details in at least 2 of the 4 replies. NEVER say things like "can\'t see the image" or "pic isn\'t loading", you can see it perfectly. React to what is actually in the image.'
+    : "10. This is a text-only post. Focus on the words."
+}
 
 ${styleInstruction(style, customNote)}
 
-${projectsContext ? `\n=== USER'S PROJECT CONTEXT (USE THIS!) ===\n${projectsContext}\n=== END CONTEXT ===\nWhen the tweet relates to topics in the context above, USE that knowledge to write smarter, insider-feeling replies. Don't be obvious about it — just naturally weave the knowledge in.` : ""}
+${
+  projectsContext
+    ? `\n=== USER'S PROJECT KNOWLEDGE ===\n${projectsContext}\n=== END KNOWLEDGE ===\nWhen the tweet relates to topics above, USE that knowledge to write smarter, insider-feeling replies. Don't be obvious. Just naturally weave it in like an insider would.`
+    : ""
+}
 
 OUTPUT FORMAT:
 Strictly a JSON object: {"suggestions": ["reply1", "reply2", "reply3", "reply4"]}
@@ -99,43 +168,62 @@ export async function POST(req: NextRequest) {
   if (!context) return NextResponse.json({ error: "EMPTY_CONTEXT" }, { status: 400 });
   context = context.slice(0, MAX_CTX);
 
-  const imageUrls: string[] = Array.isArray(body?.imageUrls)
+  const rawImageUrls: string[] = Array.isArray(body?.imageUrls)
     ? body.imageUrls.filter((u: any) => typeof u === "string").slice(0, 4)
     : [];
-  const useVision = plan.vision && imageUrls.length > 0;
+
+  // PLAN GATE: only Pro/Premium can use vision. Even if the extension sent
+  // images, we ignore them for non-vision plans. For vision-eligible plans
+  // we download the images server-side and inline as base64 data URLs so
+  // OpenAI does not have to fetch from twimg.com (which it sometimes can't).
+  let imageDataUrls: string[] = [];
+  if (plan.vision && rawImageUrls.length > 0) {
+    const fetched = await Promise.all(
+      rawImageUrls.slice(0, 3).map(fetchImageAsDataUrl)
+    );
+    imageDataUrls = fetched.filter((u): u is string => !!u);
+  }
+  const useVision = imageDataUrls.length > 0;
 
   const isRegenerate = !!body?.regenerate;
   const previousSuggestions: string[] = Array.isArray(body?.previousSuggestions)
     ? body.previousSuggestions.filter((s: any) => typeof s === "string").slice(0, 12)
     : [];
 
-  // User settings
+  // PLAN GATE: only Starter+ can use non-default styles or custom notes.
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { replyStyle: true, customStyleNote: true }
   });
-  const style = user?.replyStyle || "default";
-  const customNote = user?.customStyleNote || null;
+  const style = plan.allowStyles ? user?.replyStyle || "default" : "default";
+  const customNote = plan.allowStyles ? user?.customStyleNote || null : null;
 
-  // Active projects with contexts
-  const projects = await prisma.project.findMany({
-    where: { userId, active: true },
-    include: { contexts: { orderBy: { createdAt: "desc" }, take: 5 } }
-  });
-
+  // PLAN GATE: only Pro+ can use project contexts.
   let projectsContext = "";
-  if (projects.length) {
-    projectsContext = projects
-      .map((p) => {
-        const ctx = p.contexts.map((c) => c.content).join("\n\n");
-        return ctx ? `Project: ${p.name}\n${ctx}` : "";
-      })
-      .filter(Boolean)
-      .join("\n\n---\n\n")
-      .slice(0, 4000);
+  if (plan.allowProjects) {
+    const projects = await prisma.project.findMany({
+      where: { userId, active: true },
+      include: { contexts: { orderBy: { createdAt: "desc" }, take: 5 } }
+    });
+    if (projects.length) {
+      projectsContext = projects
+        .map((p) => {
+          const ctx = p.contexts.map((c) => c.content).join("\n\n");
+          return ctx ? `Project: ${p.name}\n${ctx}` : "";
+        })
+        .filter(Boolean)
+        .join("\n\n---\n\n")
+        .slice(0, 4000);
+    }
   }
 
-  const systemPrompt = buildSystemPrompt(style, customNote, projectsContext);
+  const systemPrompt = buildSystemPrompt(
+    plan.qualityTier,
+    style,
+    customNote,
+    projectsContext,
+    useVision
+  );
 
   let userMessage: any;
   if (useVision) {
@@ -147,12 +235,12 @@ export async function POST(req: NextRequest) {
           text:
             `Tweet text:\n"""${context}"""` +
             (isRegenerate && previousSuggestions.length
-              ? `\n\nIMPORTANT: I already have these replies. Generate 4 COMPLETELY DIFFERENT ones — different angles, different vibes, different sentence structures. Avoid any similarity:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
+              ? `\n\nIMPORTANT: I already have these replies. Generate 4 COMPLETELY DIFFERENT ones, different angles, different vibes, different sentence structures. Avoid any similarity:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
               : "")
         },
-        ...imageUrls.map((url) => ({
+        ...imageDataUrls.map((dataUrl) => ({
           type: "image_url",
-          image_url: { url, detail: "auto" }
+          image_url: { url: dataUrl, detail: "auto" }
         }))
       ]
     };
@@ -162,12 +250,15 @@ export async function POST(req: NextRequest) {
       content:
         `Tweet text:\n"""${context}"""` +
         (isRegenerate && previousSuggestions.length
-          ? `\n\nIMPORTANT: I already have these replies. Generate 4 COMPLETELY DIFFERENT ones — different angles, different vibes, different sentence structures. Avoid any similarity:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
+          ? `\n\nIMPORTANT: I already have these replies. Generate 4 COMPLETELY DIFFERENT ones, different angles, different vibes, different sentence structures. Avoid any similarity:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
           : "")
     };
   }
 
   const model = plan.model;
+  const masterpiece = plan.qualityTier === "masterpiece";
+  const maxTokens = masterpiece ? 900 : 700;
+  const temperature = isRegenerate ? 1.1 : masterpiece ? 1.0 : 0.95;
 
   let openaiResp: Response;
   try {
@@ -183,8 +274,8 @@ export async function POST(req: NextRequest) {
           { role: "system", content: systemPrompt },
           userMessage
         ],
-        temperature: isRegenerate ? 1.05 : 0.95,
-        max_tokens: 700,
+        temperature,
+        max_tokens: maxTokens,
         response_format: { type: "json_object" }
       })
     });
