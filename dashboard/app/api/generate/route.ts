@@ -36,7 +36,7 @@ async function searchWeb(query: string): Promise<string | null> {
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-lite",
+        model: process.env.AI_GATEWAY_MODEL || "google/gemini-3.1-flash-lite",
         messages: [
           {
             role: "system",
