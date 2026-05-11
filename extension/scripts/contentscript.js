@@ -321,9 +321,15 @@
     const range = document.createRange();
     range.selectNodeContents(c);
     const sel = window.getSelection();
-    sel.removeAllRanges(); sel.addRange(range);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    // execCommand inserts text AND fires a native input event React already picks up.
+    // Do NOT dispatch another InputEvent with inputType/data — that causes React
+    // to process the text a second time, showing a double-paste in the composer.
     document.execCommand("insertText", false, text);
-    c.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+    // Fire a plain input event (no data) just to ensure React re-evaluates
+    // the composer state and enables the Reply button.
+    c.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
   let lastSuggestions = [];
