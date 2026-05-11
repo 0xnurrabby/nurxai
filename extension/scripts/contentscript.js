@@ -323,33 +323,32 @@
     if (!c) return;
     c.focus();
 
-    // Normalize double newlines to single
     const pasteText = text.replace(/\n\n+/g, "\n");
-    const lines = pasteText.split("\n");
+    const lines = pasteText.split("\n").filter((_, i, a) => i === 0 || a[i] !== "" || i < a.length - 1);
 
-    // Precisely select only the composer content (not the whole page).
-    // document.execCommand("selectAll") was causing issues in Twitter's dialog
-    // context — it could select outside the composer. range.selectNodeContents
-    // scopes the selection exactly to the contenteditable element.
+    // Select all existing content in the composer
     const sel = window.getSelection();
     const range = document.createRange();
     range.selectNodeContents(c);
     sel.removeAllRanges();
     sel.addRange(range);
 
-    // Delete the selected content (clears the composer)
-    document.execCommand("delete");
+    // IMPORTANT: do NOT call execCommand("delete") separately before insertText.
+    // delete fires its own input event → React updates state → then insertText
+    // fires another input event → React processes both → first line doubled.
+    //
+    // Instead: execCommand("insertText") with an active selection atomically
+    // replaces the selection with new content in a single input event.
+    // This is one operation, one React update, no doubling.
 
-    // Insert each line individually using insertText + insertParagraph.
-    // This avoids the Chrome bug where a single insertText with \n creates
-    // bare <div> siblings that Twitter's React drops on reconciliation.
-    // insertParagraph mimics pressing Enter — builds the correct DOM structure.
-    for (let i = 0; i < lines.length; i++) {
+    // Insert first line — replaces the entire selection (clears composer)
+    document.execCommand("insertText", false, lines[0] || "");
+
+    // Insert remaining lines with paragraph breaks between them
+    for (let i = 1; i < lines.length; i++) {
+      document.execCommand("insertParagraph");
       if (lines[i]) {
         document.execCommand("insertText", false, lines[i]);
-      }
-      if (i < lines.length - 1) {
-        document.execCommand("insertParagraph");
       }
     }
 
