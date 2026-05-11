@@ -213,6 +213,7 @@ not another post-and-ghost builder"
 5. Lowercase ok. Fragments ok. Contractions ok (im, its, dont, wont).
 6. "ngl", "tbh", "fr", "lemme", "gonna", "tbf" - use naturally, max 1-2 of 4 replies.
 7. Under 280 chars total per reply (including line breaks).
+8. Do not wrap replies or individual lines in quotation marks.
 ${hasImage ? `
 ━━ IMAGE ━━
 You can see it fully. At least 2 of 4 replies reference SPECIFIC visual details:
@@ -441,9 +442,16 @@ function stripEmojis(s: string): string {
     .trim();
 }
 
+function stripWrappingQuotes(s: string): string {
+  return s.trim().replace(/\r\n?/g, "\n").split("\n")
+    .map(line => line.trim().replace(/^["“”]+|["“”]+$/g, ""))
+    .join("\n")
+    .trim();
+}
+
 // Post-process: fix punctuation issues the model still produces despite prompt
 function cleanReply(s: string): string {
-  return s
+  return stripWrappingQuotes(s)
     // Em-dash → period with space (hard ban at code level)
     .replace(/\s*\u2014\s*/g, ". ")
     // Double-dash → period

@@ -302,7 +302,10 @@
     // Track which suggestions have been used (for status coloring)
     const usedSet = new Set();
 
-    list.forEach((text, idx) => {
+    list.forEach((rawText, idx) => {
+      const text = cleanSuggestionText(rawText);
+      if (!text) return;
+
       const item = el("div", { class: "item", role: "listitem" });
       item.appendChild(el("div", { class: "item-text" }, text));
       const useBtn = el("button", { class: "use", "aria-label": "Use this reply" }, "Use");
@@ -318,40 +321,46 @@
     });
   }
 
-  let pasteJobId = 0;
+  function cleanSuggestionText(text) {
+    const strip = (line) => line.trim().replace(/^["“”]+|["“”]+$/g, "");
+    return String(text || "").replace(/\r\n?/g, "\n").split("\n").map(strip).join("\n").trim();
+  }
 
   function pasteIntoComposer(text) {
     const c = findComposer();
     if (!c) return;
     c.focus();
 
-    const pasteText = String(text || "").replace(/\r\n?/g, "\n").trim();
+    const pasteText = cleanSuggestionText(text);
     if (!pasteText) return;
 
-    const myPasteJob = ++pasteJobId;
-    clearComposer(c);
-
-    requestAnimationFrame(() => {
-      if (myPasteJob !== pasteJobId) return;
-
-      const freshComposer = findComposer();
-      if (!freshComposer) return;
-      freshComposer.focus();
-      placeCursorAtEnd(freshComposer);
-
-      if (insertViaPasteEvent(freshComposer, pasteText)) {
-        return;
-      }
-
-      document.execCommand("insertText", false, pasteText);
-      freshComposer.dispatchEvent(new Event("input", { bubbles: true }));
-    });
+    replaceComposerText(c, pasteText);
   }
 
-  function clearComposer(target) {
+  function replaceComposerText(target, text) {
     selectComposerContents(target);
-    document.execCommand("delete");
+    if (insertViaPasteEvent(target, text)) {
+      setTimeout(() => {
+        const freshComposer = findComposer();
+        if (!freshComposer) return;
+        if (normalizeComposerText(freshComposer.innerText) !== normalizeComposerText(text)) {
+          insertTextIntoSelection(freshComposer, text);
+        }
+      }, 50);
+      return;
+    }
+
+    insertTextIntoSelection(target, text);
+  }
+
+  function insertTextIntoSelection(target, text) {
+    selectComposerContents(target);
+    document.execCommand("insertText", false, text);
     target.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function normalizeComposerText(text) {
+    return String(text || "").replace(/\u200B/g, "").replace(/\r\n?/g, "\n").trim();
   }
 
   function selectComposerContents(target) {
@@ -373,15 +382,6 @@
     return common === target || target.contains(common);
   }
 
-  function placeCursorAtEnd(target) {
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    const range = document.createRange();
-    range.selectNodeContents(target);
-    range.collapse(false);
-    sel.addRange(range);
-  }
-
   function insertViaPasteEvent(target, text) {
     try {
       const data = new DataTransfer();
@@ -392,8 +392,6 @@
         clipboardData: data
       });
 
-      // X's editor has a paste handler that preserves multiline text correctly.
-      // If it prevents default, it accepted the paste and will update its state.
       return !target.dispatchEvent(event);
     } catch {
       return false;

@@ -43,8 +43,14 @@ function sanitizeContext(t) {
 function validateSuggestions(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.filter(s => typeof s === "string" && s.trim())
-    .map(s => s.trim().slice(0, CONFIG.MAX_SUGGESTION_LENGTH))
+    .map(s => cleanSuggestion(s).slice(0, CONFIG.MAX_SUGGESTION_LENGTH))
+    .filter(Boolean)
     .slice(0, CONFIG.MAX_SUGGESTIONS);
+}
+
+function cleanSuggestion(s) {
+  const strip = (line) => line.trim().replace(/^["“”]+|["“”]+$/g, "");
+  return String(s).trim().replace(/\r\n?/g, "\n").split("\n").map(strip).join("\n").trim();
 }
 
 /* ---------- Backend call ---------- */
@@ -104,7 +110,7 @@ async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions
     const cache = await readCache();
     const hit = cache[key];
     if (hit && Date.now() - hit.ts < CONFIG.SUGGESTION_CACHE_TTL_MS) {
-      return { ok: true, suggestions: hit.suggestions, cached: true };
+      return { ok: true, suggestions: validateSuggestions(hit.suggestions), cached: true };
     }
   }
 
