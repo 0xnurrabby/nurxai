@@ -80,27 +80,65 @@ async function searchWeb(query: string): Promise<string | null> {
  * Anti-hallucination: We only search if we find clearly identifiable
  * project names, tokens, or people. Generic posts don't need search.
  */
+/**
+ * Build a web search query from tweet context.
+ * Strategy: always try to search — return null only for posts that are
+ * purely personal/emotional with no identifiable entities worth searching.
+ *
+ * Anti-hallucination: we include enough context in the query so the search
+ * engine finds the RIGHT project, not a similarly-named one.
+ */
 function extractSearchQuery(context: string): string | null {
-  // Look for crypto token tickers: $TOKEN
-  const tickers = context.match(/\$[A-Z]{2,10}\b/g);
-  // Look for @mentions of non-personal accounts (projects/protocols)
-  const mentions = context.match(/@[A-Za-z0-9_]+/g);
-  // Look for protocol/project names (capitalized multi-char words not common English)
-  const projectKeywords = context.match(/\b(?:Protocol|Network|Finance|Labs|DAO|DEX|NFT|Layer|Chain|Bridge|Vault|Stake|Yield|Liquidity|Token|Coin|AI|Agent|inference|TEE|zkVM|rollup|mainnet|testnet)\b/gi);
+  const clean = context.replace(/\[Card:[^\]]*\]|\[Quoted:[^\]]*\]/g, " ").trim();
 
-  // Crypto/tech heavy post - worth searching
-  if (tickers && tickers.length > 0) {
-    // Find the most prominent ticker + any project mentions
-    const mainTicker = tickers[0];
-    const mainMention = mentions?.find(m => !m.match(/@[Ee]arn[Bb]y|@\d/)) || "";
-    return `${mainTicker} ${mainMention} crypto project 2025 2026`.trim();
+  // 1. Crypto tickers ($MORPHO, $UNI, $ARC etc.)
+  const tickers = clean.match(/\$[A-Z]{2,10}\b/g) || [];
+
+  // 2. @mentions (project accounts)
+  const mentions = (clean.match(/@[A-Za-z0-9_]{3,}/g) || [])
+    .filter(m => !m.match(/^@(you|me|us|him|her|it|they|this|that)$/i));
+
+  // 3. Named companies / projects (capitalized proper nouns that aren't common words)
+  const namedEntities = (clean.match(/\b[A-Z][a-zA-Z]{2,}(?:\s[A-Z][a-zA-Z]{2,})?\b/g) || [])
+    .filter(e => !["The", "This", "That", "With", "From", "When", "What", "How",
+                   "Can", "Are", "Was", "For", "And", "But", "Not", "Its",
+                   "Has", "Have", "Will", "Just", "Now", "New", "See", "Let"].includes(e));
+
+  // 4. Dollar amounts / fundraising figures (context clues)
+  const amounts = clean.match(/\$[\d.]+[BMK]?\b/g) || [];
+
+  // Build query from most specific signals first
+  if (tickers.length > 0) {
+    // Use up to 2 tickers + most relevant mention/entity
+    const parts = [...tickers.slice(0, 2)];
+    if (mentions.length) parts.push(mentions[0]);
+    else if (namedEntities.length) parts.push(namedEntities[0]);
+    if (amounts.length) parts.push(amounts[0]);
+    return parts.join(" ") + " crypto 2026";
   }
 
-  if (projectKeywords && projectKeywords.length >= 2 && mentions && mentions.length > 0) {
-    return `${mentions[0]} ${projectKeywords.slice(0, 2).join(" ")} crypto web3`.trim();
+  if (mentions.length > 0 && (namedEntities.length > 0 || amounts.length > 0)) {
+    const parts = [mentions[0]];
+    if (namedEntities.length) parts.push(namedEntities.slice(0, 2).join(" "));
+    if (amounts.length) parts.push(amounts[0]);
+    return parts.join(" ") + " crypto web3";
   }
 
-  return null; // No clear searchable entity - don't search
+  // 5. Fallback: if post has any named entities at all, search them
+  if (namedEntities.length >= 2) {
+    return namedEntities.slice(0, 3).join(" ") + " crypto";
+  }
+
+  if (mentions.length > 0) {
+    // Single mention with some context words
+    const contextWords = clean.split(/\s+/)
+      .filter(w => w.length > 4 && !/^[a-z]/.test(w[0]))
+      .slice(0, 3).join(" ");
+    return `${mentions[0]} ${contextWords}`.trim();
+  }
+
+  // 6. Pure personal/generic post (quotes, motivational, dating, etc.) - skip search
+  return null;
 }
 
 // ─── Image Fetching ──────────────────────────────────────────────────────────
@@ -329,15 +367,19 @@ export async function POST(req: NextRequest) {
   }
   const useVision = imageParts.length > 0;
 
-  // ── Web Search (Starter+ plans only, skip for trial to save cost) ───────────
+  // ── Web Search (all plans, always on when API key is set) ───────────────────
   let searchContext: string | null = null;
-  if (plan.key !== "trial" && process.env.AI_GATEWAY_API_KEY) {
+  if (process.env.AI_GATEWAY_API_KEY) {
     const searchQuery = extractSearchQuery(context);
     if (searchQuery) {
       searchContext = await searchWeb(searchQuery);
       if (searchContext) {
         console.log("[search] query:", searchQuery, "| context length:", searchContext.length);
+      } else {
+        console.log("[search] query attempted but no results:", searchQuery);
       }
+    } else {
+      console.log("[search] skipped - no searchable entities in post");
     }
   }
 
