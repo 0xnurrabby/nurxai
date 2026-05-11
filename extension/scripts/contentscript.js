@@ -68,19 +68,49 @@
 
     const text = parts.join("\n").trim().slice(0, 1500);
 
-    // Extract image URLs (skip avatars and emoji CDN images)
-    const imgs = Array.from(article.querySelectorAll('img[src*="twimg.com"]'));
-    const imageUrls = imgs
-      .map(img => img.src)
-      .filter(src =>
-        !src.includes("profile_images") &&
-        !src.includes("emoji") &&
-        !src.includes("hashflags") &&
-        !src.includes("profile_banners")
-      )
-      .map(src => src.replace(/&name=\w+/, "&name=large"))
-      .filter((src, i, arr) => arr.indexOf(src) === i) // deduplicate
-      .slice(0, 4);
+    // Extract image URLs — look in article first, then full dialog, then page
+    // Twitter's reply dialog sometimes doesn't render images inside <article>,
+    // especially for quoted tweets or when images are below the dialog.
+    const isMediaUrl = (src) =>
+      src.includes("twimg.com") &&
+      !src.includes("profile_images") &&
+      !src.includes("profile_banners") &&
+      !src.includes("emoji") &&
+      !src.includes("hashflags") &&
+      src.includes("/media/"); // only actual media, not UI assets
+
+    const normalizeImgSrc = (src) => {
+      // Normalize to largest available size
+      if (src.includes("&name=") || src.includes("?name=")) {
+        return src.replace(/[?&]name=[^&]+/, match => match.replace(/name=[^&]+/, "name=large"));
+      }
+      if (src.includes("format=")) {
+        return src.replace(/name=[^&]+/, "name=large");
+      }
+      return src;
+    };
+
+    const collectImgs = (root) =>
+      Array.from(root?.querySelectorAll('img[src*="twimg.com"]') || [])
+        .map(img => img.src)
+        .filter(isMediaUrl)
+        .map(normalizeImgSrc);
+
+    // 1. Try article first
+    let rawImgs = collectImgs(article);
+
+    // 2. Expand to full dialog if not enough
+    if (rawImgs.length === 0) {
+      rawImgs = collectImgs(dlg);
+    }
+
+    // 3. Also check for images in the page below the dialog (visible media)
+    if (rawImgs.length === 0) {
+      rawImgs = collectImgs(document.body);
+    }
+
+    // Deduplicate and limit
+    const imageUrls = [...new Set(rawImgs)].slice(0, 4);
 
     return { text, imageUrls };
   }
