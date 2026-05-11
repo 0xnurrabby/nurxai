@@ -323,21 +323,27 @@
     if (!c) return;
     c.focus();
 
-    // Normalize: \n\n → \n (single newline between blocks)
-    const pasteText = text.replace(/\n\n/g, "\n").replace(/\n{3,}/g, "\n\n");
+    // Normalize double newlines to single
+    const pasteText = text.replace(/\n\n+/g, "\n");
     const lines = pasteText.split("\n");
 
-    // Step 1: select all existing content and delete it.
-    // Using execCommand("selectAll") + execCommand("delete") instead of
-    // range.selectNodeContents + insertText avoids the bug where Chrome
-    // creates bare <div> children inside the contenteditable that Twitter's
-    // React drops when reconciling (causing the first line to disappear).
-    document.execCommand("selectAll");
+    // Precisely select only the composer content (not the whole page).
+    // document.execCommand("selectAll") was causing issues in Twitter's dialog
+    // context — it could select outside the composer. range.selectNodeContents
+    // scopes the selection exactly to the contenteditable element.
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(c);
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    // Delete the selected content (clears the composer)
     document.execCommand("delete");
 
-    // Step 2: insert line by line, using insertParagraph between lines.
-    // insertParagraph mimics pressing Enter — creates the proper block-level
-    // structure Twitter expects, so all lines are preserved.
+    // Insert each line individually using insertText + insertParagraph.
+    // This avoids the Chrome bug where a single insertText with \n creates
+    // bare <div> siblings that Twitter's React drops on reconciliation.
+    // insertParagraph mimics pressing Enter — builds the correct DOM structure.
     for (let i = 0; i < lines.length; i++) {
       if (lines[i]) {
         document.execCommand("insertText", false, lines[i]);
