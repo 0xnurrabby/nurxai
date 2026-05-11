@@ -324,27 +324,36 @@
     c.focus();
 
     const pasteText = text.replace(/\n\n+/g, "\n");
-    const lines = pasteText.split("\n").filter((_, i, a) => i === 0 || a[i] !== "" || i < a.length - 1);
+    const lines = pasteText.split("\n");
 
-    // Select all existing content in the composer
     const sel = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(c);
     sel.removeAllRanges();
+    const range = document.createRange();
+
+    if (c.firstChild && c.lastChild) {
+      // KEY FIX: set range START *inside* firstChild and END *inside* lastChild.
+      //
+      // selectNodeContents(c) selects c's children as objects at the root level.
+      // When insertText runs, it replaces those div objects with a plain text node
+      // directly inside c — Twitter's React then drops the first text node on
+      // reconciliation because it expects block elements, not root text nodes.
+      //
+      // By setting the range INSIDE the child blocks (not at the root), insertText
+      // replaces the *content* within the first block div, preserving its structure.
+      // The first line stays inside a <div>, not as a root text node → no drop.
+      const lc = c.lastChild;
+      range.setStart(c.firstChild, 0);
+      range.setEnd(lc, lc.nodeType === Node.TEXT_NODE ? lc.length : lc.childNodes.length);
+    } else {
+      range.selectNodeContents(c);
+    }
+
     sel.addRange(range);
 
-    // IMPORTANT: do NOT call execCommand("delete") separately before insertText.
-    // delete fires its own input event → React updates state → then insertText
-    // fires another input event → React processes both → first line doubled.
-    //
-    // Instead: execCommand("insertText") with an active selection atomically
-    // replaces the selection with new content in a single input event.
-    // This is one operation, one React update, no doubling.
-
-    // Insert first line — replaces the entire selection (clears composer)
+    // First line replaces the selection (one atomic operation, one React update)
     document.execCommand("insertText", false, lines[0] || "");
 
-    // Insert remaining lines with paragraph breaks between them
+    // Remaining lines: insertParagraph mimics Enter, builds correct block structure
     for (let i = 1; i < lines.length; i++) {
       document.execCommand("insertParagraph");
       if (lines[i]) {
