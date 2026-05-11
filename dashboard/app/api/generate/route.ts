@@ -16,10 +16,9 @@ const PRICES: Record<string, { input: number; output: number }> = {
 
 // ─── Context Enrichment (Vercel AI Gateway → Gemini) ─────────────────────────
 //
-// Send full tweet text to Gemini. Gemini uses its training knowledge to provide
-// factual background about the topics mentioned.
-// NO tool calling — tool calling with unimplemented tools silently returns empty.
-// This runs for ALL plans when AI_GATEWAY_API_KEY is set in env.
+// Send extracted tweet context to Gemini for strict background verification.
+// It must return nothing when the visible tweet/handles/links are ambiguous.
+// This runs for every generation when AI_GATEWAY_API_KEY is set in env.
 
 async function enrichContext(tweetText: string): Promise<string | null> {
   const apiKey = process.env.AI_GATEWAY_API_KEY;
@@ -39,15 +38,26 @@ async function enrichContext(tweetText: string): Promise<string | null> {
         messages: [
           {
             role: "system",
-            content: `You are a research assistant helping someone write informed Twitter replies. Given a tweet, provide concise factual background about the specific projects, people, tokens, or events mentioned. Be precise. If a crypto project/token is mentioned, give its actual facts (what it does, key stats, recent news). Never make up facts. If you don't know something specific, skip it.`
+            content: `You are a strict context verifier for Twitter/X reply generation.
+
+Use only subjects that are directly visible in the extracted tweet context: exact @handles, display names, quoted tweet text, URLs, cashtags, tokens, or unambiguous project names.
+
+Rules:
+- Do not infer unrelated projects from generic words or same-name search results.
+- Words like Base, agent, home, cloud, html, taxes, or protocol are generic unless the visible author/handle/URL/text makes the entity unambiguous.
+- If you identify an X account, use the exact @handle from the extracted context. Never guess a username.
+- If a project/person/token is not clearly the same entity as the tweet subject, do not mention it.
+- If there is no reliable background to add, return exactly: NO_VERIFIED_CONTEXT.
+
+Return 2-5 short bullet facts only when they are safe and directly tied to the visible tweet subject.`
           },
           {
             role: "user",
-            content: `Tweet:\n"${tweetText.slice(0, 1000)}"\n\nWhat are 3-5 key facts about the main subjects in this tweet that would help someone write a knowledgeable reply? Focus on specifics, not generalities.`
+            content: `Extracted tweet context:\n"""\n${tweetText.slice(0, 1500)}\n"""\n\nVerify only the actual subject(s) of this tweet. If the context is too generic or ambiguous, return NO_VERIFIED_CONTEXT.`
           }
         ],
-        max_tokens: 400,
-        temperature: 0.1
+        max_tokens: 450,
+        temperature: 0
       }),
       signal: AbortSignal.timeout(10000)
     });
@@ -59,9 +69,11 @@ async function enrichContext(tweetText: string): Promise<string | null> {
 
     const data = await resp.json().catch(() => null);
     const text: string = data?.choices?.[0]?.message?.content || "";
-    if (text && text.length > 30) {
+    const cleaned = text.trim();
+    if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return null;
+    if (cleaned && cleaned.length > 30) {
       console.log("[enrich] got context, length:", text.length);
-      return text.trim();
+      return cleaned;
     }
     return null;
   } catch (e: any) {
@@ -148,6 +160,15 @@ ${masterpiece
     ? "You're deep in crypto/tech. Seen cycles. Have opinions. Notice details others miss. Not trying to impress."
     : "You know this space. Been around. Have a take."}
 
+━━ GROUNDING RULES ━━
+Only reply from the visible tweet context and verified background below.
+Never invent project/protocol/token/person names just because a generic word matches them.
+If the post is short or ambiguous, stay literal and broad instead of adding unsupported specifics.
+When referring to a visible X account/project, prefer the exact @handle from context over its display name.
+Never guess usernames. Never use a username from a same-name project unless the handle/URL is visible or verified as the same entity.
+BAD for "Base is home to all agents": mentioning Synadia, Hermes, OpenClaw, or any specific agent project not present in the tweet.
+GOOD: talk about Base as an onchain home/ecosystem for agents without naming unsupported projects.
+
 ━━ ABSOLUTE BANS ━━
 Never use these words/phrases (all AI tells caught in production):
 "game-changer", "leveling up", "stepping up", "next level", "this changes everything",
@@ -214,6 +235,7 @@ not another post-and-ghost builder"
 6. "ngl", "tbh", "fr", "lemme", "gonna", "tbf" - use naturally, max 1-2 of 4 replies.
 7. Under 280 chars total per reply (including line breaks).
 8. Do not wrap replies or individual lines in quotation marks.
+9. Do not name external projects/protocols/tools unless they appear in the tweet context or verified background.
 ${hasImage ? `
 ━━ IMAGE ━━
 You can see it fully. At least 2 of 4 replies reference SPECIFIC visual details:
@@ -352,8 +374,8 @@ export async function POST(req: NextRequest) {
   // ── Call OpenAI ───────────────────────────────────────────────────────────
   const model = plan.model;
   const masterpiece = plan.qualityTier === "masterpiece";
-  // Lower temperature = less AI slop. 0.7 is the sweet spot.
-  const temperature = isRegenerate ? 0.85 : masterpiece ? 0.78 : 0.70;
+  // Lower temperature keeps replies grounded and reduces project hallucinations.
+  const temperature = isRegenerate ? 0.72 : masterpiece ? 0.62 : 0.55;
   const maxTokens = masterpiece ? 900 : 700;
 
   let openaiResp: Response;

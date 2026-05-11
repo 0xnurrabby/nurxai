@@ -7,6 +7,7 @@ import { secureUUID } from "./crypto-utils.js";
 const get = (k) => chrome.storage.local.get(k);
 const set = (o) => chrome.storage.local.set(o);
 const del = (k) => chrome.storage.local.remove(k);
+const SUGGESTION_CACHE_VERSION = 2;
 
 async function getInstallId() {
   const k = CONFIG.STORAGE_KEYS.INSTALL_ID;
@@ -109,8 +110,13 @@ async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions
     const key = await hashCtx(ctx);
     const cache = await readCache();
     const hit = cache[key];
-    if (hit && Date.now() - hit.ts < CONFIG.SUGGESTION_CACHE_TTL_MS) {
-      return { ok: true, suggestions: validateSuggestions(hit.suggestions), cached: true };
+    if (hit?.v === SUGGESTION_CACHE_VERSION && Date.now() - hit.ts < CONFIG.SUGGESTION_CACHE_TTL_MS) {
+      return {
+        ok: true,
+        suggestions: validateSuggestions(hit.suggestions),
+        searchUsed: !!hit.searchUsed,
+        cached: true
+      };
     }
   }
 
@@ -118,7 +124,12 @@ async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions
   if (result.ok && !regenerate) {
     const key = await hashCtx(ctx);
     const cache = await readCache();
-    cache[key] = { ts: Date.now(), suggestions: result.suggestions };
+    cache[key] = {
+      v: SUGGESTION_CACHE_VERSION,
+      ts: Date.now(),
+      suggestions: result.suggestions,
+      searchUsed: !!result.searchUsed
+    };
     await writeCache(cache);
   }
   if (result.ok) await audit("generate_ok", { count: result.suggestions.length, regen: regenerate });

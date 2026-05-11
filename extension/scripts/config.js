@@ -3,7 +3,7 @@ export const CONFIG = Object.freeze({
   API_BASE: "https://www.nurxai.xyz/api",
   WEB_BASE: "https://www.nurxai.xyz",
 
-  MAX_TWEET_CONTEXT_LENGTH: 800,
+  MAX_TWEET_CONTEXT_LENGTH: 1500,
   MAX_SUGGESTION_LENGTH: 280,
   MAX_SUGGESTIONS: 4,
 

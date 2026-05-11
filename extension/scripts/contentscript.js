@@ -28,12 +28,18 @@
     if (!article) return { text: "", imageUrls: [] };
 
     const parts = [];
+    const quotedArticles = Array.from(article.querySelectorAll("article"));
+    const isQuotedNode = (node) => quotedArticles.some(q => q.contains(node));
+
+    const author = getArticleAuthor(article);
+    if (author) parts.push("Author: " + author);
 
     // 1. Primary: lang-attributed divs (main tweet text)
-    const langDivs = Array.from(article.querySelectorAll("div[lang]"));
-    if (langDivs.length) {
-      parts.push(langDivs.map(d => d.innerText.trim()).filter(Boolean).join("\n"));
-    }
+    const mainText = collectLangText(article, d => !isQuotedNode(d));
+    if (mainText) parts.push("Tweet text:\n" + mainText);
+
+    const links = collectArticleLinks(article);
+    if (links.length) parts.push("Links: " + links.join(", "));
 
     // 2. X Article cards / link preview cards
     // These use data-testid="card.wrapper" or contain <span> with article title
@@ -54,10 +60,13 @@
     }
 
     // 3. Quoted tweet text (nested article or blockquote)
-    const quotedArticle = article.querySelector("article article, [role='blockquote'] div[lang]");
+    const quotedArticle = quotedArticles[0];
     if (quotedArticle) {
-      const qText = quotedArticle.innerText?.trim();
-      if (qText && qText.length > 3) parts.push("[Quoted: " + qText.slice(0, 300) + "]");
+      const qAuthor = getArticleAuthor(quotedArticle);
+      const qText = collectLangText(quotedArticle);
+      if (qText && qText.length > 3) {
+        parts.push("Quoted tweet" + (qAuthor ? " by " + qAuthor : "") + ":\n" + qText.slice(0, 500));
+      }
     }
 
     // 4. Any spans with significant text not yet captured (fallback for edge cases)
@@ -113,6 +122,53 @@
     const imageUrls = [...new Set(rawImgs)].slice(0, 4);
 
     return { text, imageUrls };
+  }
+
+  function normalizeVisibleText(text) {
+    return String(text || "").replace(/\u200B/g, "").replace(/[ \t]+\n/g, "\n").trim();
+  }
+
+  function collectLangText(root, filter = () => true) {
+    const seen = new Set();
+    return Array.from(root?.querySelectorAll("div[lang]") || [])
+      .filter(filter)
+      .map(d => normalizeVisibleText(d.innerText))
+      .filter(t => {
+        if (!t || seen.has(t)) return false;
+        seen.add(t);
+        return true;
+      })
+      .join("\n\n");
+  }
+
+  function getArticleAuthor(article) {
+    const userName = article?.querySelector('[data-testid="User-Name"]');
+    if (!userName) return "";
+
+    const handleLink = Array.from(userName.querySelectorAll('a[href^="/"]'))
+      .map(a => (a.getAttribute("href") || "").split(/[?#]/)[0])
+      .find(href => /^\/[A-Za-z0-9_]{1,15}$/.test(href));
+    const handle = handleLink ? "@" + handleLink.slice(1) : "";
+
+    const displayName = Array.from(userName.querySelectorAll("span"))
+      .map(s => normalizeVisibleText(s.innerText || s.textContent))
+      .find(t => t && !t.startsWith("@") && t !== handle.slice(1) && !/^\d+[smhd]$/.test(t));
+
+    if (displayName && handle) return `${displayName} (${handle})`;
+    return displayName || handle;
+  }
+
+  function collectArticleLinks(article) {
+    const seen = new Set();
+    return Array.from(article?.querySelectorAll("a[href]") || [])
+      .map(a => a.href || a.getAttribute("href") || "")
+      .map(href => href.split(/[?#]/)[0])
+      .filter(href => {
+        if (!href || seen.has(href)) return false;
+        seen.add(href);
+        return /^https?:\/\//.test(href) && !/\/photo\/\d+$|\/video\/\d+$/.test(href);
+      })
+      .slice(0, 4);
   }
 
 
