@@ -133,6 +133,10 @@
   }
 
   function removePanel() {
+    // Invalidate any in-flight generation so its result isn't shown on the next post.
+    generationId++;
+    inflight = false;
+    lastSuggestions = [];
     if (panel) { panel.remove(); panel = null; listEl = null; statusBar = null; }
   }
   async function loadPos() {
@@ -334,16 +338,22 @@
 
   let lastSuggestions = [];
   let inflight = false;
+  let generationId = 0; // increments every new generation; stale results are discarded
+
   async function generateAndShow(force = false) {
     if (inflight && !force) return;
     inflight = true;
+
+    // Claim this generation slot. If removePanel() is called while we're
+    // waiting for the API, it increments generationId, making our myId stale.
+    const myId = ++generationId;
+
     await buildPanelShell();
     showLoader();
 
     const { text, imageUrls } = getTweetContext();
     const hasImage = imageUrls.length > 0;
 
-    // Show initial status - pending
     renderStatusBar({
       hasImage: hasImage || null,
       imageUsed: hasImage ? null : false,
@@ -363,6 +373,10 @@
         previousSuggestions: isRegenerate ? lastSuggestions : []
       });
 
+      // If the user already closed this dialog and opened another post,
+      // generationId will have been incremented — discard this stale result.
+      if (myId !== generationId) return;
+
       if (!resp || !resp.ok) {
         const map = {
           NOT_LOGGED_IN:    ["Please sign in to use NurAi.", "login"],
@@ -376,7 +390,6 @@
         };
         const [m, action] = map[resp?.error] || ["Could not generate suggestions.", null];
         showError(m, action);
-        // Update status to failed
         renderStatusBar({ hasImage, imageUsed: false, searchUsed: false });
         return;
       }
@@ -385,7 +398,6 @@
 
       lastSuggestions = resp.suggestions.slice();
 
-      // Update status bar with final state from server response
       renderStatusBar({
         hasImage,
         imageUsed: resp.visionUsed === true ? true : false,
@@ -394,10 +406,11 @@
 
       showSuggestions(resp.suggestions);
     } catch {
+      if (myId !== generationId) return; // stale, ignore
       showError("Unexpected error.");
       renderStatusBar({ hasImage: false, imageUsed: false, searchUsed: false });
     } finally {
-      inflight = false;
+      if (myId === generationId) inflight = false;
     }
   }
 
