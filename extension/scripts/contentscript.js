@@ -327,12 +327,13 @@
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
-    // execCommand inserts text AND fires a native input event React already picks up.
-    // Do NOT dispatch another InputEvent with inputType/data — that causes React
-    // to process the text a second time, showing a double-paste in the composer.
-    document.execCommand("insertText", false, text);
-    // Fire a plain input event (no data) just to ensure React re-evaluates
-    // the composer state and enables the Reply button.
+
+    // Twitter's contenteditable drops the first paragraph when inserting text
+    // that contains \n\n (double newline). Convert to single \n so both lines
+    // are preserved. The panel still displays them as two lines via CSS.
+    const pasteText = text.replace(/\n\n/g, "\n");
+
+    document.execCommand("insertText", false, pasteText);
     c.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
