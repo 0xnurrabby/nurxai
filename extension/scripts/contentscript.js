@@ -322,18 +322,31 @@
     const c = findComposer();
     if (!c) return;
     c.focus();
-    const range = document.createRange();
-    range.selectNodeContents(c);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
 
-    // Twitter's contenteditable drops the first paragraph when inserting text
-    // that contains \n\n (double newline). Convert to single \n so both lines
-    // are preserved. The panel still displays them as two lines via CSS.
-    const pasteText = text.replace(/\n\n/g, "\n");
+    // Normalize: \n\n → \n (single newline between blocks)
+    const pasteText = text.replace(/\n\n/g, "\n").replace(/\n{3,}/g, "\n\n");
+    const lines = pasteText.split("\n");
 
-    document.execCommand("insertText", false, pasteText);
+    // Step 1: select all existing content and delete it.
+    // Using execCommand("selectAll") + execCommand("delete") instead of
+    // range.selectNodeContents + insertText avoids the bug where Chrome
+    // creates bare <div> children inside the contenteditable that Twitter's
+    // React drops when reconciling (causing the first line to disappear).
+    document.execCommand("selectAll");
+    document.execCommand("delete");
+
+    // Step 2: insert line by line, using insertParagraph between lines.
+    // insertParagraph mimics pressing Enter — creates the proper block-level
+    // structure Twitter expects, so all lines are preserved.
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i]) {
+        document.execCommand("insertText", false, lines[i]);
+      }
+      if (i < lines.length - 1) {
+        document.execCommand("insertParagraph");
+      }
+    }
+
     c.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
