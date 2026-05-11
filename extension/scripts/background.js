@@ -83,7 +83,14 @@ async function callGenerate(context, imageUrls, regenerate, previousSuggestions)
   try { data = await resp.json(); } catch { return { ok: false, error: "BAD_RESPONSE" }; }
   if (!resp.ok) return { ok: false, error: data?.error || "SERVER_ERROR" };
 
-  return { ok: true, suggestions: validateSuggestions(data.suggestions), usage: data.usage };
+  return {
+    ok: true,
+    suggestions: validateSuggestions(data.suggestions),
+    usage: data.usage,
+    visionUsed: !!data.visionUsed,
+    searchUsed: !!data.searchUsed,
+    model: data.model || ""
+  };
 }
 
 async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions) {

@@ -109,18 +109,17 @@ function extractSearchQuery(context: string): string | null {
 
   // Build query from most specific signals first
   if (tickers.length > 0) {
-    // Use up to 2 tickers + most relevant mention/entity
-    const parts = [...tickers.slice(0, 2)];
-    if (mentions.length) parts.push(mentions[0]);
-    else if (namedEntities.length) parts.push(namedEntities[0]);
-    if (amounts.length) parts.push(amounts[0]);
+    const parts: string[] = [...tickers.slice(0, 2)];
+    if (mentions[0]) parts.push(mentions[0]);
+    else if (namedEntities[0]) parts.push(namedEntities[0]);
+    if (amounts[0]) parts.push(amounts[0]);
     return parts.join(" ") + " crypto 2026";
   }
 
   if (mentions.length > 0 && (namedEntities.length > 0 || amounts.length > 0)) {
-    const parts = [mentions[0]];
+    const parts: string[] = [mentions[0]];
     if (namedEntities.length) parts.push(namedEntities.slice(0, 2).join(" "));
-    if (amounts.length) parts.push(amounts[0]);
+    if (amounts[0]) parts.push(amounts[0]);
     return parts.join(" ") + " crypto web3";
   }
 
