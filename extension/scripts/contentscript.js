@@ -11,27 +11,82 @@
     const c = dlg.querySelector('div[contenteditable="true"][data-testid="tweetTextarea_0"]');
     return c && c.offsetParent ? c : null;
   };
-   function getTweetContext() {
+
+  /**
+   * Extract tweet text + image URLs from the reply dialog.
+   *
+   * Twitter DOM structures we handle:
+   * 1. Normal tweet: <article> → <div lang="..."> contains the text
+   * 2. X Article card: <article> has a card with title/description in <span> / <div>
+   * 3. Link preview card: card2 / card-name sections inside article
+   * 4. Quoted tweet: nested article or blockquote
+   * 5. Image-only tweets: only images, minimal text
+   */
+  function getTweetContext() {
     const dlg = findDialog();
     const article = dlg?.querySelector("article");
     if (!article) return { text: "", imageUrls: [] };
 
-    const text = Array.from(article.querySelectorAll("div[lang]"))
-      .map(d => d.innerText).join("\n").trim().slice(0, 1500);
+    const parts = [];
 
-    // Extract image URLs (skip avatars - they have small size)
+    // 1. Primary: lang-attributed divs (main tweet text)
+    const langDivs = Array.from(article.querySelectorAll("div[lang]"));
+    if (langDivs.length) {
+      parts.push(langDivs.map(d => d.innerText.trim()).filter(Boolean).join("\n"));
+    }
+
+    // 2. X Article cards / link preview cards
+    // These use data-testid="card.wrapper" or contain <span> with article title
+    const cardWrapper = article.querySelector('[data-testid="card.wrapper"]');
+    if (cardWrapper) {
+      // Grab any visible text inside the card that isn't already captured
+      const cardSpans = Array.from(cardWrapper.querySelectorAll("span, div"))
+        .map(el => el.innerText?.trim())
+        .filter(t => t && t.length > 5 && t.length < 300);
+      // Deduplicate and take meaningful ones
+      const seen = new Set();
+      const cardText = cardSpans.filter(t => {
+        if (seen.has(t)) return false;
+        seen.add(t);
+        return true;
+      }).join(" | ");
+      if (cardText) parts.push("[Card: " + cardText + "]");
+    }
+
+    // 3. Quoted tweet text (nested article or blockquote)
+    const quotedArticle = article.querySelector("article article, [role='blockquote'] div[lang]");
+    if (quotedArticle) {
+      const qText = quotedArticle.innerText?.trim();
+      if (qText && qText.length > 3) parts.push("[Quoted: " + qText.slice(0, 300) + "]");
+    }
+
+    // 4. Any spans with significant text not yet captured (fallback for edge cases)
+    if (parts.length === 0) {
+      const allText = article.innerText?.trim();
+      if (allText) parts.push(allText.slice(0, 500));
+    }
+
+    const text = parts.join("\n").trim().slice(0, 1500);
+
+    // Extract image URLs (skip avatars and emoji CDN images)
     const imgs = Array.from(article.querySelectorAll('img[src*="twimg.com"]'));
     const imageUrls = imgs
       .map(img => img.src)
-      .filter(src => !src.includes("profile_images") && !src.includes("emoji"))
+      .filter(src =>
+        !src.includes("profile_images") &&
+        !src.includes("emoji") &&
+        !src.includes("hashflags") &&
+        !src.includes("profile_banners")
+      )
       .map(src => src.replace(/&name=\w+/, "&name=large"))
+      .filter((src, i, arr) => arr.indexOf(src) === i) // deduplicate
       .slice(0, 4);
 
     return { text, imageUrls };
   }
 
 
-  let host, shadow, panel, listEl;
+  let host, shadow, panel, listEl, statusBar;
 
   function ensureHost() {
     if (host && document.documentElement.contains(host)) return;
@@ -48,7 +103,7 @@
   }
 
   function removePanel() {
-    if (panel) { panel.remove(); panel = null; listEl = null; }
+    if (panel) { panel.remove(); panel = null; listEl = null; statusBar = null; }
   }
   async function loadPos() {
     const r = await chrome.storage.local.get(POS_KEY);
@@ -102,6 +157,41 @@
     return n;
   }
 
+  // ── Status bar helpers ───────────────────────────────────────────────────────
+  /**
+   * Render status icons in the header status bar.
+   * state = { hasImage: bool, imageUsed: bool|null, searchUsed: bool|null }
+   * null = pending/not applicable, true = used/active, false = not used/failed
+   */
+  function renderStatusBar(state) {
+    if (!statusBar) return;
+    statusBar.replaceChildren();
+
+    // Image icon
+    const imgIcon = el("span", {
+      class: "status-icon " + (
+        state.hasImage === false ? "status-na" :
+        state.imageUsed === true ? "status-on" :
+        state.imageUsed === false ? "status-off" : "status-pending"
+      ),
+      title: state.hasImage === false ? "No image in post" :
+             state.imageUsed === true ? "Image scanned" :
+             state.imageUsed === false ? "Image scan failed" : "Scanning image..."
+    }, "🖼");
+    statusBar.appendChild(imgIcon);
+
+    // Web search icon
+    const searchIcon = el("span", {
+      class: "status-icon " + (
+        state.searchUsed === true ? "status-on" :
+        state.searchUsed === false ? "status-off" : "status-pending"
+      ),
+      title: state.searchUsed === true ? "Web search used" :
+             state.searchUsed === false ? "Web search not used" : "Searching web..."
+    }, "🔍");
+    statusBar.appendChild(searchIcon);
+  }
+
   async function buildPanelShell() {
     ensureHost();
     if (panel && shadow.contains(panel)) return panel;
@@ -117,7 +207,15 @@
     }
 
     const head = el("div", { class: "head" });
+
+    // Left: title
     head.appendChild(el("span", { class: "title" }, "NurAi"));
+
+    // Center: status bar
+    statusBar = el("div", { class: "status-bar" });
+    head.appendChild(statusBar);
+
+    // Right: action buttons
     const actions = el("div", { class: "actions" });
     const refreshBtn = el("button", { class: "icon", title: "Regenerate", "aria-label": "Regenerate" }, "↻");
     refreshBtn.addEventListener("click", () => generateAndShow(true));
@@ -125,6 +223,7 @@
     closeBtn.addEventListener("click", removePanel);
     actions.append(refreshBtn, closeBtn);
     head.appendChild(actions);
+
     panel.appendChild(head);
     makeDraggable(panel, head);
 
@@ -162,14 +261,24 @@
     listEl.appendChild(box);
   }
 
-  function showSuggestions(list) {
+  function showSuggestions(list, usedStatus) {
     if (!listEl) return;
     listEl.replaceChildren();
-    list.forEach(text => {
+
+    // Track which suggestions have been used (for status coloring)
+    const usedSet = new Set();
+
+    list.forEach((text, idx) => {
       const item = el("div", { class: "item", role: "listitem" });
       item.appendChild(el("div", { class: "item-text" }, text));
       const useBtn = el("button", { class: "use", "aria-label": "Use this reply" }, "Use");
-      useBtn.addEventListener("click", () => pasteIntoComposer(text));
+      useBtn.addEventListener("click", () => {
+        pasteIntoComposer(text);
+        // Mark as used
+        usedSet.add(idx);
+        useBtn.classList.add("used");
+        useBtn.textContent = "Used";
+      });
       item.appendChild(useBtn);
       listEl.appendChild(item);
     });
@@ -194,8 +303,18 @@
     inflight = true;
     await buildPanelShell();
     showLoader();
+
+    const { text, imageUrls } = getTweetContext();
+    const hasImage = imageUrls.length > 0;
+
+    // Show initial status - pending
+    renderStatusBar({
+      hasImage: hasImage || null,
+      imageUsed: hasImage ? null : false,
+      searchUsed: null
+    });
+
     try {
-      const { text, imageUrls } = getTweetContext();
       if (!text) { showError("No tweet context found."); return; }
 
       const isRegenerate = !!force && lastSuggestions.length > 0;
@@ -221,13 +340,26 @@
         };
         const [m, action] = map[resp?.error] || ["Could not generate suggestions.", null];
         showError(m, action);
+        // Update status to failed
+        renderStatusBar({ hasImage, imageUsed: false, searchUsed: false });
         return;
       }
+
       if (!resp.suggestions?.length) { showError("No suggestions returned."); return; }
+
       lastSuggestions = resp.suggestions.slice();
+
+      // Update status bar with final state from server response
+      renderStatusBar({
+        hasImage,
+        imageUsed: resp.visionUsed === true ? true : false,
+        searchUsed: resp.searchUsed === true ? true : false
+      });
+
       showSuggestions(resp.suggestions);
     } catch {
       showError("Unexpected error.");
+      renderStatusBar({ hasImage: false, imageUsed: false, searchUsed: false });
     } finally {
       inflight = false;
     }
@@ -262,9 +394,29 @@
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 14px; cursor: move; user-select: none;
       background: #fff89c; border-bottom: 2px solid #0f1419;
+      gap: 8px;
     }
-    .title { font-weight: 800; font-size: 14px; letter-spacing: .3px; }
-    .actions { display: flex; gap: 6px; }
+    .title { font-weight: 800; font-size: 14px; letter-spacing: .3px; flex-shrink: 0; }
+
+    /* ── Status bar ── */
+    .status-bar {
+      display: flex; align-items: center; gap: 6px; flex: 1;
+      justify-content: center;
+    }
+    .status-icon {
+      font-size: 14px; line-height: 1;
+      width: 26px; height: 26px;
+      border-radius: 6px; border: 2px solid transparent;
+      display: grid; place-items: center;
+      transition: all .2s;
+      cursor: default;
+    }
+    .status-pending { border-color: #ccc; opacity: .45; }
+    .status-on      { border-color: #22c55e; background: #dcfce7; }
+    .status-off     { border-color: #ef4444; background: #fee2e2; opacity: .7; }
+    .status-na      { border-color: #d1d5db; background: #f3f4f6; opacity: .35; }
+
+    .actions { display: flex; gap: 6px; flex-shrink: 0; }
     .icon {
       width: 28px; height: 28px; border-radius: 8px;
       border: 2px solid #0f1419; background: #fff; cursor: pointer;
@@ -284,8 +436,10 @@
       padding: 6px 14px; border-radius: 999px;
       border: 2px solid #0f1419; background: #c4f0c2;
       font-weight: 800; font-size: 12px; cursor: pointer;
+      transition: background .15s;
     }
     .use:hover { background: #aee4ac; }
+    .use.used { background: #86efac; border-color: #22c55e; color: #15803d; cursor: default; }
     .loader { display:flex; align-items:center; gap:8px; padding: 16px; }
     .dot { width:8px; height:8px; border-radius:50%; background:#0f1419; animation: bounce 1s infinite; }
     .dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
@@ -308,9 +462,13 @@
       .item:hover { background: #2a2a2a; }
       .use { background: #2d4d2c; border-color: #f3f3f5; color: #f3f3f5; }
       .use:hover { background: #3d5d3c; }
+      .use.used { background: #166534; border-color: #22c55e; color: #86efac; }
       .dot { background: #f3f3f5; }
       .primary-btn { background: #1e3a52; border-color: #f3f3f5; color: #f3f3f5; }
       .primary-btn:hover { background: #2e4a62; }
+      .status-on  { background: #14532d; }
+      .status-off { background: #450a0a; }
+      .status-na  { background: #1f2937; }
     }
   `;
 })();
