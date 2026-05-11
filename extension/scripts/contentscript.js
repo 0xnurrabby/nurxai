@@ -323,45 +323,39 @@
     if (!c) return;
     c.focus();
 
-    const pasteText = text.replace(/\n\n+/g, "\n");
-    const lines = pasteText.split("\n");
+    const pasteText = String(text || "").replace(/\r\n?/g, "\n").trim();
+    if (!pasteText) return;
 
     const sel = window.getSelection();
     sel.removeAllRanges();
     const range = document.createRange();
-
-    if (c.firstChild && c.lastChild) {
-      // KEY FIX: set range START *inside* firstChild and END *inside* lastChild.
-      //
-      // selectNodeContents(c) selects c's children as objects at the root level.
-      // When insertText runs, it replaces those div objects with a plain text node
-      // directly inside c — Twitter's React then drops the first text node on
-      // reconciliation because it expects block elements, not root text nodes.
-      //
-      // By setting the range INSIDE the child blocks (not at the root), insertText
-      // replaces the *content* within the first block div, preserving its structure.
-      // The first line stays inside a <div>, not as a root text node → no drop.
-      const lc = c.lastChild;
-      range.setStart(c.firstChild, 0);
-      range.setEnd(lc, lc.nodeType === Node.TEXT_NODE ? lc.length : lc.childNodes.length);
-    } else {
-      range.selectNodeContents(c);
-    }
-
+    range.selectNodeContents(c);
     sel.addRange(range);
 
-    // First line replaces the selection (one atomic operation, one React update)
-    document.execCommand("insertText", false, lines[0] || "");
-
-    // Remaining lines: insertParagraph mimics Enter, builds correct block structure
-    for (let i = 1; i < lines.length; i++) {
-      document.execCommand("insertParagraph");
-      if (lines[i]) {
-        document.execCommand("insertText", false, lines[i]);
-      }
+    if (insertViaPasteEvent(c, pasteText)) {
+      return;
     }
 
+    document.execCommand("insertText", false, pasteText);
     c.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function insertViaPasteEvent(target, text) {
+    try {
+      const data = new DataTransfer();
+      data.setData("text/plain", text);
+      const event = new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: data
+      });
+
+      // X's editor has a paste handler that preserves multiline text correctly.
+      // If it prevents default, it accepted the paste and will update its state.
+      return !target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
   }
 
   let lastSuggestions = [];
