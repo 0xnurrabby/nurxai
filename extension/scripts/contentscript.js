@@ -318,6 +318,8 @@
     });
   }
 
+  let pasteJobId = 0;
+
   function pasteIntoComposer(text) {
     const c = findComposer();
     if (!c) return;
@@ -326,18 +328,58 @@
     const pasteText = String(text || "").replace(/\r\n?/g, "\n").trim();
     if (!pasteText) return;
 
+    const myPasteJob = ++pasteJobId;
+    clearComposer(c);
+
+    requestAnimationFrame(() => {
+      if (myPasteJob !== pasteJobId) return;
+
+      const freshComposer = findComposer();
+      if (!freshComposer) return;
+      freshComposer.focus();
+      placeCursorAtEnd(freshComposer);
+
+      if (insertViaPasteEvent(freshComposer, pasteText)) {
+        return;
+      }
+
+      document.execCommand("insertText", false, pasteText);
+      freshComposer.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+
+  function clearComposer(target) {
+    selectComposerContents(target);
+    document.execCommand("delete");
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function selectComposerContents(target) {
+    target.focus();
+    document.execCommand("selectAll");
+
+    const sel = window.getSelection();
+    if (selectionWithin(sel, target)) return;
+
+    sel.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    sel.addRange(range);
+  }
+
+  function selectionWithin(sel, target) {
+    if (!sel?.rangeCount) return false;
+    const common = sel.getRangeAt(0).commonAncestorContainer;
+    return common === target || target.contains(common);
+  }
+
+  function placeCursorAtEnd(target) {
     const sel = window.getSelection();
     sel.removeAllRanges();
     const range = document.createRange();
-    range.selectNodeContents(c);
+    range.selectNodeContents(target);
+    range.collapse(false);
     sel.addRange(range);
-
-    if (insertViaPasteEvent(c, pasteText)) {
-      return;
-    }
-
-    document.execCommand("insertText", false, pasteText);
-    c.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
   function insertViaPasteEvent(target, text) {
