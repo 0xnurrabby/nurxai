@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
-import { PLANS, PlanKey, REPLY_STYLES, ReplyStyle } from "@/lib/plans";
+import { PLANS, PlanKey, ReplyStyle } from "@/lib/plans";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -9,31 +9,122 @@ export const maxDuration = 60;
 
 const MAX_CTX = 1500;
 
-// OpenAI prices (USD per 1M tokens) — update if OpenAI changes
+// OpenAI prices (USD per 1M tokens)
 const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o-mini": { input: 0.15, output: 0.60 },
-  "gpt-4o": { input: 2.50, output: 10.00 }
+  "gpt-4o": { input: 2.50, output: 10.00 },
+  "google/gemini-2.0-flash-001": { input: 0.10, output: 0.40 }
 };
+
+// ─── Web Search (Vercel AI Gateway → Google Search) ─────────────────────────
+
+interface SearchResult {
+  title: string;
+  snippet: string;
+  url: string;
+}
+
+/**
+ * Searches the web via Vercel AI Gateway (Google Search grounding).
+ * Returns a compact factual summary string, or null if disabled/failed.
+ *
+ * Anti-hallucination guard: we only pass the raw search results as context.
+ * The caller decides whether to trust them. We never "invent" facts here.
+ */
+async function searchWeb(query: string): Promise<SearchResult[] | null> {
+  const apiKey = process.env.VERCEL_AI_GATEWAY_KEY;
+  const baseUrl = process.env.VERCEL_AI_GATEWAY_URL;
+  if (!apiKey || !baseUrl) return null;
+
+  try {
+    // Use Vercel AI Gateway with Gemini 2.0 Flash which supports Google Search grounding
+    const resp = await fetch(`${baseUrl}/google/gemini-2.0-flash-001`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: "user",
+            content: `Search the web and return factual info about: "${query}"\n\nReturn a JSON array of up to 3 results. Each result must have: title (string), snippet (string, max 120 chars of key facts), url (string).\n\nIMPORTANT: Only return info about EXACTLY this topic. If unsure which project/person/token is being asked about, say so in the snippet. Format: {"results": [...]}`
+          }
+        ],
+        tools: [{ googleSearch: {} }],
+        generationConfig: { maxOutputTokens: 600 }
+      }),
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (!resp.ok) {
+      console.warn("[search] gateway non-OK", resp.status);
+      return null;
+    }
+
+    const data = await resp.json().catch(() => null);
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    // Try to parse JSON results
+    const match = text.match(/\{[\s\S]*"results"[\s\S]*\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed.results)) {
+        return parsed.results.slice(0, 3) as SearchResult[];
+      }
+    }
+    return null;
+  } catch (e: any) {
+    console.warn("[search] failed:", e?.message || "?");
+    return null;
+  }
+}
+
+/**
+ * Extract searchable entities from tweet context.
+ * Returns null if there's nothing specific worth searching.
+ * 
+ * Anti-hallucination: We only search if we find clearly identifiable
+ * project names, tokens, or people. Generic posts don't need search.
+ */
+function extractSearchQuery(context: string): string | null {
+  // Look for crypto token tickers: $TOKEN
+  const tickers = context.match(/\$[A-Z]{2,10}\b/g);
+  // Look for @mentions of non-personal accounts (projects/protocols)
+  const mentions = context.match(/@[A-Za-z0-9_]+/g);
+  // Look for protocol/project names (capitalized multi-char words not common English)
+  const projectKeywords = context.match(/\b(?:Protocol|Network|Finance|Labs|DAO|DEX|NFT|Layer|Chain|Bridge|Vault|Stake|Yield|Liquidity|Token|Coin|AI|Agent|inference|TEE|zkVM|rollup|mainnet|testnet)\b/gi);
+
+  // Crypto/tech heavy post - worth searching
+  if (tickers && tickers.length > 0) {
+    // Find the most prominent ticker + any project mentions
+    const mainTicker = tickers[0];
+    const mainMention = mentions?.find(m => !m.match(/@[Ee]arn[Bb]y|@\d/)) || "";
+    return `${mainTicker} ${mainMention} crypto project 2025 2026`.trim();
+  }
+
+  if (projectKeywords && projectKeywords.length >= 2 && mentions && mentions.length > 0) {
+    return `${mentions[0]} ${projectKeywords.slice(0, 2).join(" ")} crypto web3`.trim();
+  }
+
+  return null; // No clear searchable entity - don't search
+}
+
+// ─── Image Fetching ──────────────────────────────────────────────────────────
 
 /**
  * Download a Twitter image and return a base64 data URL.
- *
- * Why: when we hand `pbs.twimg.com/...` URLs to OpenAI, OpenAI's fetcher is
- * sometimes blocked by Twitter (rate-limit or hot-link rules). The model
- * silently falls back to "I can't see the image". By fetching server-side
- * and inlining as base64 we guarantee the model actually sees it.
- *
- * Returns null on any failure so the caller can fall back to URL passthrough.
+ * Tries multiple size variants to bypass rate-limiting.
+ * Returns null on failure so the caller can fall back to URL passthrough.
  */
 async function fetchImageAsDataUrl(url: string): Promise<string | null> {
-  // We try a couple of variants because some sizes are rate-limited.
   const candidates = [
     url,
     url.replace(/&name=\w+/, "&name=large"),
+    url.replace(/[?&]name=\w+/, "?format=jpg&name=large"),
     url.replace(/&name=\w+/, "&name=medium"),
-    url.replace(/&name=\w+/, "")
+    url.replace(/[?&]name=\w+/, "")
   ];
-  // De-duplicate while preserving order.
   const seen = new Set<string>();
   const tries = candidates.filter((u) => {
     if (seen.has(u)) return false;
@@ -46,95 +137,68 @@ async function fetchImageAsDataUrl(url: string): Promise<string | null> {
       const resp = await fetch(candidate, {
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          Accept:
-            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
           "Accept-Language": "en-US,en;q=0.9",
           Referer: "https://x.com/",
           "Sec-Fetch-Dest": "image",
           "Sec-Fetch-Mode": "no-cors",
-          "Sec-Fetch-Site": "cross-site"
+          "Sec-Fetch-Site": "cross-site",
+          "Cache-Control": "no-cache"
         },
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(18000),
         redirect: "follow"
       });
       if (!resp.ok) {
-        console.warn(
-          "[vision] fetch non-OK",
-          resp.status,
-          candidate.slice(0, 90)
-        );
+        console.warn("[vision] fetch non-OK", resp.status, candidate.slice(0, 90));
         continue;
       }
       const ctHeader = resp.headers.get("content-type") || "";
       const ct = ctHeader.split(";")[0].trim() || "image/jpeg";
       if (!ct.startsWith("image/")) {
-        console.warn("[vision] non-image content-type", ct, candidate.slice(0, 90));
+        console.warn("[vision] non-image content-type", ct);
         continue;
       }
       const buf = Buffer.from(await resp.arrayBuffer());
-      if (buf.length === 0) {
-        console.warn("[vision] empty body", candidate.slice(0, 90));
-        continue;
-      }
-      if (buf.length > 8 * 1024 * 1024) {
-        console.warn("[vision] too large", buf.length, candidate.slice(0, 90));
-        continue;
-      }
-      console.log(
-        "[vision] fetched",
-        ct,
-        buf.length,
-        "bytes from",
-        candidate.slice(0, 90)
-      );
+      if (buf.length === 0) continue;
+      if (buf.length > 10 * 1024 * 1024) continue; // 10MB limit
+      console.log("[vision] fetched", ct, buf.length, "bytes");
       return `data:${ct};base64,${buf.toString("base64")}`;
     } catch (e: any) {
-      console.warn(
-        "[vision] fetch threw",
-        e?.name || "?",
-        e?.message || "?",
-        candidate.slice(0, 90)
-      );
-      // try next candidate
+      console.warn("[vision] fetch threw", e?.name, candidate.slice(0, 90));
     }
   }
   return null;
 }
 
+// ─── Prompt Building ─────────────────────────────────────────────────────────
+
 function styleInstruction(style: string, customNote?: string | null): string {
   let base = "";
   switch (style) {
     case "funny":
-      base =
-        "Style: WITTY and PLAYFUL. Light humor, clever wordplay, a touch of absurdity when fitting. Never cringe, never forced.";
+      base = "Tone: witty and playful. Clever wordplay or light absurdity when it fits naturally. Never forced or cringe.";
       break;
     case "short":
-      base =
-        "Style: SHORT and PUNCHY. Maximum 60 characters per reply. Sharp, memorable, like a great one-liner.";
+      base = "Tone: short and punchy. Max 60 characters. One sharp, memorable line. No filler.";
       break;
     case "productive":
-      base =
-        "Style: VALUE-ADDING. Add a useful insight, ask a thoughtful question, or contribute meaningfully to the conversation.";
+      base = "Tone: adds real value. Contribute a useful insight, share a relevant data point, or ask a question that advances the conversation meaningfully.";
       break;
     case "professional":
-      base =
-        "Style: POLISHED and PROFESSIONAL. Work-appropriate, articulate, but still warm and human.";
+      base = "Tone: polished and professional. Work-appropriate, articulate, still warm and direct.";
       break;
     case "supportive":
-      base =
-        "Style: EMPATHETIC and ENCOURAGING. Acknowledge feelings, lift the person up, be the friend they need.";
+      base = "Tone: empathetic and genuine. Acknowledge what they're going through. No hollow positivity.";
       break;
     case "contrarian":
-      base =
-        "Style: POLITELY CHALLENGING. Bring a different angle or perspective. Disagree gracefully, never rude, always thoughtful.";
+      base = "Tone: thoughtfully challenging. Bring a different angle or push back on an assumption. Respectful but direct.";
       break;
     default:
-      base =
-        "Style: BALANCED and HUMAN. Friendly, casual, conversational, like a smart friend on Twitter.";
+      base = "Tone: casual and human. Like a smart friend who actually read the post.";
   }
   if (customNote && customNote.trim()) {
-    base += `\nUser's personal style note: "${customNote.trim()}"`;
+    base += `\nPersonal style note: "${customNote.trim()}"`;
   }
   return base;
 }
@@ -144,56 +208,56 @@ function buildSystemPrompt(
   style: string,
   customNote: string | null,
   projectsContext: string,
-  hasImage: boolean
+  hasImage: boolean,
+  searchContext: string | null
 ): string {
   const masterpiece = qualityTier === "masterpiece";
-  const high = qualityTier === "high";
 
   const qualityInstruction = masterpiece
-    ? `QUALITY LEVEL: MASTERPIECE.
-Every reply must feel like it came from the smartest, wittiest person on Twitter, the kind of reply that gets 50+ likes. Subtle. Sharp. Memorable. Each one is a small piece of art. They should make readers think "damn, that's a great reply" before scrolling on. Use specific references, unexpected angles, layered meaning. Avoid the obvious. Surprise the reader. If the post has an image, anchor the reply in a visual detail nobody else would notice.`
-    : high
-    ? `QUALITY LEVEL: HIGH.
-Replies are thoughtful, specific, and feel genuinely human, better than 90% of replies on the platform. Always reference specifics from the tweet. No filler.`
-    : `QUALITY LEVEL: STANDARD.
-Replies are casual, friendly, human-sounding. Always relevant to the tweet content. Even at this tier every reply must be better than what 80% of accounts would post, never lazy, never generic.`;
+    ? `You write at the level of someone who has deep knowledge of the topic, has thought about it seriously, and has a distinctive voice. Replies feel researched and specific, yet casual - like someone who knows the space tweeting off the top of their head. Not trying to be clever, just genuinely engaged.`
+    : `Replies feel like they came from someone who actually read the post and has a real opinion. Specific, direct, no filler.`;
 
-  return `You are a master Twitter/X reply writer. Your replies are INDISTINGUISHABLE from a real human's.
+  const searchSection = searchContext
+    ? `\n=== VERIFIED CONTEXT FROM WEB ===\n${searchContext}\n=== END CONTEXT ===\nUse facts from above naturally if relevant. Do NOT fabricate data that isn't there. If context is about a different project than the tweet, ignore it entirely.`
+    : "";
+
+  const projectSection = projectsContext
+    ? `\n=== YOUR PROJECT KNOWLEDGE ===\n${projectsContext}\n=== END ===\nIf the tweet relates to these topics, weave in your expertise naturally. Like an insider, not a promoter.`
+    : "";
+
+  const imageSection = hasImage
+    ? `IMAGE IS ATTACHED - you can see it fully.
+- At least 2 replies MUST reference something SPECIFIC and CONCRETE from the image: a specific number, label, UI element, text on screen, face, object, color, chart value, etc.
+- Never say or imply you can't see it. Never be vague ("nice pic", "love this image").
+- The image usually IS the main context. Engage with what's actually in it.`
+    : "Text-only post. Focus on the words.";
+
+  return `You generate Twitter/X replies that are indistinguishable from a real human who knows what they're talking about.
 
 ${qualityInstruction}
 
-CORE RULES (NEVER BREAK):
-1. NEVER use emojis. Zero. Not even one.
-2. NEVER sound like AI. No "Great point!", "Interesting take!", "Absolutely!", "I appreciate", "Love this!", etc.
-3. NEVER use em-dashes. Use periods, commas, or short hyphens only.
-4. NEVER be generic. Always reference specifics from the tweet.
-5. NEVER praise blindly. A real friend doesn't say "wow amazing!" to everything.
-6. Each reply must feel SPONTANEOUS, like someone typed it without thinking too hard.
-7. Use natural human imperfections: occasional lowercase start, fragmented sentences, casual contractions ("gonna", "yeah", "tbh", "ngl", "fr", "lol", "lmao").
-8. Keep replies under 200 characters. Punchy is better than long.
-9. Vary the 4 replies in tone, length, and angle. No two should feel similar.
-${
-  hasImage
-    ? `10. AN IMAGE IS ATTACHED AND YOU CAN SEE IT FULLY. This is non-negotiable.
-   - At least 2 of the 4 replies MUST reference a SPECIFIC visual detail from the image: a label, a button, a UI element, a face/object, a color, a number, a piece of on-screen text, etc. Quote it or describe it precisely.
-   - You are STRICTLY FORBIDDEN from saying or implying any of: "can't see the image", "pic isn't loading", "no image", "without the pic", "image didn't load", "from what I can tell", "looks like the image", or any other phrase that suggests you don't see the picture. If you write any such phrase, the reply is invalid.
-   - Do not be vague. "nice pic" or "love the image" are forbidden. Pick something concrete you actually see.
-   - The image is the joke/context most of the time. Engage with what is IN it, not just the tweet text.`
-    : "10. This is a text-only post. Focus on the words."
-}
+HARD RULES - never break:
+1. Zero emojis.
+2. Zero AI phrases: "Great point!", "Absolutely!", "Interesting take!", "Love this!", "I appreciate", "Indeed", "Totally", "100%". These are instant tells.
+3. Zero em-dashes. Use commas, periods, or short hyphens.
+4. Zero generic replies. Every reply must reference something specific from the post.
+5. Sound like you've thought about this topic before. Not like you're seeing it for the first time.
+6. Under 200 characters. Short is almost always better.
+7. Vary all 4 replies: different angle, different length, different level of seriousness. No two should feel related.
+8. Use casual human patterns naturally: lowercase start, contractions, "ngl", "tbh", "fr", "honestly", short fragments. Don't overdo it - 1-2 replies max with heavy slang.
+9. Don't be a sycophant. Real people agree, disagree, question, add context - not just validate.
+10. If you'd need to make up a fact to sound smart, don't. A simple direct reaction is better than invented statistics.
+
+${imageSection}
 
 ${styleInstruction(style, customNote)}
+${searchSection}
+${projectSection}
 
-${
-  projectsContext
-    ? `\n=== USER'S PROJECT KNOWLEDGE ===\n${projectsContext}\n=== END KNOWLEDGE ===\nWhen the tweet relates to topics above, USE that knowledge to write smarter, insider-feeling replies. Don't be obvious. Just naturally weave it in like an insider would.`
-    : ""
+OUTPUT: JSON only: {"suggestions": ["reply1", "reply2", "reply3", "reply4"]}`;
 }
 
-OUTPUT FORMAT:
-Strictly a JSON object: {"suggestions": ["reply1", "reply2", "reply3", "reply4"]}
-No commentary. No markdown. Just JSON.`;
-}
+// ─── Main Route ──────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromAuthHeader(req);
@@ -228,48 +292,56 @@ export async function POST(req: NextRequest) {
     ? body.imageUrls.filter((u: any) => typeof u === "string").slice(0, 4)
     : [];
 
-  // PLAN GATE: only Pro/Premium can use vision. Even if the extension sent
-  // images, we ignore them for non-vision plans. For vision-eligible plans
-  // we download the images server-side and inline as base64 data URLs so
-  // OpenAI does not have to fetch from twimg.com (which it sometimes can't).
-  // If our server-side fetch fails we still hand the raw URL to OpenAI as a
-  // last-resort fallback rather than dropping vision entirely.
-  type ImagePart = { type: "image_url"; image_url: { url: string; detail: "auto" } };
+  // ── Vision ──────────────────────────────────────────────────────────────────
+  type ImagePart = { type: "image_url"; image_url: { url: string; detail: "high" | "auto" } };
   const imageParts: ImagePart[] = [];
   let imagesInlined = 0;
   let imagesUrlFallback = 0;
+
   if (plan.vision && rawImageUrls.length > 0) {
     for (const u of rawImageUrls.slice(0, 3)) {
       const dataUrl = await fetchImageAsDataUrl(u);
       if (dataUrl) {
         imagesInlined++;
-        imageParts.push({ type: "image_url", image_url: { url: dataUrl, detail: "auto" } });
+        // Use "high" detail for Premium (gpt-4o), "auto" for Pro (gpt-4o-mini)
+        const detail: "high" | "auto" = plan.qualityTier === "masterpiece" ? "high" : "auto";
+        imageParts.push({ type: "image_url", image_url: { url: dataUrl, detail } });
       } else {
         imagesUrlFallback++;
         imageParts.push({ type: "image_url", image_url: { url: u, detail: "auto" } });
       }
     }
-  }
-  const useVision = imageParts.length > 0;
-  if (plan.vision && rawImageUrls.length > 0) {
     console.log(
-      "[vision] plan=",
-      plan.key,
-      "received=",
-      rawImageUrls.length,
-      "inlined=",
-      imagesInlined,
-      "url-fallback=",
-      imagesUrlFallback
+      "[vision] plan=", plan.key,
+      "received=", rawImageUrls.length,
+      "inlined=", imagesInlined,
+      "url-fallback=", imagesUrlFallback
     );
   }
+  const useVision = imageParts.length > 0;
 
+  // ── Web Search (Starter+ plans only, skip for trial to save cost) ───────────
+  let searchContext: string | null = null;
+  if (plan.key !== "trial" && process.env.VERCEL_AI_GATEWAY_KEY) {
+    const searchQuery = extractSearchQuery(context);
+    if (searchQuery) {
+      const results = await searchWeb(searchQuery);
+      if (results && results.length > 0) {
+        searchContext = results
+          .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet}`)
+          .join("\n\n");
+        console.log("[search] query:", searchQuery, "| results:", results.length);
+      }
+    }
+  }
+
+  // ── Regenerate context ────────────────────────────────────────────────────
   const isRegenerate = !!body?.regenerate;
   const previousSuggestions: string[] = Array.isArray(body?.previousSuggestions)
     ? body.previousSuggestions.filter((s: any) => typeof s === "string").slice(0, 12)
     : [];
 
-  // PLAN GATE: only Starter+ can use non-default styles or custom notes.
+  // ── User settings ─────────────────────────────────────────────────────────
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { replyStyle: true, customStyleNote: true }
@@ -277,7 +349,7 @@ export async function POST(req: NextRequest) {
   const style = plan.allowStyles ? user?.replyStyle || "default" : "default";
   const customNote = plan.allowStyles ? user?.customStyleNote || null : null;
 
-  // PLAN GATE: only Pro+ can use project contexts.
+  // ── Project contexts (Pro+) ───────────────────────────────────────────────
   let projectsContext = "";
   if (plan.allowProjects) {
     const projects = await prisma.project.findMany({
@@ -301,40 +373,37 @@ export async function POST(req: NextRequest) {
     style,
     customNote,
     projectsContext,
-    useVision
+    useVision,
+    searchContext
   );
+
+  // ── Build user message ────────────────────────────────────────────────────
+  const regenerateNote =
+    isRegenerate && previousSuggestions.length
+      ? `\n\nThese are the previous replies - generate 4 completely different ones with different angles and structure:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
+      : "";
 
   let userMessage: any;
   if (useVision) {
     userMessage = {
       role: "user",
       content: [
-        {
-          type: "text",
-          text:
-            `Tweet text:\n"""${context}"""` +
-            (isRegenerate && previousSuggestions.length
-              ? `\n\nIMPORTANT: I already have these replies. Generate 4 COMPLETELY DIFFERENT ones, different angles, different vibes, different sentence structures. Avoid any similarity:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
-              : "")
-        },
+        { type: "text", text: `Tweet:\n"""\n${context}\n"""${regenerateNote}` },
         ...imageParts
       ]
     };
   } else {
     userMessage = {
       role: "user",
-      content:
-        `Tweet text:\n"""${context}"""` +
-        (isRegenerate && previousSuggestions.length
-          ? `\n\nIMPORTANT: I already have these replies. Generate 4 COMPLETELY DIFFERENT ones, different angles, different vibes, different sentence structures. Avoid any similarity:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
-          : "")
+      content: `Tweet:\n"""\n${context}\n"""${regenerateNote}`
     };
   }
 
+  // ── Call OpenAI ───────────────────────────────────────────────────────────
   const model = plan.model;
   const masterpiece = plan.qualityTier === "masterpiece";
-  const maxTokens = masterpiece ? 900 : 700;
-  const temperature = isRegenerate ? 1.1 : masterpiece ? 1.0 : 0.95;
+  const maxTokens = masterpiece ? 1000 : 750;
+  const temperature = isRegenerate ? 1.05 : masterpiece ? 1.0 : 0.9;
 
   let openaiResp: Response;
   try {
@@ -353,7 +422,8 @@ export async function POST(req: NextRequest) {
         temperature,
         max_tokens: maxTokens,
         response_format: { type: "json_object" }
-      })
+      }),
+      signal: AbortSignal.timeout(45000)
     });
   } catch {
     return NextResponse.json({ error: "UPSTREAM" }, { status: 502 });
@@ -371,17 +441,17 @@ export async function POST(req: NextRequest) {
   const outputTokens = data?.usage?.completion_tokens || 0;
 
   let suggestions = parseSuggestions(raw);
-  // Strip emojis defensively
   suggestions = suggestions.map(stripEmojis);
   if (!suggestions.length) {
     return NextResponse.json({ error: "EMPTY_SUGGESTIONS" }, { status: 502 });
   }
 
-  // Calculate cost
+  // ── Log & track ───────────────────────────────────────────────────────────
   const price = PRICES[model] || PRICES["gpt-4o-mini"];
-  const costUSD = (inputTokens / 1_000_000) * price.input + (outputTokens / 1_000_000) * price.output;
+  const costUSD =
+    (inputTokens / 1_000_000) * price.input +
+    (outputTokens / 1_000_000) * price.output;
 
-  // Save generation log
   const ctxHash = crypto.createHash("sha256").update(context).digest("hex").slice(0, 32);
   await prisma.generation.create({
     data: {
@@ -396,7 +466,6 @@ export async function POST(req: NextRequest) {
     }
   });
 
-  // Increment usage
   await prisma.usageLog.update({
     where: { userId_day: { userId, day } },
     data: { count: { increment: 1 } }
@@ -406,9 +475,12 @@ export async function POST(req: NextRequest) {
     suggestions,
     usage: { used: usage.count + 1, limit: plan.dailyLimit, plan: sub.plan },
     model,
-    visionUsed: useVision
+    visionUsed: useVision,
+    searchUsed: !!searchContext
   });
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function parseSuggestions(raw: string): string[] {
   try {
@@ -433,7 +505,6 @@ function parseSuggestions(raw: string): string[] {
     .slice(0, 4);
 }
 
-// Defensive emoji stripper
 function stripEmojis(s: string): string {
   return s
     .replace(
