@@ -12,66 +12,59 @@ const MAX_CTX = 1500;
 // OpenAI prices (USD per 1M tokens)
 const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o-mini": { input: 0.15, output: 0.60 },
-  "gpt-4o": { input: 2.50, output: 10.00 },
-  "google/gemini-2.0-flash-001": { input: 0.10, output: 0.40 }
+  "gpt-4o": { input: 2.50, output: 10.00 }
 };
 
-// ─── Web Search (Vercel AI Gateway → Google Search) ─────────────────────────
+// ─── Web Search (Vercel AI Gateway → OpenAI-compatible) ─────────────────────
+//
+// Vercel AI Gateway endpoint: https://ai-gateway.vercel.sh/v1/chat/completions
+// Auth: Bearer AI_GATEWAY_API_KEY (from Vercel dashboard → AI Gateway → API Keys)
+// Model: google/gemini-2.0-flash-001 supports google_search tool for grounding
+//
+// Anti-hallucination guard: results are passed as raw context to the main model.
+// The main model is told to ignore context if it's about a different project.
 
-interface SearchResult {
-  title: string;
-  snippet: string;
-  url: string;
-}
-
-/**
- * Searches the web via Vercel AI Gateway (Google Search grounding).
- * Returns a compact factual summary string, or null if disabled/failed.
- *
- * Anti-hallucination guard: we only pass the raw search results as context.
- * The caller decides whether to trust them. We never "invent" facts here.
- */
-async function searchWeb(query: string): Promise<SearchResult[] | null> {
-  const apiKey = process.env.VERCEL_AI_GATEWAY_KEY;
-  const baseUrl = process.env.VERCEL_AI_GATEWAY_URL;
-  if (!apiKey || !baseUrl) return null;
+async function searchWeb(query: string): Promise<string | null> {
+  const apiKey = process.env.AI_GATEWAY_API_KEY;
+  if (!apiKey) return null;
 
   try {
-    // Use Vercel AI Gateway with Gemini 2.0 Flash which supports Google Search grounding
-    const resp = await fetch(`${baseUrl}/google/gemini-2.0-flash-001`, {
+    const resp = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
+        model: "google/gemini-2.0-flash-001",
         messages: [
           {
+            role: "system",
+            content: `You are a factual research assistant. Given a search query, find and summarize the most relevant factual information. Be concise. Focus only on verifiable facts. If the query involves a crypto token or project, only report facts about THAT specific project - never confuse it with other projects sharing similar names.`
+          },
+          {
             role: "user",
-            content: `Search the web and return factual info about: "${query}"\n\nReturn a JSON array of up to 3 results. Each result must have: title (string), snippet (string, max 120 chars of key facts), url (string).\n\nIMPORTANT: Only return info about EXACTLY this topic. If unsure which project/person/token is being asked about, say so in the snippet. Format: {"results": [...]}`
+            content: `Search query: "${query}"\n\nReturn a short factual summary (3-5 sentences max) with the most important recent facts. If you're unsure which specific project is being asked about (e.g. multiple projects with same ticker), say so.`
           }
         ],
-        tools: [{ googleSearch: {} }],
-        generationConfig: { maxOutputTokens: 600 }
+        tools: [{ type: "function", function: { name: "google_search", description: "Search the web", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } }],
+        tool_choice: "auto",
+        max_tokens: 300,
+        temperature: 0.1
       }),
-      signal: AbortSignal.timeout(8000)
+      signal: AbortSignal.timeout(9000)
     });
 
     if (!resp.ok) {
-      console.warn("[search] gateway non-OK", resp.status);
+      console.warn("[search] gateway non-OK", resp.status, await resp.text().catch(() => ""));
       return null;
     }
 
     const data = await resp.json().catch(() => null);
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    // Try to parse JSON results
-    const match = text.match(/\{[\s\S]*"results"[\s\S]*\}/);
-    if (match) {
-      const parsed = JSON.parse(match[0]);
-      if (Array.isArray(parsed.results)) {
-        return parsed.results.slice(0, 3) as SearchResult[];
-      }
+    const text: string = data?.choices?.[0]?.message?.content || "";
+    if (text && text.length > 20) {
+      console.log("[search] got context, length:", text.length);
+      return text.trim();
     }
     return null;
   } catch (e: any) {
@@ -322,15 +315,12 @@ export async function POST(req: NextRequest) {
 
   // ── Web Search (Starter+ plans only, skip for trial to save cost) ───────────
   let searchContext: string | null = null;
-  if (plan.key !== "trial" && process.env.VERCEL_AI_GATEWAY_KEY) {
+  if (plan.key !== "trial" && process.env.AI_GATEWAY_API_KEY) {
     const searchQuery = extractSearchQuery(context);
     if (searchQuery) {
-      const results = await searchWeb(searchQuery);
-      if (results && results.length > 0) {
-        searchContext = results
-          .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet}`)
-          .join("\n\n");
-        console.log("[search] query:", searchQuery, "| results:", results.length);
+      searchContext = await searchWeb(searchQuery);
+      if (searchContext) {
+        console.log("[search] query:", searchQuery, "| context length:", searchContext.length);
       }
     }
   }
