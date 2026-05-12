@@ -42,23 +42,24 @@ async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promis
       ]
     : `Extracted tweet context:\n"""\n${tweetText.slice(0, 1500)}\n"""\n\nVerify only the actual subject(s) of this tweet. If relevant, identify the X trend/narrative this post is reacting to. If the context is too generic or ambiguous, return NO_VERIFIED_CONTEXT.`;
 
-  try {
-    let lastStatus = 0;
-    let lastBody = "";
+  let lastStatus = 0;
+  let lastBody = "";
 
+  for (let attempt = 0; attempt < 3; attempt++) {
     for (const model of models) {
-      const resp = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "system",
-              content: `You are a strict X/Twitter context verifier for reply generation.
+      try {
+        const resp = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "system",
+                content: `You are a strict X/Twitter context verifier for reply generation.
 
 You are especially good at understanding why an X post was made, what trend it is referencing, which project/account/token it is actually about, and whether a visible claim is part of a current narrative.
 
@@ -77,40 +78,40 @@ Rules:
 - If there is no reliable background to add, return exactly: NO_VERIFIED_CONTEXT.
 
 Return 2-5 short bullets only when they are safe and directly tied to the visible tweet subject. If images were useful, include at least one bullet starting with "Visual:".`
-            },
-            {
-              role: "user",
-              content: userContent
-            }
-          ],
-          max_tokens: 450
-        }),
-        signal: AbortSignal.timeout(15000)
-      });
+              },
+              {
+                role: "user",
+                content: userContent
+              }
+            ],
+            max_tokens: 450
+          }),
+          signal: AbortSignal.timeout(20000)
+        });
 
-      if (!resp.ok) {
-        lastStatus = resp.status;
-        lastBody = await resp.text().catch(() => "");
-        continue;
-      }
+        if (!resp.ok) {
+          lastStatus = resp.status;
+          lastBody = await resp.text().catch(() => "");
+          continue;
+        }
 
-      const data = await resp.json().catch(() => null);
-      const text: string = data?.choices?.[0]?.message?.content || "";
-      const cleaned = text.trim();
-      if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: hasImages, searchUsed: true };
-      if (cleaned && cleaned.length > 30) {
-        console.log("[enrich] got context, length:", text.length, "model:", model);
-        return { text: cleaned, imageUsed: hasImages, searchUsed: true };
+        const data = await resp.json().catch(() => null);
+        const text: string = data?.choices?.[0]?.message?.content || "";
+        const cleaned = text.trim();
+        if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: hasImages, searchUsed: true };
+        if (cleaned && cleaned.length > 30) {
+          console.log("[enrich] got context, length:", text.length, "model:", model, "attempt:", attempt + 1);
+          return { text: cleaned, imageUsed: hasImages, searchUsed: true };
+        }
+        return { text: null, imageUsed: hasImages, searchUsed: true };
+      } catch (e: any) {
+        lastBody = e?.message || "?";
       }
-      return { text: null, imageUsed: hasImages, searchUsed: true };
     }
-
-    console.warn("[enrich] gateway non-OK", lastStatus, lastBody.slice(0, 300));
-    return { text: null, imageUsed: false, searchUsed: false };
-  } catch (e: any) {
-    console.warn("[enrich] failed:", e?.message || "?");
-    return { text: null, imageUsed: false, searchUsed: false };
   }
+
+  console.warn("[enrich] gateway failed after retries", lastStatus, lastBody.slice(0, 300));
+  return { text: null, imageUsed: false, searchUsed: false };
 }
 
 // ─── Image Fetching ───────────────────────────────────────────────────────────
@@ -370,13 +371,6 @@ export async function POST(req: NextRequest) {
   enrichedContext = enrichment.text;
   imageUsedByGrok = enrichment.imageUsed;
   searchUsedByGrok = enrichment.searchUsed;
-
-  if (!searchUsedByGrok) {
-    return NextResponse.json({ error: "GROK_GROUNDING_FAILED" }, { status: 502 });
-  }
-  if (rawImageUrls.length > 0 && !imageUsedByGrok) {
-    return NextResponse.json({ error: "GROK_IMAGE_FAILED" }, { status: 502 });
-  }
 
   // ── User settings ─────────────────────────────────────────────────────────
   const isRegenerate = !!body?.regenerate;
