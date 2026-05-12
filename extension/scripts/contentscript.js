@@ -3,6 +3,12 @@
   const HOST_ID = "nurai-suggestions-host";
   const POS_KEY = "nurai_panel_pos";
   const WEB_BASE = "https://www.nurxai.xyz";
+  const RUN_ID = `${Date.now()}:${Math.random()}`;
+
+  window.__NURAI_ACTIVE_RUN_ID = RUN_ID;
+  document.getElementById(HOST_ID)?.remove();
+
+  const isActiveRun = () => window.__NURAI_ACTIVE_RUN_ID === RUN_ID;
 
   const isVisible = (node) => {
     if (!node) return false;
@@ -124,6 +130,12 @@
       rawImgs = collectImgs(dlg);
     }
 
+    // 3. If X rendered media below/outside the reply dialog, only read from the
+    // matching visible feed article. Never scan the full body, which can mix posts.
+    if (rawImgs.length === 0) {
+      rawImgs = collectImgs(findMatchingPageArticle(article, text));
+    }
+
     // Deduplicate and limit
     const imageUrls = [...new Set(rawImgs)].slice(0, 4);
 
@@ -175,6 +187,22 @@
         return /^https?:\/\//.test(href) && !/\/photo\/\d+$|\/video\/\d+$/.test(href);
       })
       .slice(0, 4);
+  }
+
+  function findMatchingPageArticle(dialogArticle, contextText) {
+    const dialog = findDialog();
+    const context = normalizeVisibleText(contextText);
+    const anchors = context.split("\n")
+      .map(s => s.replace(/^(Author|Tweet text|Links|Quoted tweet[^:]*):\s*/i, "").trim())
+      .filter(s => s.length >= 18)
+      .map(s => s.replace(/\s+/g, " ").slice(0, 80));
+
+    return Array.from(document.querySelectorAll("article"))
+      .filter(a => a !== dialogArticle && !dialog?.contains(a) && isVisible(a))
+      .find(a => {
+        const body = normalizeVisibleText(a.innerText).replace(/\s+/g, " ");
+        return anchors.some(anchor => body.includes(anchor));
+      }) || null;
   }
 
   function contextKeyFor(text, imageUrls = []) {
@@ -332,9 +360,9 @@
     // Right: action buttons
     const actions = el("div", { class: "actions" });
     const refreshBtn = el("button", { class: "icon", title: "Regenerate", "aria-label": "Regenerate" }, "↻");
-    refreshBtn.addEventListener("click", () => generateAndShow(true));
+    refreshBtn.addEventListener("click", () => { if (isActiveRun()) generateAndShow(true); });
     const closeBtn = el("button", { class: "icon", title: "Close", "aria-label": "Close" }, "✕");
-    closeBtn.addEventListener("click", removePanel);
+    closeBtn.addEventListener("click", () => { if (isActiveRun()) removePanel(); });
     actions.append(refreshBtn, closeBtn);
     head.appendChild(actions);
 
@@ -390,6 +418,7 @@
       item.appendChild(el("div", { class: "item-text" }, text));
       const useBtn = el("button", { class: "use", "aria-label": "Use this reply" }, "Use");
       useBtn.addEventListener("click", () => {
+        if (!isActiveRun()) return;
         pasteIntoComposer(text);
         // Mark as used
         usedSet.add(idx);
@@ -410,6 +439,7 @@
   let lastPasteAt = 0;
 
   function pasteIntoComposer(text) {
+    if (!isActiveRun()) return;
     const c = findComposer();
     if (!c) return;
     c.focus();
@@ -419,20 +449,77 @@
 
     const pasteKey = activeContextKey + "|" + pasteText;
     const now = Date.now();
-    if (pasteKey === lastPasteKey && now - lastPasteAt < 800) return;
+    if (pasteKey === lastPasteKey && now - lastPasteAt < 1500) return;
+    if (window.__NURAI_LAST_PASTE_KEY === pasteKey && now - (window.__NURAI_LAST_PASTE_AT || 0) < 1500) return;
     lastPasteKey = pasteKey;
     lastPasteAt = now;
+    window.__NURAI_LAST_PASTE_KEY = pasteKey;
+    window.__NURAI_LAST_PASTE_AT = now;
 
     replaceComposerText(c, pasteText);
   }
 
   function replaceComposerText(target, text) {
-    insertTextIntoSelection(target, text);
+    selectComposerContents(target);
+    document.execCommand("delete");
+
+    requestAnimationFrame(() => {
+      const freshComposer = findComposer();
+      if (!freshComposer || !isActiveRun()) return;
+      freshComposer.focus();
+
+      if (dispatchPasteEvent(freshComposer, text)) {
+        setTimeout(() => {
+          const current = findComposer();
+          if (!current || !isActiveRun()) return;
+          if (normalizeComposerText(current.innerText) !== normalizeComposerText(text)) {
+            insertTextIntoSelection(current, text);
+          }
+          verifyComposerText(text);
+        }, 250);
+        return;
+      }
+
+      insertTextIntoSelection(freshComposer, text);
+      verifyComposerText(text);
+    });
   }
 
   function insertTextIntoSelection(target, text) {
     selectComposerContents(target);
     document.execCommand("insertText", false, text);
+  }
+
+  function dispatchPasteEvent(target, text) {
+    try {
+      const data = new DataTransfer();
+      data.setData("text/plain", text);
+      const event = new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: data
+      });
+      return !target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
+  }
+
+  function normalizeComposerText(text) {
+    return String(text || "").replace(/\u200B/g, "").replace(/\r\n?/g, "\n").trim();
+  }
+
+  function verifyComposerText(expected) {
+    setTimeout(() => {
+      const composer = findComposer();
+      if (!composer || !isActiveRun()) return;
+
+      const current = normalizeComposerText(composer.innerText);
+      const wanted = normalizeComposerText(expected);
+      if (current === wanted + wanted) {
+        insertTextIntoSelection(composer, expected);
+      }
+    }, 700);
   }
 
   function selectComposerContents(target) {
@@ -462,6 +549,7 @@
   let generationTimer = 0;
 
   async function generateAndShow(force = false) {
+    if (!isActiveRun()) return;
     const { text, imageUrls } = getTweetContext();
     const contextKey = contextKeyFor(text, imageUrls);
     let regenerate = !!force;
@@ -555,14 +643,20 @@
 
   let lastHad = false;
   function scheduleGenerate(force = false) {
+    if (!isActiveRun()) return;
     if (generationTimer) clearTimeout(generationTimer);
     generationTimer = setTimeout(() => {
+      if (!isActiveRun()) return;
       generationTimer = 0;
       generateAndShow(force);
     }, 150);
   }
 
   const obs = new MutationObserver(() => {
+    if (!isActiveRun()) {
+      obs.disconnect();
+      return;
+    }
     const has = !!findComposer();
     if (has) {
       const { text, imageUrls } = getTweetContext();
@@ -582,7 +676,7 @@
   });
   obs.observe(document.body, { subtree: true, childList: true });
 
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") removePanel(); });
+  document.addEventListener("keydown", (e) => { if (isActiveRun() && e.key === "Escape") removePanel(); });
   if (findComposer()) scheduleGenerate();
 
   const STYLES = `
