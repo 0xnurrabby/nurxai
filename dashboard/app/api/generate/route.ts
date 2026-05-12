@@ -192,11 +192,18 @@ ${masterpiece
     : "You know this space. You reply with a natural take, not a report."}
 
 ━━ VOICE ━━
-Write as if the user is personally replying in public.
-The reply should share a take/opinion/reaction inspired by the post.
+Write as if the user is personally replying in public, from their own perspective.
+The reply should share a take/opinion/reaction inspired by the post, not a neutral observation.
 It should not explain what the post says, praise the post, or describe the author’s journey.
-Prefer: "this is the part that matters...", "i think...", "the underrated bit is...", "this feels like...", "the real unlock is..." when natural.
+Prefer first-person or implied first-person when natural: "i'd...", "i would...", "my read is...", "the part i'd bet on...", "the underrated bit...", "the real unlock...".
 Avoid sounding like an assistant giving feedback.
+
+Perspective modes. Pick the one that fits the post, do not label it:
+- Builder flex: if the post is about being recognized/followed by visible accounts, reply as if that would be a personal builder milestone.
+- Personal bet: if it is a token/watchlist/ranking post, reply like the user is picking what catches their eye, not reporting the list.
+- Skeptical angle: if the claim is broad, reply with the caveat or tradeoff the user notices.
+- Meme read: if the post is a joke/image, reply to why the joke lands or what the image says about the market.
+- Founder/operator take: if the post is product/infrastructure, reply with the practical unlock or bottleneck.
 
 BAD: "That walk in Regent's Park sounds like a pivotal moment."
 BAD: "The images capture the essence of your journey."
@@ -228,7 +235,8 @@ Never use these words/phrases (all AI tells caught in production):
 "vibes", "heating up", "ride the wave", "could ride", "might be the ticket",
 "intriguing combo", "the future", "huge boost", "potential is clear", "real game changer",
 "sounds like", "captures the essence", "set the stage", "pivotal moment", "your journey",
-"serious commitment", "impact is evident", "worth a deeper dive"
+"serious commitment", "impact is evident", "worth a deeper dive",
+"feels like", "ngl", "curious to see", "nice to see", "strong move", "big unlock"
 
 Never end a reply with an unanswered question. Questions = AI slop unless answered immediately in Quick Q&A.
 BAD: "$IMGN's 33.7% spike is wild. Any news driving this?"
@@ -277,13 +285,15 @@ No domain-specific examples are provided intentionally. Never copy wording from 
 3. Make a statement from the user's point of view. Agree, disagree, add context, be skeptical, or share a personal read.
 4. Each of 4 replies = different angle and wording, but keep the same layout lane for the batch.
 5. Lowercase ok. Fragments ok. Contractions ok (im, its, dont, wont).
-6. "ngl", "tbh", "fr", "lemme", "gonna", "tbf" - use naturally, max 1-2 of 4 replies.
+6. "tbh", "fr", "lemme", "gonna", "tbf" - use naturally, max 1 of 4 replies. Never use "ngl".
 7. Under 280 chars total per reply (including line breaks).
 8. Do not wrap replies or individual lines in quotation marks.
 9. Do not name external projects/protocols/tools unless they appear in the tweet context or verified background.
 10. Never include structure names or labels in the reply text.
 11. Avoid filler adjectives. Prefer one specific noun from the tweet over broad words like future, potential, wave, vibes, boost.
 12. Never write like you are evaluating the tweet. Write like you are adding your own opinion to the conversation.
+13. Do not reuse the same opener, cadence, or pet phrase across the 4 replies. No repeated "i think", "tbh", "my read", or similar starts.
+14. At least 2 replies should be from a clear self-perspective: what the user would bet on, care about, flex, doubt, or choose.
 ${hasImage ? `
 ━━ IMAGE ━━
 Use the Grok-verified visual context below. At least 2 of 4 replies should reference concrete visual details if they matter:
@@ -416,8 +426,8 @@ export async function POST(req: NextRequest) {
   // ── Call OpenAI ───────────────────────────────────────────────────────────
   const model = plan.model;
   const masterpiece = plan.qualityTier === "masterpiece";
-  // Lower temperature keeps replies grounded and reduces generic hype.
-  const temperature = isRegenerate ? 0.65 : masterpiece ? 0.56 : 0.48;
+  // Keep enough entropy for human variation while Grok context keeps it grounded.
+  const temperature = isRegenerate ? 0.78 : masterpiece ? 0.68 : 0.62;
   const maxTokens = masterpiece ? 900 : 700;
 
   let openaiResp: Response;
@@ -460,6 +470,7 @@ export async function POST(req: NextRequest) {
     .map(stripEmojis)
     .map(cleanReply)
     .filter(s => isAllowedReply(s, context));
+  suggestions = dedupeReplyOpeners(suggestions);
   if (!suggestions.length) {
     return NextResponse.json({ error: "EMPTY_SUGGESTIONS" }, { status: 502 });
   }
@@ -525,6 +536,25 @@ function isAllowedReply(reply: string, context: string): boolean {
 
   const normalizedReply = normalizeForCompare(reply);
   const normalizedContext = normalizeForCompare(context);
+  const bannedPhrases = [
+    "feels like",
+    "ngl",
+    "curious to see",
+    "nice to see",
+    "strong move",
+    "big unlock",
+    "sounds like",
+    "captures the essence",
+    "set the stage",
+    "pivotal moment",
+    "your journey",
+    "serious commitment",
+    "impact is evident",
+    "worth a deeper dive",
+    "ride the wave",
+    "might be the ticket",
+    "potential is clear"
+  ];
   const leakedPromptPhrases = [
     "open gotchi potential",
     "bridging digital companions with real world interactions",
@@ -535,6 +565,7 @@ function isAllowedReply(reply: string, context: string): boolean {
     "stablecoins got the exit ramp banks still want the old spread"
   ];
 
+  if (bannedPhrases.some(phrase => normalizedReply.includes(phrase))) return false;
   if (leakedPromptPhrases.some(phrase => normalizedReply.includes(phrase))) return false;
 
   const contextSymbols = new Set(normalizedContext.match(/[@$][a-z0-9_]+/g) || []);
@@ -542,6 +573,17 @@ function isAllowedReply(reply: string, context: string): boolean {
   if (replySymbols.some(symbol => !contextSymbols.has(symbol))) return false;
 
   return true;
+}
+
+function dedupeReplyOpeners(replies: string[]): string[] {
+  const seen = new Set<string>();
+  return replies.filter(reply => {
+    const opener = normalizeForCompare(reply).split(" ").slice(0, 3).join(" ");
+    if (!opener) return false;
+    if (seen.has(opener)) return false;
+    seen.add(opener);
+    return true;
+  });
 }
 
 // Post-process: fix punctuation issues the model still produces despite prompt
