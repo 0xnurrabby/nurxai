@@ -15,7 +15,7 @@ const PRICES: Record<string, { input: number; output: number }> = {
 };
 
 type ImagePart = { type: "image_url"; image_url: { url: string; detail: "high" | "auto" } };
-type EnrichmentResult = { text: string | null; imageUsed: boolean };
+type EnrichmentResult = { text: string | null; imageUsed: boolean; searchUsed: boolean };
 
 // ─── Context Enrichment (Vercel AI Gateway → Grok) ───────────────────────────
 //
@@ -25,7 +25,7 @@ type EnrichmentResult = { text: string | null; imageUsed: boolean };
 
 async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promise<EnrichmentResult> {
   const apiKey = process.env.AI_GATEWAY_API_KEY;
-  if (!apiKey) return { text: null, imageUsed: false };
+  if (!apiKey) return { text: null, imageUsed: false, searchUsed: false };
 
   const model = process.env.AI_GATEWAY_MODEL || "xai/grok-4.1-fast-reasoning";
   const hasImages = imageParts.length > 0;
@@ -85,21 +85,21 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
 
     if (!resp.ok) {
       console.warn("[enrich] gateway non-OK", resp.status);
-      return { text: null, imageUsed: false };
+      return { text: null, imageUsed: false, searchUsed: false };
     }
 
     const data = await resp.json().catch(() => null);
     const text: string = data?.choices?.[0]?.message?.content || "";
     const cleaned = text.trim();
-    if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: false };
+    if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: hasImages, searchUsed: true };
     if (cleaned && cleaned.length > 30) {
       console.log("[enrich] got context, length:", text.length);
-      return { text: cleaned, imageUsed: hasImages };
+      return { text: cleaned, imageUsed: hasImages, searchUsed: true };
     }
-    return { text: null, imageUsed: false };
+    return { text: null, imageUsed: hasImages, searchUsed: true };
   } catch (e: any) {
     console.warn("[enrich] failed:", e?.message || "?");
-    return { text: null, imageUsed: false };
+    return { text: null, imageUsed: false, searchUsed: false };
   }
 }
 
@@ -327,7 +327,7 @@ export async function POST(req: NextRequest) {
   let imagesInlined = 0;
   let imagesUrlFallback = 0;
 
-  if (plan.vision && rawImageUrls.length > 0) {
+  if (rawImageUrls.length > 0) {
     for (const u of rawImageUrls.slice(0, 3)) {
       const dataUrl = await fetchImageAsDataUrl(u);
       if (dataUrl) {
@@ -345,10 +345,12 @@ export async function POST(req: NextRequest) {
   // ── Context + image enrichment via Grok on Vercel AI Gateway ─────────────────
   let enrichedContext: string | null = null;
   let imageUsedByGrok = false;
+  let searchUsedByGrok = false;
   if (process.env.AI_GATEWAY_API_KEY) {
     const enrichment = await enrichContext(context, imageParts);
     enrichedContext = enrichment.text;
     imageUsedByGrok = enrichment.imageUsed;
+    searchUsedByGrok = enrichment.searchUsed;
   } else {
     console.log("[enrich] skipped - AI_GATEWAY_API_KEY not set");
   }
@@ -471,7 +473,7 @@ export async function POST(req: NextRequest) {
     usage: { used: usage.count + 1, limit: plan.dailyLimit, plan: sub.plan },
     model,
     visionUsed: imageUsedByGrok,
-    searchUsed: !!enrichedContext
+    searchUsed: searchUsedByGrok
   });
 }
 

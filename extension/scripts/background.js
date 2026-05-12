@@ -7,7 +7,7 @@ import { secureUUID } from "./crypto-utils.js";
 const get = (k) => chrome.storage.local.get(k);
 const set = (o) => chrome.storage.local.set(o);
 const del = (k) => chrome.storage.local.remove(k);
-const SUGGESTION_CACHE_VERSION = 9;
+const SUGGESTION_CACHE_VERSION = 10;
 
 async function getInstallId() {
   const k = CONFIG.STORAGE_KEYS.INSTALL_ID;
@@ -117,6 +117,7 @@ async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions
       return {
         ok: true,
         suggestions: validateSuggestions(hit.suggestions),
+        visionUsed: !!hit.visionUsed,
         searchUsed: !!hit.searchUsed,
         cached: true
       };
@@ -131,6 +132,7 @@ async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions
       v: SUGGESTION_CACHE_VERSION,
       ts: Date.now(),
       suggestions: result.suggestions,
+      visionUsed: !!result.visionUsed,
       searchUsed: !!result.searchUsed
     };
     await writeCache(cache);
