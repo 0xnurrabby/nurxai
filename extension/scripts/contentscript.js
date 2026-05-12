@@ -4,12 +4,24 @@
   const POS_KEY = "nurai_panel_pos";
   const WEB_BASE = "https://www.nurxai.xyz";
 
-  const findDialog = () => document.querySelector('div[role="dialog"]');
+  const isVisible = (node) => {
+    if (!node) return false;
+    const rect = node.getBoundingClientRect?.();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+    const style = window.getComputedStyle(node);
+    return style.display !== "none" && style.visibility !== "hidden";
+  };
+  const findDialog = () => {
+    const dialogs = Array.from(document.querySelectorAll('div[role="dialog"]')).filter(isVisible);
+    return dialogs.find(d => isVisible(d.querySelector('div[contenteditable="true"][data-testid="tweetTextarea_0"]')))
+      || dialogs[dialogs.length - 1]
+      || null;
+  };
   const findComposer = () => {
     const dlg = findDialog();
     if (!dlg) return null;
     const c = dlg.querySelector('div[contenteditable="true"][data-testid="tweetTextarea_0"]');
-    return c && c.offsetParent ? c : null;
+    return isVisible(c) ? c : null;
   };
 
   /**
@@ -77,9 +89,8 @@
 
     const text = parts.join("\n").trim().slice(0, 1500);
 
-    // Extract image URLs — look in article first, then full dialog, then page
-    // Twitter's reply dialog sometimes doesn't render images inside <article>,
-    // especially for quoted tweets or when images are below the dialog.
+    // Extract image URLs only from the active reply dialog. Reading document.body
+    // can mix media from another feed post into the current generation.
     const isMediaUrl = (src) =>
       src.includes("twimg.com") &&
       !src.includes("profile_images") &&
@@ -111,11 +122,6 @@
     // 2. Expand to full dialog if not enough
     if (rawImgs.length === 0) {
       rawImgs = collectImgs(dlg);
-    }
-
-    // 3. Also check for images in the page below the dialog (visible media)
-    if (rawImgs.length === 0) {
-      rawImgs = collectImgs(document.body);
     }
 
     // Deduplicate and limit
@@ -171,6 +177,18 @@
       .slice(0, 4);
   }
 
+  function contextKeyFor(text, imageUrls = []) {
+    const normalizedText = normalizeVisibleText(text).replace(/\s+/g, " ").toLowerCase();
+    if (!normalizedText && !imageUrls.length) return "";
+    const src = normalizedText + "|" + imageUrls.join("|");
+
+    let hash = 0;
+    for (let i = 0; i < src.length; i++) {
+      hash = ((hash << 5) - hash + src.charCodeAt(i)) | 0;
+    }
+    return src.length + ":" + Math.abs(hash).toString(36);
+  }
+
 
   let host, shadow, panel, listEl, statusBar;
 
@@ -193,6 +211,12 @@
     generationId++;
     inflight = false;
     lastSuggestions = [];
+    activeContextKey = "";
+    lastContextKey = "";
+    if (generationTimer) {
+      clearTimeout(generationTimer);
+      generationTimer = 0;
+    }
     if (panel) { panel.remove(); panel = null; listEl = null; statusBar = null; }
   }
   async function loadPos() {
@@ -457,19 +481,35 @@
   let lastSuggestions = [];
   let inflight = false;
   let generationId = 0; // increments every new generation; stale results are discarded
+  let activeContextKey = "";
+  let lastContextKey = "";
+  let generationTimer = 0;
 
   async function generateAndShow(force = false) {
+    const { text, imageUrls } = getTweetContext();
+    const contextKey = contextKeyFor(text, imageUrls);
+    let regenerate = !!force;
+
+    if (contextKey && activeContextKey !== contextKey) {
+      activeContextKey = contextKey;
+      lastContextKey = contextKey;
+      lastSuggestions = [];
+      inflight = false;
+      regenerate = false;
+      generationId++;
+    }
+
     if (inflight && !force) return;
     inflight = true;
 
     // Claim this generation slot. If removePanel() is called while we're
     // waiting for the API, it increments generationId, making our myId stale.
     const myId = ++generationId;
+    const requestContextKey = contextKey;
 
     await buildPanelShell();
     showLoader();
 
-    const { text, imageUrls } = getTweetContext();
     const hasImage = imageUrls.length > 0;
 
     renderStatusBar({
@@ -481,7 +521,7 @@
     try {
       if (!text) { showError("No tweet context found."); return; }
 
-      const isRegenerate = !!force && lastSuggestions.length > 0;
+      const isRegenerate = regenerate && lastSuggestions.length > 0 && activeContextKey === requestContextKey;
 
       const resp = await chrome.runtime.sendMessage({
         type: "NURAI_GENERATE",
@@ -494,6 +534,10 @@
       // If the user already closed this dialog and opened another post,
       // generationId will have been incremented — discard this stale result.
       if (myId !== generationId) return;
+      if (requestContextKey && activeContextKey !== requestContextKey) return;
+
+      const latest = getTweetContext();
+      if (requestContextKey && contextKeyFor(latest.text, latest.imageUrls) !== requestContextKey) return;
 
       if (!resp || !resp.ok) {
         const map = {
@@ -534,16 +578,36 @@
 
 
   let lastHad = false;
+  function scheduleGenerate(force = false) {
+    if (generationTimer) clearTimeout(generationTimer);
+    generationTimer = setTimeout(() => {
+      generationTimer = 0;
+      generateAndShow(force);
+    }, 150);
+  }
+
   const obs = new MutationObserver(() => {
     const has = !!findComposer();
-    if (has && !lastHad) generateAndShow();
+    if (has) {
+      const { text, imageUrls } = getTweetContext();
+      const contextKey = contextKeyFor(text, imageUrls);
+      if (contextKey && (!lastHad || contextKey !== lastContextKey)) {
+        lastContextKey = contextKey;
+        activeContextKey = contextKey;
+        lastSuggestions = [];
+        inflight = false;
+        generationId++;
+        if (panel && listEl) showLoader();
+        scheduleGenerate();
+      }
+    }
     if (!has && lastHad) removePanel();
     lastHad = has;
   });
   obs.observe(document.body, { subtree: true, childList: true });
 
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") removePanel(); });
-  if (findComposer()) generateAndShow();
+  if (findComposer()) scheduleGenerate();
 
   const STYLES = `
     :host, * { box-sizing: border-box; }

@@ -7,7 +7,7 @@ import { secureUUID } from "./crypto-utils.js";
 const get = (k) => chrome.storage.local.get(k);
 const set = (o) => chrome.storage.local.set(o);
 const del = (k) => chrome.storage.local.remove(k);
-const SUGGESTION_CACHE_VERSION = 2;
+const SUGGESTION_CACHE_VERSION = 3;
 
 async function getInstallId() {
   const k = CONFIG.STORAGE_KEYS.INSTALL_ID;
@@ -34,6 +34,9 @@ async function writeCache(cache) {
 async function hashCtx(s) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+function cacheSeed(ctx, imageUrls) {
+  return JSON.stringify({ ctx, imageUrls: (imageUrls || []).slice(0, 4) });
 }
 
 /* ---------- Validation ---------- */
@@ -107,7 +110,7 @@ async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions
 
   // For regenerate, skip cache (always fresh)
   if (!regenerate) {
-    const key = await hashCtx(ctx);
+    const key = await hashCtx(cacheSeed(ctx, imageUrls));
     const cache = await readCache();
     const hit = cache[key];
     if (hit?.v === SUGGESTION_CACHE_VERSION && Date.now() - hit.ts < CONFIG.SUGGESTION_CACHE_TTL_MS) {
@@ -122,7 +125,7 @@ async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions
 
   const result = await callGenerate(ctx, imageUrls || [], !!regenerate, previousSuggestions || []);
   if (result.ok && !regenerate) {
-    const key = await hashCtx(ctx);
+    const key = await hashCtx(cacheSeed(ctx, imageUrls));
     const cache = await readCache();
     cache[key] = {
       v: SUGGESTION_CACHE_VERSION,

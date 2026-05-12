@@ -179,7 +179,7 @@ Never use these words/phrases (all AI tells caught in production):
 "solid move", "makes sense", "that's a big bet", "ambitious projections",
 "movers and shakers", "some serious momentum", "no joke", "is no joke"
 
-Never end a reply with a question. Questions = AI slop 100% of the time.
+Never end a reply with an unanswered question. Questions = AI slop unless answered immediately in Quick Q&A.
 BAD: "$IMGN's 33.7% spike is wild. Any news driving this?"
 BAD: "Auto-rebalancing is interesting. How's the fee structure?"
 BAD: "cbBTC mix is solid. Wonder about long-term viability."
@@ -188,43 +188,54 @@ Real people make statements. They don't interrogate the original poster.
 
 Never use em-dash (—). Use period or comma instead.
 
-━━ STRUCTURE ━━
-Use ONE of these two formats per reply:
+━━ VISUAL STRUCTURES ━━
+Pick the best-fitting visual structure for each reply. Use at least 3 different structures across the 4 replies.
+Do not default to the same blank-line shape. Empty blank lines are allowed only in Structure 3 or Structure 7, and max 1 reply per generation can use an empty blank line.
 
-Format A - Single line: One precise statement under 140 chars.
-"35% CAGR needs stablecoin supply to actually hit $3T. big assumption."
-"ef's done this unstake cycle before. ops budget, not a sell signal."
+Structure 1 (The Drift): One line. Use 4-5 spaces between thoughts instead of punctuation.
+Best for: nuanced market/tech takes, finance, policy, stablecoins, posts with two connected ideas.
 
-Format B - Two short lines with a blank line between:
-Line 1: quick reaction or statement (the hook)
-[blank line]
-Line 2: personal context, extra info, or your angle
+Structure 2 (Tilde Stack): Header line, then bullet points using '~' with NO empty lines.
+Best for: finalist lists, launch details, product features, multiple stats, event recaps.
 
-Example Format B:
-"ef unstaking again
+Structure 3 (The Interjection): A question or "Wait...", an empty line, then a 3-word reaction.
+Best for: genuinely surprising claims or weird visual moments. Do not use for normal announcements.
 
-ops funding move, they do this every quarter"
+Structure 4 (Pure Lowercase): One sentence. No caps. No periods. Use 'fr' or 'tbh' at the end.
+Best for: casual agreement, community posts, simple hype, creator/building updates.
 
-"good share
+Structure 5 (Vertical Drop): Three lines. Line 1: One word. Line 2: One word. Line 3: Short sentence.
+Best for: strong visual posts, milestones, robotics/AI demos, image-led moments.
 
-ive been using this workflow for a while, saves hours"
+Structure 6 (Curly Note): A dense block of text ending with a thought inside curly brackets {like this}.
+Best for: nuanced/serious posts where a caveat or hidden angle matters.
 
-"35% CAGR is doable
+Structure 7 (Double Gap Punch): One sentence, two empty lines, then one word in ALL CAPS.
+Best for: sharp announcements or posts with one obvious punchline. Use rarely.
 
-only if circle keeps growing its revenue share though"
+Structure 8 (Path Divider): Thoughts separated by slashes "/" with NO spaces.
+Best for: workflows, chains, stacks, routes, progression, ecosystem mapping.
 
-Mix formats across the 4 replies. At least 1 reply should use Format B.
+Structure 9 (Pure Quote): Just quote a phrase from the input using ">" and nothing else.
+Best for: when the tweet has a phrase that is already strong enough. No extra commentary.
+
+Structure 10 (Quick Q&A): A short question immediately followed by a short answer on the same line.
+Best for: explanatory posts where a crisp answered question adds clarity.
+
+Structure fit examples:
+- Robotics finalist/photo post: use Tilde Stack, Vertical Drop, Path Divider, or Pure Quote.
+- Banks/stablecoins/policy post: use Drift, Curly Note, Quick Q&A, or Pure Lowercase.
+- Product UI/screenshot post: use Path Divider, Tilde Stack, Vertical Drop, or Curly Note.
+- Very short generic post: use Pure Lowercase or Drift, and avoid invented specifics.
 
 ━━ WHAT GOOD LOOKS LIKE ━━
-"ef unstaking isn't new. ops budget, not panic. done this every quarter."
-"35% CAGR by 2031 needs stablecoin supply at $3T. circle's growing but that's still a stretch."
-"$49.6m unstaked
-
-ef does this routinely for dev funding. not a market signal."
-"rare to see someone consistent on base since early
-
-not another post-and-ghost builder"
-"20% APR for 30 days only means the real question is what happens at day 31"
+stablecoins got the exit ramp    banks still want the old spread
+robotics track
+~ base batches 003
+~ @opengotchi in the finals
+~ agents getting physical context now
+physical/agents/base/robotics track
+what changed? users finally get a way around zero-yield deposits
 
 ━━ RULES ━━
 1. Zero emojis.
@@ -236,6 +247,7 @@ not another post-and-ghost builder"
 7. Under 280 chars total per reply (including line breaks).
 8. Do not wrap replies or individual lines in quotation marks.
 9. Do not name external projects/protocols/tools unless they appear in the tweet context or verified background.
+10. Never include structure names or labels in the reply text.
 ${hasImage ? `
 ━━ IMAGE ━━
 You can see it fully. At least 2 of 4 replies reference SPECIFIC visual details:
@@ -245,8 +257,8 @@ ${styleInstruction(style, customNote) !== "Casual, direct, like a smart friend i
 ${enrichedContext ? `\n━━ CONTEXT (verified background - use if relevant) ━━\n${enrichedContext}` : ""}
 ${projectsContext ? `\n━━ YOUR EXPERTISE ━━\n${projectsContext}` : ""}
 
-OUTPUT: JSON only. Use \\n\\n for line breaks within a reply.
-{"suggestions": ["reply1", "line1\\n\\nline2", "reply3", "reply4"]}`;
+OUTPUT: JSON only. Use \\n for normal line breaks and \\n\\n only when Structure 3 or 7 needs an empty line.
+{"suggestions": ["one line", "header\\n~ item\\n~ item", "word/word/word", "what changed? short answer"]}`;
 }
 
 // ─── Main Route ───────────────────────────────────────────────────────────────
@@ -478,8 +490,8 @@ function cleanReply(s: string): string {
     .replace(/\s*\u2014\s*/g, ". ")
     // Double-dash → period
     .replace(/\s*--\s*/g, ". ")
-    // Clean up double spaces (but preserve intentional \n\n)
-    .replace(/[ \t]{2,}/g, " ")
+    // Preserve Structure 1's 4-5 space drift while trimming accidental huge gaps.
+    .replace(/[ \t]{6,}/g, "     ")
     // Clean up multiple periods
     .replace(/\.{2,}/g, ".")
     // Remove trailing question mark on last sentence if it's an AI-style interrogation
