@@ -27,7 +27,9 @@ async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promis
   const apiKey = process.env.AI_GATEWAY_API_KEY;
   if (!apiKey) return { text: null, imageUsed: false, searchUsed: false };
 
-  const model = process.env.AI_GATEWAY_MODEL || "xai/grok-4.1-fast-reasoning";
+  const primaryModel = process.env.AI_GATEWAY_MODEL || "xai/grok-4.1-fast-reasoning";
+  const fallbackModel = "xai/grok-4.1-fast-reasoning";
+  const models = primaryModel === fallbackModel ? [primaryModel] : [primaryModel, fallbackModel];
   const hasImages = imageParts.length > 0;
 
   const userContent: any = hasImages
@@ -41,18 +43,22 @@ async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promis
     : `Extracted tweet context:\n"""\n${tweetText.slice(0, 1500)}\n"""\n\nVerify only the actual subject(s) of this tweet. If relevant, identify the X trend/narrative this post is reacting to. If the context is too generic or ambiguous, return NO_VERIFIED_CONTEXT.`;
 
   try {
-    const resp = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: `You are a strict X/Twitter context verifier for reply generation.
+    let lastStatus = 0;
+    let lastBody = "";
+
+    for (const model of models) {
+      const resp = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: `You are a strict X/Twitter context verifier for reply generation.
 
 You are especially good at understanding why an X post was made, what trend it is referencing, which project/account/token it is actually about, and whether a visible claim is part of a current narrative.
 
@@ -71,32 +77,36 @@ Rules:
 - If there is no reliable background to add, return exactly: NO_VERIFIED_CONTEXT.
 
 Return 2-5 short bullets only when they are safe and directly tied to the visible tweet subject. If images were useful, include at least one bullet starting with "Visual:".`
-          },
-          {
-            role: "user",
-            content: userContent
-          }
-        ],
-        max_tokens: 450,
-        temperature: 0
-      }),
-      signal: AbortSignal.timeout(10000)
-    });
+            },
+            {
+              role: "user",
+              content: userContent
+            }
+          ],
+          max_tokens: 450
+        }),
+        signal: AbortSignal.timeout(15000)
+      });
 
-    if (!resp.ok) {
-      console.warn("[enrich] gateway non-OK", resp.status);
-      return { text: null, imageUsed: false, searchUsed: false };
+      if (!resp.ok) {
+        lastStatus = resp.status;
+        lastBody = await resp.text().catch(() => "");
+        continue;
+      }
+
+      const data = await resp.json().catch(() => null);
+      const text: string = data?.choices?.[0]?.message?.content || "";
+      const cleaned = text.trim();
+      if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: hasImages, searchUsed: true };
+      if (cleaned && cleaned.length > 30) {
+        console.log("[enrich] got context, length:", text.length, "model:", model);
+        return { text: cleaned, imageUsed: hasImages, searchUsed: true };
+      }
+      return { text: null, imageUsed: hasImages, searchUsed: true };
     }
 
-    const data = await resp.json().catch(() => null);
-    const text: string = data?.choices?.[0]?.message?.content || "";
-    const cleaned = text.trim();
-    if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: hasImages, searchUsed: true };
-    if (cleaned && cleaned.length > 30) {
-      console.log("[enrich] got context, length:", text.length);
-      return { text: cleaned, imageUsed: hasImages, searchUsed: true };
-    }
-    return { text: null, imageUsed: hasImages, searchUsed: true };
+    console.warn("[enrich] gateway non-OK", lastStatus, lastBody.slice(0, 300));
+    return { text: null, imageUsed: false, searchUsed: false };
   } catch (e: any) {
     console.warn("[enrich] failed:", e?.message || "?");
     return { text: null, imageUsed: false, searchUsed: false };

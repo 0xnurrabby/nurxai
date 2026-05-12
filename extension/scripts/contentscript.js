@@ -97,13 +97,15 @@
 
     // Extract image URLs only from the active reply dialog. Reading document.body
     // can mix media from another feed post into the current generation.
-    const isMediaUrl = (src) =>
-      src.includes("twimg.com") &&
+    const isMediaUrl = (src) => {
+      if (!src || !src.includes("twimg.com")) return false;
+      const isTweetMedia = src.includes("/media/") || src.includes("/card_img/");
+      return isTweetMedia &&
       !src.includes("profile_images") &&
       !src.includes("profile_banners") &&
       !src.includes("emoji") &&
-      !src.includes("hashflags") &&
-      src.includes("/media/"); // only actual media, not UI assets
+      !src.includes("hashflags");
+    };
 
     const normalizeImgSrc = (src) => {
       // Normalize to largest available size
@@ -116,11 +118,26 @@
       return src;
     };
 
-    const collectImgs = (root) =>
-      Array.from(root?.querySelectorAll('img[src*="twimg.com"]') || [])
-        .map(img => img.src)
+    const extractCssUrl = (value) => {
+      const match = String(value || "").match(/url\(["']?([^"')]+)["']?\)/);
+      return match?.[1] || "";
+    };
+
+    const collectImgs = (root) => {
+      const direct = Array.from(root?.querySelectorAll('img[src*="twimg.com"], source[srcset*="twimg.com"]') || [])
+        .flatMap(el => {
+          const src = el.src || el.getAttribute("src") || "";
+          const srcset = el.getAttribute("srcset") || "";
+          return [src, ...srcset.split(",").map(part => part.trim().split(/\s+/)[0])];
+        });
+
+      const backgrounds = Array.from(root?.querySelectorAll('[style*="twimg.com"]') || [])
+        .map(el => extractCssUrl(el.style.backgroundImage || el.getAttribute("style")));
+
+      return [...direct, ...backgrounds]
         .filter(isMediaUrl)
         .map(normalizeImgSrc);
+    };
 
     // 1. Try article first
     let rawImgs = collectImgs(article);
