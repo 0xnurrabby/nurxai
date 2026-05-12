@@ -14,9 +14,9 @@ const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o":      { input: 2.50, output: 10.00 }
 };
 
-// ─── Context Enrichment (Vercel AI Gateway → Gemini) ─────────────────────────
+// ─── Context Enrichment (Vercel AI Gateway → Grok) ───────────────────────────
 //
-// Send extracted tweet context to Gemini for strict background verification.
+// Send extracted tweet context to Grok for X-native trend/background verification.
 // It must return nothing when the visible tweet/handles/links are ambiguous.
 // This runs for every generation when AI_GATEWAY_API_KEY is set in env.
 
@@ -24,7 +24,7 @@ async function enrichContext(tweetText: string): Promise<string | null> {
   const apiKey = process.env.AI_GATEWAY_API_KEY;
   if (!apiKey) return null;
 
-  const model = process.env.AI_GATEWAY_MODEL || "google/gemini-3.1-flash-lite";
+  const model = process.env.AI_GATEWAY_MODEL || "xai/grok-4.1-fast-reasoning";
 
   try {
     const resp = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
@@ -38,22 +38,26 @@ async function enrichContext(tweetText: string): Promise<string | null> {
         messages: [
           {
             role: "system",
-            content: `You are a strict context verifier for Twitter/X reply generation.
+            content: `You are a strict X/Twitter context verifier for reply generation.
 
-Use only subjects that are directly visible in the extracted tweet context: exact @handles, display names, quoted tweet text, URLs, cashtags, tokens, or unambiguous project names.
+You are especially good at understanding why an X post was made, what trend it is referencing, which project/account/token it is actually about, and whether a visible claim is part of a current narrative.
+
+Use only subjects that are directly visible in the extracted tweet context: exact @handles, display names, quoted tweet text, URLs, cashtags, tokens, or unambiguous project names. You may use your X/web knowledge to add background only when it is clearly tied to those visible subjects.
 
 Rules:
 - Do not infer unrelated projects from generic words or same-name search results.
 - Words like Base, agent, home, cloud, html, taxes, or protocol are generic unless the visible author/handle/URL/text makes the entity unambiguous.
 - If you identify an X account, use the exact @handle from the extracted context. Never guess a username.
 - If a project/person/token is not clearly the same entity as the tweet subject, do not mention it.
+- If the post appears to be reacting to a trend, explain the trend only if it is tied to visible handles/tickers/URLs/text.
+- Prefer concise context that helps form a personal opinion, not a long research note.
 - If there is no reliable background to add, return exactly: NO_VERIFIED_CONTEXT.
 
-Return 2-5 short bullet facts only when they are safe and directly tied to the visible tweet subject.`
+Return 2-5 short bullets only when they are safe and directly tied to the visible tweet subject.`
           },
           {
             role: "user",
-            content: `Extracted tweet context:\n"""\n${tweetText.slice(0, 1500)}\n"""\n\nVerify only the actual subject(s) of this tweet. If the context is too generic or ambiguous, return NO_VERIFIED_CONTEXT.`
+            content: `Extracted tweet context:\n"""\n${tweetText.slice(0, 1500)}\n"""\n\nVerify only the actual subject(s) of this tweet. If relevant, identify the X trend/narrative this post is reacting to. If the context is too generic or ambiguous, return NO_VERIFIED_CONTEXT.`
           }
         ],
         max_tokens: 450,
@@ -324,7 +328,7 @@ export async function POST(req: NextRequest) {
   }
   const useVision = imageParts.length > 0;
 
-  // ── Context enrichment via Gemini (always on when key is set) ─────────────────
+  // ── Context enrichment via Grok on Vercel AI Gateway ─────────────────────────
   let enrichedContext: string | null = null;
   if (process.env.AI_GATEWAY_API_KEY) {
     enrichedContext = await enrichContext(context);
