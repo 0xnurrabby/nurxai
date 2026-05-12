@@ -406,6 +406,9 @@
     return String(text || "").replace(/\r\n?/g, "\n").split("\n").map(strip).join("\n").trim();
   }
 
+  let lastPasteKey = "";
+  let lastPasteAt = 0;
+
   function pasteIntoComposer(text) {
     const c = findComposer();
     if (!c) return;
@@ -413,6 +416,12 @@
 
     const pasteText = cleanSuggestionText(text);
     if (!pasteText) return;
+
+    const pasteKey = activeContextKey + "|" + pasteText;
+    const now = Date.now();
+    if (pasteKey === lastPasteKey && now - lastPasteAt < 800) return;
+    lastPasteKey = pasteKey;
+    lastPasteAt = now;
 
     replaceComposerText(c, pasteText);
   }
@@ -424,19 +433,6 @@
   function insertTextIntoSelection(target, text) {
     selectComposerContents(target);
     document.execCommand("insertText", false, text);
-    dispatchComposerInput(target, text);
-  }
-
-  function dispatchComposerInput(target, text) {
-    try {
-      target.dispatchEvent(new InputEvent("input", {
-        bubbles: true,
-        inputType: "insertText",
-        data: text
-      }));
-    } catch {
-      target.dispatchEvent(new Event("input", { bubbles: true }));
-    }
   }
 
   function selectComposerContents(target) {
