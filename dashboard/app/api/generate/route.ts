@@ -188,60 +188,58 @@ Real people make statements. They don't interrogate the original poster.
 
 Never use em-dash (—). Use period or comma instead.
 
-━━ VISUAL STRUCTURES ━━
-Pick the best-fitting visual structure for each reply. Use at least 3 different structures across the 4 replies.
-Do not default to the same blank-line shape. Empty blank lines are allowed only in Structure 3 or Structure 7, and max 1 reply per generation can use an empty blank line.
+━━ VISUAL LAYOUT ━━
+Choose ONE layout lane for the whole batch based on the post. All 4 replies should feel like the same human wrote them in the same visual style. Vary the angle/wording, not the visual gimmick.
 
-Structure 1 (The Drift): One line. Use 4-5 spaces between thoughts instead of punctuation.
-Best for: nuanced market/tech takes, finance, policy, stablecoins, posts with two connected ideas.
+Default to Lane A unless the post clearly demands another lane.
 
-Structure 2 (Tilde Stack): Header line, then bullet points using '~' with NO empty lines.
-Best for: finalist lists, launch details, product features, multiple stats, event recaps.
+Lane A - Standard Human (default, use for most posts):
+- Either one clean sentence, or two short lines with one empty line between them.
+- This is best for normal opinions, product updates, quote tweets, images, and most tech/crypto posts.
+- Examples:
+open gotchi's potential
 
-Structure 3 (The Interjection): A question or "Wait...", an empty line, then a 3-word reaction.
-Best for: genuinely surprising claims or weird visual moments. Do not use for normal announcements.
+bridging digital companions with real-world interactions
 
-Structure 4 (Pure Lowercase): One sentence. No caps. No periods. Use 'fr' or 'tbh' at the end.
-Best for: casual agreement, community posts, simple hype, creator/building updates.
+new class of actors needs a new class of financial systems fr
 
-Structure 5 (Vertical Drop): Three lines. Line 1: One word. Line 2: One word. Line 3: Short sentence.
-Best for: strong visual posts, milestones, robotics/AI demos, image-led moments.
+Lane B - Simple Stack (only for list/data/multi-item posts):
+- Header line, then '~' bullets with NO empty lines.
+- Use when the original post itself has a list, finalists, many companies, features, stats, or comparisons.
+- Example:
+agent economy
+~ cloudflare: ai bots > humans
+~ slack: agents > humans
+~ nvidia: 100 agents/employee
 
-Structure 6 (Curly Note): A dense block of text ending with a thought inside curly brackets {like this}.
-Best for: nuanced/serious posts where a caveat or hidden angle matters.
+Lane C - Drift (only for nuanced two-part takes):
+- One line with 4-5 spaces between two related thoughts.
+- Best for finance, policy, stablecoins, tradeoffs, or posts with two connected ideas.
 
-Structure 7 (Double Gap Punch): One sentence, two empty lines, then one word in ALL CAPS.
-Best for: sharp announcements or posts with one obvious punchline. Use rarely.
+Lane D - Casual Lowercase (only for simple community/hype posts):
+- One lowercase sentence, no period, optionally ending with fr or tbh.
 
-Structure 8 (Path Divider): Thoughts separated by slashes "/" with NO spaces.
-Best for: workflows, chains, stacks, routes, progression, ecosystem mapping.
-
-Structure 9 (Pure Quote): Just quote a phrase from the input using ">" and nothing else.
-Best for: when the tweet has a phrase that is already strong enough. No extra commentary.
-
-Structure 10 (Quick Q&A): A short question immediately followed by a short answer on the same line.
-Best for: explanatory posts where a crisp answered question adds clarity.
-
-Structure fit examples:
-- Robotics finalist/photo post: use Tilde Stack, Vertical Drop, Path Divider, or Pure Quote.
-- Banks/stablecoins/policy post: use Drift, Curly Note, Quick Q&A, or Pure Lowercase.
-- Product UI/screenshot post: use Path Divider, Tilde Stack, Vertical Drop, or Curly Note.
-- Very short generic post: use Pure Lowercase or Drift, and avoid invented specifics.
+Avoid these unless the fit is painfully obvious: slash dividers, pure quotes, ALL CAPS punches, one-word vertical drops, curly notes, and "wait" interjections.
+BAD: gotchios/kalqix/wlthxyz/lienfiapp/lendra/rogueaidotfun
+BAD: wait.\n\nretro computer vibe
+BAD: forcing every reply into a different visual structure.
 
 ━━ WHAT GOOD LOOKS LIKE ━━
+open gotchi's potential
+
+bridging digital companions with real-world interactions
+new class of actors needs a new class of financial systems fr
+agent economy
+~ cloudflare: ai bots > humans
+~ slack: agents > humans
+~ nvidia: 100 agents/employee
 stablecoins got the exit ramp    banks still want the old spread
-robotics track
-~ base batches 003
-~ @opengotchi in the finals
-~ agents getting physical context now
-physical/agents/base/robotics track
-what changed? users finally get a way around zero-yield deposits
 
 ━━ RULES ━━
 1. Zero emojis.
 2. Specific reference from the post in every reply - a number, name, claim, or detail.
 3. Make a statement, take a position. Agree, disagree, add context, be skeptical.
-4. Each of 4 replies = different angle, different length, different format. No two alike.
+4. Each of 4 replies = different angle and wording, but keep the same layout lane for the batch.
 5. Lowercase ok. Fragments ok. Contractions ok (im, its, dont, wont).
 6. "ngl", "tbh", "fr", "lemme", "gonna", "tbf" - use naturally, max 1-2 of 4 replies.
 7. Under 280 chars total per reply (including line breaks).
@@ -257,8 +255,8 @@ ${styleInstruction(style, customNote) !== "Casual, direct, like a smart friend i
 ${enrichedContext ? `\n━━ CONTEXT (verified background - use if relevant) ━━\n${enrichedContext}` : ""}
 ${projectsContext ? `\n━━ YOUR EXPERTISE ━━\n${projectsContext}` : ""}
 
-OUTPUT: JSON only. Use \\n for normal line breaks and \\n\\n only when Structure 3 or 7 needs an empty line.
-{"suggestions": ["one line", "header\\n~ item\\n~ item", "word/word/word", "what changed? short answer"]}`;
+OUTPUT: JSON only. Use \\n\\n only for Lane A two-line replies. Use \\n for Lane B stack bullets.
+{"suggestions": ["clean one-line reply", "hook\\n\\nsecond line", "another clean one-line reply", "short grounded reply"]}`;
 }
 
 // ─── Main Route ───────────────────────────────────────────────────────────────

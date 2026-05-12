@@ -7,7 +7,7 @@ import { secureUUID } from "./crypto-utils.js";
 const get = (k) => chrome.storage.local.get(k);
 const set = (o) => chrome.storage.local.set(o);
 const del = (k) => chrome.storage.local.remove(k);
-const SUGGESTION_CACHE_VERSION = 3;
+const SUGGESTION_CACHE_VERSION = 4;
 
 async function getInstallId() {
   const k = CONFIG.STORAGE_KEYS.INSTALL_ID;
