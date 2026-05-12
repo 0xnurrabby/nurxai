@@ -14,17 +14,31 @@ const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o":      { input: 2.50, output: 10.00 }
 };
 
+type ImagePart = { type: "image_url"; image_url: { url: string; detail: "high" | "auto" } };
+type EnrichmentResult = { text: string | null; imageUsed: boolean };
+
 // ─── Context Enrichment (Vercel AI Gateway → Grok) ───────────────────────────
 //
-// Send extracted tweet context to Grok for X-native trend/background verification.
-// It must return nothing when the visible tweet/handles/links are ambiguous.
+// Send extracted tweet context and images to Grok for X-native grounding.
+// It must return nothing when the visible tweet/handles/links/images are ambiguous.
 // This runs for every generation when AI_GATEWAY_API_KEY is set in env.
 
-async function enrichContext(tweetText: string): Promise<string | null> {
+async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promise<EnrichmentResult> {
   const apiKey = process.env.AI_GATEWAY_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) return { text: null, imageUsed: false };
 
   const model = process.env.AI_GATEWAY_MODEL || "xai/grok-4.1-fast-reasoning";
+  const hasImages = imageParts.length > 0;
+
+  const userContent: any = hasImages
+    ? [
+        {
+          type: "text",
+          text: `Extracted tweet context:\n"""\n${tweetText.slice(0, 1500)}\n"""\n\nInspect the attached tweet image(s) too. Verify only the actual subject(s) of this tweet. If relevant, identify the X trend/narrative this post is reacting to. If the context is too generic or ambiguous, return NO_VERIFIED_CONTEXT.`
+        },
+        ...imageParts
+      ]
+    : `Extracted tweet context:\n"""\n${tweetText.slice(0, 1500)}\n"""\n\nVerify only the actual subject(s) of this tweet. If relevant, identify the X trend/narrative this post is reacting to. If the context is too generic or ambiguous, return NO_VERIFIED_CONTEXT.`;
 
   try {
     const resp = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
@@ -44,20 +58,23 @@ You are especially good at understanding why an X post was made, what trend it i
 
 Use only subjects that are directly visible in the extracted tweet context: exact @handles, display names, quoted tweet text, URLs, cashtags, tokens, or unambiguous project names. You may use your X/web knowledge to add background only when it is clearly tied to those visible subjects.
 
+If image(s) are attached, inspect them carefully. Extract only concrete visual facts: visible text, numbers, UI labels, charts, logos, products, screenshots, people/objects, and how the visual changes the meaning of the post.
+
 Rules:
 - Do not infer unrelated projects from generic words or same-name search results.
 - Words like Base, agent, home, cloud, html, taxes, or protocol are generic unless the visible author/handle/URL/text makes the entity unambiguous.
 - If you identify an X account, use the exact @handle from the extracted context. Never guess a username.
 - If a project/person/token is not clearly the same entity as the tweet subject, do not mention it.
 - If the post appears to be reacting to a trend, explain the trend only if it is tied to visible handles/tickers/URLs/text.
+- If using image context, mention only details actually visible in the image.
 - Prefer concise context that helps form a personal opinion, not a long research note.
 - If there is no reliable background to add, return exactly: NO_VERIFIED_CONTEXT.
 
-Return 2-5 short bullets only when they are safe and directly tied to the visible tweet subject.`
+Return 2-5 short bullets only when they are safe and directly tied to the visible tweet subject. If images were useful, include at least one bullet starting with "Visual:".`
           },
           {
             role: "user",
-            content: `Extracted tweet context:\n"""\n${tweetText.slice(0, 1500)}\n"""\n\nVerify only the actual subject(s) of this tweet. If relevant, identify the X trend/narrative this post is reacting to. If the context is too generic or ambiguous, return NO_VERIFIED_CONTEXT.`
+            content: userContent
           }
         ],
         max_tokens: 450,
@@ -68,21 +85,21 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
 
     if (!resp.ok) {
       console.warn("[enrich] gateway non-OK", resp.status);
-      return null;
+      return { text: null, imageUsed: false };
     }
 
     const data = await resp.json().catch(() => null);
     const text: string = data?.choices?.[0]?.message?.content || "";
     const cleaned = text.trim();
-    if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return null;
+    if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: false };
     if (cleaned && cleaned.length > 30) {
       console.log("[enrich] got context, length:", text.length);
-      return cleaned;
+      return { text: cleaned, imageUsed: hasImages };
     }
-    return null;
+    return { text: null, imageUsed: false };
   } catch (e: any) {
     console.warn("[enrich] failed:", e?.message || "?");
-    return null;
+    return { text: null, imageUsed: false };
   }
 }
 
@@ -259,9 +276,9 @@ No domain-specific examples are provided intentionally. Never copy wording from 
 12. Never write like you are evaluating the tweet. Write like you are adding your own opinion to the conversation.
 ${hasImage ? `
 ━━ IMAGE ━━
-You can see it fully. At least 2 of 4 replies reference SPECIFIC visual details:
+Use the Grok-verified visual context below. At least 2 of 4 replies should reference concrete visual details if they matter:
 exact numbers, text on screen, bar chart values, brand names, UI elements shown.
-Never vague ("nice pic"). Never say you can't see it.` : ""}
+Never vague ("nice pic"). Never claim you personally inspected anything beyond the verified context.` : ""}
 ${styleInstruction(style, customNote) !== "Casual, direct, like a smart friend in the space." ? `\n━━ STYLE ━━\n${styleInstruction(style, customNote)}` : ""}
 ${enrichedContext ? `\n━━ CONTEXT (verified background - use if relevant) ━━\n${enrichedContext}` : ""}
 ${projectsContext ? `\n━━ YOUR EXPERTISE ━━\n${projectsContext}` : ""}
@@ -305,8 +322,7 @@ export async function POST(req: NextRequest) {
     ? body.imageUrls.filter((u: any) => typeof u === "string").slice(0, 4)
     : [];
 
-  // ── Vision ───────────────────────────────────────────────────────────────────
-  type ImagePart = { type: "image_url"; image_url: { url: string; detail: "high" | "auto" } };
+  // ── Vision image preparation for Grok ────────────────────────────────────────
   const imageParts: ImagePart[] = [];
   let imagesInlined = 0;
   let imagesUrlFallback = 0;
@@ -326,12 +342,13 @@ export async function POST(req: NextRequest) {
     console.log("[vision] plan=", plan.key, "received=", rawImageUrls.length,
       "inlined=", imagesInlined, "url-fallback=", imagesUrlFallback);
   }
-  const useVision = imageParts.length > 0;
-
-  // ── Context enrichment via Grok on Vercel AI Gateway ─────────────────────────
+  // ── Context + image enrichment via Grok on Vercel AI Gateway ─────────────────
   let enrichedContext: string | null = null;
+  let imageUsedByGrok = false;
   if (process.env.AI_GATEWAY_API_KEY) {
-    enrichedContext = await enrichContext(context);
+    const enrichment = await enrichContext(context, imageParts);
+    enrichedContext = enrichment.text;
+    imageUsedByGrok = enrichment.imageUsed;
   } else {
     console.log("[enrich] skipped - AI_GATEWAY_API_KEY not set");
   }
@@ -368,7 +385,7 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = buildSystemPrompt(
     plan.qualityTier, style, customNote,
-    projectsContext, useVision, enrichedContext
+    projectsContext, imageUsedByGrok, enrichedContext
   );
 
   // ── Build user message ────────────────────────────────────────────────────
@@ -376,21 +393,10 @@ export async function POST(req: NextRequest) {
     ? `\n\nAlready generated these - make 4 completely different ones, different angles:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
     : "";
 
-  let userMessage: any;
-  if (useVision) {
-    userMessage = {
-      role: "user",
-      content: [
-        { type: "text", text: `Tweet:\n"""\n${context}\n"""${regenerateNote}` },
-        ...imageParts
-      ]
-    };
-  } else {
-    userMessage = {
-      role: "user",
-      content: `Tweet:\n"""\n${context}\n"""${regenerateNote}`
-    };
-  }
+  const userMessage = {
+    role: "user",
+    content: `Tweet:\n"""\n${context}\n"""${regenerateNote}`
+  };
 
   // ── Call OpenAI ───────────────────────────────────────────────────────────
   const model = plan.model;
@@ -451,7 +457,7 @@ export async function POST(req: NextRequest) {
     data: {
       userId, contextHash: ctxHash, suggestions: suggestions as any,
       inputTokens, outputTokens, costUSD: costUSD.toFixed(6),
-      model, hadImage: useVision
+      model, hadImage: imageUsedByGrok
     }
   });
 
@@ -464,7 +470,7 @@ export async function POST(req: NextRequest) {
     suggestions,
     usage: { used: usage.count + 1, limit: plan.dailyLimit, plan: sub.plan },
     model,
-    visionUsed: useVision,
+    visionUsed: imageUsedByGrok,
     searchUsed: !!enrichedContext
   });
 }
