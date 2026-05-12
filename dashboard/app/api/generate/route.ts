@@ -356,13 +356,16 @@ export async function POST(req: NextRequest) {
   let enrichedContext: string | null = null;
   let imageUsedByGrok = false;
   let searchUsedByGrok = false;
-  if (process.env.AI_GATEWAY_API_KEY) {
-    const enrichment = await enrichContext(context, imageParts);
-    enrichedContext = enrichment.text;
-    imageUsedByGrok = enrichment.imageUsed;
-    searchUsedByGrok = enrichment.searchUsed;
-  } else {
-    console.log("[enrich] skipped - AI_GATEWAY_API_KEY not set");
+  const enrichment = await enrichContext(context, imageParts);
+  enrichedContext = enrichment.text;
+  imageUsedByGrok = enrichment.imageUsed;
+  searchUsedByGrok = enrichment.searchUsed;
+
+  if (!searchUsedByGrok) {
+    return NextResponse.json({ error: "GROK_GROUNDING_FAILED" }, { status: 502 });
+  }
+  if (rawImageUrls.length > 0 && !imageUsedByGrok) {
+    return NextResponse.json({ error: "GROK_IMAGE_FAILED" }, { status: 502 });
   }
 
   // ── User settings ─────────────────────────────────────────────────────────

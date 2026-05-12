@@ -7,7 +7,6 @@ import { secureUUID } from "./crypto-utils.js";
 const get = (k) => chrome.storage.local.get(k);
 const set = (o) => chrome.storage.local.set(o);
 const del = (k) => chrome.storage.local.remove(k);
-const SUGGESTION_CACHE_VERSION = 11;
 
 async function getInstallId() {
   const k = CONFIG.STORAGE_KEYS.INSTALL_ID;
@@ -16,27 +15,6 @@ async function getInstallId() {
   const id = secureUUID();
   await set({ [k]: id });
   return id;
-}
-
-/* ---------- Suggestion cache ---------- */
-async function readCache() {
-  const r = await get(CONFIG.STORAGE_KEYS.SUGGESTION_CACHE);
-  return r[CONFIG.STORAGE_KEYS.SUGGESTION_CACHE] || {};
-}
-async function writeCache(cache) {
-  let entries = Object.entries(cache);
-  if (entries.length > CONFIG.CACHE_MAX_ENTRIES) {
-    entries.sort((a, b) => b[1].ts - a[1].ts);
-    cache = Object.fromEntries(entries.slice(0, CONFIG.CACHE_MAX_ENTRIES));
-  }
-  await set({ [CONFIG.STORAGE_KEYS.SUGGESTION_CACHE]: cache });
-}
-async function hashCtx(s) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
-}
-function cacheSeed(ctx, imageUrls) {
-  return JSON.stringify({ ctx, imageUrls: (imageUrls || []).slice(0, 4) });
 }
 
 /* ---------- Validation ---------- */
@@ -108,35 +86,9 @@ async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions
   if (!ctx) return { ok: false, error: "EMPTY_CONTEXT" };
   if (!tryAcquire()) return { ok: false, error: "RATE_LIMIT_LOCAL" };
 
-  // For regenerate, skip cache (always fresh)
-  if (!regenerate) {
-    const key = await hashCtx(cacheSeed(ctx, imageUrls));
-    const cache = await readCache();
-    const hit = cache[key];
-    if (hit?.v === SUGGESTION_CACHE_VERSION && Date.now() - hit.ts < CONFIG.SUGGESTION_CACHE_TTL_MS) {
-      return {
-        ok: true,
-        suggestions: validateSuggestions(hit.suggestions),
-        visionUsed: !!hit.visionUsed,
-        searchUsed: !!hit.searchUsed,
-        cached: true
-      };
-    }
-  }
-
+  // Grounding must run on every generation. Do not serve cached suggestions,
+  // because stale cache skips Grok search/image checks and can mix old context.
   const result = await callGenerate(ctx, imageUrls || [], !!regenerate, previousSuggestions || []);
-  if (result.ok && !regenerate) {
-    const key = await hashCtx(cacheSeed(ctx, imageUrls));
-    const cache = await readCache();
-    cache[key] = {
-      v: SUGGESTION_CACHE_VERSION,
-      ts: Date.now(),
-      suggestions: result.suggestions,
-      visionUsed: !!result.visionUsed,
-      searchUsed: !!result.searchUsed
-    };
-    await writeCache(cache);
-  }
   if (result.ok) await audit("generate_ok", { count: result.suggestions.length, regen: regenerate });
   else await audit("generate_fail", { error: result.error });
   return result;
