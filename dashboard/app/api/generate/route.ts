@@ -164,6 +164,8 @@ ${masterpiece
 Only reply from the visible tweet context and verified background below.
 Never invent project/protocol/token/person names just because a generic word matches them.
 If the post is short or ambiguous, stay literal and broad instead of adding unsupported specifics.
+Every reply must reuse or clearly react to a concrete phrase, handle, ticker, number, product, claim, or image detail from the tweet.
+Do not summarize the post with vague hype. Add a small grounded angle, caveat, or implication.
 When referring to a visible X account/project, prefer the exact @handle from context over its display name.
 Never guess usernames. Never use a username from a same-name project unless the handle/URL is visible or verified as the same entity.
 BAD for "Base is home to all agents": mentioning Synadia, Hermes, OpenClaw, or any specific agent project not present in the tweet.
@@ -177,7 +179,9 @@ Never use these words/phrases (all AI tells caught in production):
 "Love that", "Love this", "Great point", "Absolutely", "Indeed", "Props for", "Kudos",
 "this is huge", "this is wild", "massive if true", "can't wait to see",
 "solid move", "makes sense", "that's a big bet", "ambitious projections",
-"movers and shakers", "some serious momentum", "no joke", "is no joke"
+"movers and shakers", "some serious momentum", "no joke", "is no joke",
+"vibes", "heating up", "ride the wave", "could ride", "might be the ticket",
+"intriguing combo", "the future", "huge boost", "potential is clear", "real game changer"
 
 Never end a reply with an unanswered question. Questions = AI slop unless answered immediately in Quick Q&A.
 BAD: "$IMGN's 33.7% spike is wild. Any news driving this?"
@@ -229,6 +233,8 @@ open gotchi's potential
 
 bridging digital companions with real-world interactions
 new class of actors needs a new class of financial systems fr
+v4 hooks needed an actual consumer-facing example like this
+if $bnkr makes the yield engine real, the hook meta gets less abstract
 agent economy
 ~ cloudflare: ai bots > humans
 ~ slack: agents > humans
@@ -246,6 +252,7 @@ stablecoins got the exit ramp    banks still want the old spread
 8. Do not wrap replies or individual lines in quotation marks.
 9. Do not name external projects/protocols/tools unless they appear in the tweet context or verified background.
 10. Never include structure names or labels in the reply text.
+11. Avoid filler adjectives. Prefer one specific noun from the tweet over broad words like future, potential, wave, vibes, boost.
 ${hasImage ? `
 ━━ IMAGE ━━
 You can see it fully. At least 2 of 4 replies reference SPECIFIC visual details:
@@ -384,8 +391,8 @@ export async function POST(req: NextRequest) {
   // ── Call OpenAI ───────────────────────────────────────────────────────────
   const model = plan.model;
   const masterpiece = plan.qualityTier === "masterpiece";
-  // Lower temperature keeps replies grounded and reduces project hallucinations.
-  const temperature = isRegenerate ? 0.72 : masterpiece ? 0.62 : 0.55;
+  // Lower temperature keeps replies grounded and reduces generic hype.
+  const temperature = isRegenerate ? 0.65 : masterpiece ? 0.56 : 0.48;
   const maxTokens = masterpiece ? 900 : 700;
 
   let openaiResp: Response;

@@ -418,29 +418,25 @@
   }
 
   function replaceComposerText(target, text) {
-    selectComposerContents(target);
-    if (insertViaPasteEvent(target, text)) {
-      setTimeout(() => {
-        const freshComposer = findComposer();
-        if (!freshComposer) return;
-        if (normalizeComposerText(freshComposer.innerText) !== normalizeComposerText(text)) {
-          insertTextIntoSelection(freshComposer, text);
-        }
-      }, 50);
-      return;
-    }
-
     insertTextIntoSelection(target, text);
   }
 
   function insertTextIntoSelection(target, text) {
     selectComposerContents(target);
     document.execCommand("insertText", false, text);
-    target.dispatchEvent(new Event("input", { bubbles: true }));
+    dispatchComposerInput(target, text);
   }
 
-  function normalizeComposerText(text) {
-    return String(text || "").replace(/\u200B/g, "").replace(/\r\n?/g, "\n").trim();
+  function dispatchComposerInput(target, text) {
+    try {
+      target.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        inputType: "insertText",
+        data: text
+      }));
+    } catch {
+      target.dispatchEvent(new Event("input", { bubbles: true }));
+    }
   }
 
   function selectComposerContents(target) {
@@ -460,22 +456,6 @@
     if (!sel?.rangeCount) return false;
     const common = sel.getRangeAt(0).commonAncestorContainer;
     return common === target || target.contains(common);
-  }
-
-  function insertViaPasteEvent(target, text) {
-    try {
-      const data = new DataTransfer();
-      data.setData("text/plain", text);
-      const event = new ClipboardEvent("paste", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: data
-      });
-
-      return !target.dispatchEvent(event);
-    } catch {
-      return false;
-    }
   }
 
   let lastSuggestions = [];
