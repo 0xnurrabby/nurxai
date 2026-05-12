@@ -200,21 +200,10 @@ Default to Lane A unless the post clearly demands another lane.
 Lane A - Standard Human (default, use for most posts):
 - Either one clean sentence, or two short lines with one empty line between them.
 - This is best for normal opinions, product updates, quote tweets, images, and most tech/crypto posts.
-- Examples:
-open gotchi's potential
-
-bridging digital companions with real-world interactions
-
-new class of actors needs a new class of financial systems fr
 
 Lane B - Simple Stack (only for list/data/multi-item posts):
 - Header line, then '~' bullets with NO empty lines.
 - Use when the original post itself has a list, finalists, many companies, features, stats, or comparisons.
-- Example:
-agent economy
-~ cloudflare: ai bots > humans
-~ slack: agents > humans
-~ nvidia: 100 agents/employee
 
 Lane C - Drift (only for nuanced two-part takes):
 - One line with 4-5 spaces between two related thoughts.
@@ -227,19 +216,7 @@ Avoid these unless the fit is painfully obvious: slash dividers, pure quotes, AL
 BAD: gotchios/kalqix/wlthxyz/lienfiapp/lendra/rogueaidotfun
 BAD: wait.\n\nretro computer vibe
 BAD: forcing every reply into a different visual structure.
-
-━━ WHAT GOOD LOOKS LIKE ━━
-open gotchi's potential
-
-bridging digital companions with real-world interactions
-new class of actors needs a new class of financial systems fr
-v4 hooks needed an actual consumer-facing example like this
-if $bnkr makes the yield engine real, the hook meta gets less abstract
-agent economy
-~ cloudflare: ai bots > humans
-~ slack: agents > humans
-~ nvidia: 100 agents/employee
-stablecoins got the exit ramp    banks still want the old spread
+No domain-specific examples are provided intentionally. Never copy wording from this prompt into a reply.
 
 ━━ RULES ━━
 1. Zero emojis.
@@ -263,7 +240,7 @@ ${enrichedContext ? `\n━━ CONTEXT (verified background - use if relevant) �
 ${projectsContext ? `\n━━ YOUR EXPERTISE ━━\n${projectsContext}` : ""}
 
 OUTPUT: JSON only. Use \\n\\n only for Lane A two-line replies. Use \\n for Lane B stack bullets.
-{"suggestions": ["clean one-line reply", "hook\\n\\nsecond line", "another clean one-line reply", "short grounded reply"]}`;
+{"suggestions": ["reply 1", "reply 2", "reply 3", "reply 4"]}`;
 }
 
 // ─── Main Route ───────────────────────────────────────────────────────────────
@@ -431,7 +408,10 @@ export async function POST(req: NextRequest) {
   const outputTokens = data?.usage?.completion_tokens || 0;
 
   let suggestions = parseSuggestions(raw);
-  suggestions = suggestions.map(stripEmojis).map(cleanReply);
+  suggestions = suggestions
+    .map(stripEmojis)
+    .map(cleanReply)
+    .filter(s => isAllowedReply(s, context));
   if (!suggestions.length) {
     return NextResponse.json({ error: "EMPTY_SUGGESTIONS" }, { status: 502 });
   }
@@ -486,6 +466,34 @@ function stripWrappingQuotes(s: string): string {
     .map(line => line.trim().replace(/^["“”]+|["“”]+$/g, ""))
     .join("\n")
     .trim();
+}
+
+function normalizeForCompare(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9@$]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function isAllowedReply(reply: string, context: string): boolean {
+  if (!reply.trim()) return false;
+
+  const normalizedReply = normalizeForCompare(reply);
+  const normalizedContext = normalizeForCompare(context);
+  const leakedPromptPhrases = [
+    "open gotchi potential",
+    "bridging digital companions with real world interactions",
+    "new class of actors needs a new class of financial systems",
+    "v4 hooks needed an actual consumer facing example",
+    "hook meta gets less abstract",
+    "agent economy cloudflare ai bots humans slack agents humans nvidia 100 agents employee",
+    "stablecoins got the exit ramp banks still want the old spread"
+  ];
+
+  if (leakedPromptPhrases.some(phrase => normalizedReply.includes(phrase))) return false;
+
+  const contextSymbols = new Set(normalizedContext.match(/[@$][a-z0-9_]+/g) || []);
+  const replySymbols = normalizedReply.match(/[@$][a-z0-9_]+/g) || [];
+  if (replySymbols.some(symbol => !contextSymbols.has(symbol))) return false;
+
+  return true;
 }
 
 // Post-process: fix punctuation issues the model still produces despite prompt
