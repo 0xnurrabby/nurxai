@@ -60,7 +60,6 @@ Dashboard env file:
 
 ```env
 DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres?sslmode=require
-DIRECT_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres?sslmode=require
 JWT_SECRET=generate_a_long_random_secret
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
