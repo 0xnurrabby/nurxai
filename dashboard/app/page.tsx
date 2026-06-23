@@ -7,11 +7,11 @@ export default function Home() {
       <Navbar />
 
       {/* HERO */}
-      <section className="max-w-6xl mx-auto px-5 py-16 md:py-24 text-center">
-        <span className="nb-tag">CHROME EXTENSION • AI POWERED</span>
-        <h1 className="mt-5 font-display font-black text-5xl md:text-7xl leading-tight">
+      <section className="section-reveal max-w-6xl mx-auto px-5 py-16 md:py-24 text-center">
+        <span className="nb-tag">CHROME EXTENSION - AI POWERED</span>
+        <h1 className="mt-5 font-display font-black text-[44px] sm:text-6xl md:text-7xl leading-[1.05] tracking-normal">
           Reply on X like a{" "}
-          <span style={{ background: "var(--accent3)", padding: "0 10px" }}>
+          <span className="hero-highlight">
             real human
           </span>
           .
@@ -34,11 +34,11 @@ export default function Home() {
       </section>
 
       {/* WHO IS THIS FOR */}
-      <section className="max-w-6xl mx-auto px-5 py-12">
+      <section className="section-reveal max-w-6xl mx-auto px-5 py-12">
         <h2 className="font-display font-black text-3xl md:text-4xl text-center">
           Who is NurAi for?
         </h2>
-        <div className="mt-10 grid md:grid-cols-3 gap-5">
+        <div className="stagger-list mt-10 grid md:grid-cols-3 gap-5">
           {[
             {
               title: "Crypto / Web3 builders",
@@ -62,14 +62,14 @@ export default function Home() {
       </section>
 
       {/* FEATURES */}
-      <section className="max-w-6xl mx-auto px-5 py-16">
+      <section className="section-reveal max-w-6xl mx-auto px-5 py-16">
         <h2 className="font-display font-black text-3xl md:text-4xl text-center">
           Why NurAi?
         </h2>
-        <div className="mt-10 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="stagger-list mt-10 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
           {[
             { t: "Context-aware", d: "Reads the tweet's emotion, tone, and topic. Even sees attached images on Pro and Premium." },
-            { t: "Human feel", d: "Casual, witty, sometimes imperfect. Never sounds like AI. No emojis, no clichés." },
+            { t: "Human feel", d: "Casual, witty, sometimes imperfect. Never sounds like AI. No emojis, no cliches." },
             { t: "One-click paste", d: "Tap a suggestion to drop it into the X reply box, ready to send." },
             { t: "Privacy first", d: "No DMs, no history, no X password. Just the public tweet you're replying to." }
           ].map((x) => (
@@ -82,11 +82,11 @@ export default function Home() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="max-w-6xl mx-auto px-5 py-16">
+      <section className="section-reveal max-w-6xl mx-auto px-5 py-16">
         <h2 className="font-display font-black text-3xl md:text-4xl text-center">
           How it works
         </h2>
-        <div className="mt-10 grid md:grid-cols-4 gap-5">
+        <div className="stagger-list mt-10 grid md:grid-cols-4 gap-5">
           {[
             { n: "1", t: "Install", d: "Add NurAi from the Chrome Web Store. 30 seconds." },
             { n: "2", t: "Sign up", d: "Create an account here. Your free trial starts automatically." },
@@ -108,7 +108,7 @@ export default function Home() {
       </section>
 
       {/* WHY PREMIUM */}
-      <section className="max-w-6xl mx-auto px-5 py-16">
+      <section className="section-reveal max-w-6xl mx-auto px-5 py-16">
         <div className="nb-card p-8 text-center" style={{ background: "var(--accent2)" }}>
           <span className="nb-tag" style={{ background: "var(--accent3)" }}>BEST VALUE</span>
           <h2 className="mt-4 font-display font-black text-3xl md:text-4xl">
@@ -127,11 +127,11 @@ export default function Home() {
       </section>
 
       {/* TESTIMONIALS */}
-      <section className="max-w-6xl mx-auto px-5 py-16">
+      <section className="section-reveal max-w-6xl mx-auto px-5 py-16">
         <h2 className="font-display font-black text-3xl md:text-4xl text-center">
           What users say
         </h2>
-        <div className="mt-10 grid md:grid-cols-3 gap-5">
+        <div className="stagger-list mt-10 grid md:grid-cols-3 gap-5">
           {[
             {
               name: "Ryan B.",
@@ -168,11 +168,11 @@ export default function Home() {
       </section>
 
       {/* FAQ */}
-      <section className="max-w-3xl mx-auto px-5 py-16">
+      <section className="section-reveal max-w-3xl mx-auto px-5 py-16">
         <h2 className="font-display font-black text-3xl md:text-4xl text-center">
           Frequently asked
         </h2>
-        <div className="mt-10 space-y-4">
+        <div className="stagger-list mt-10 space-y-4">
           {[
             {
               q: "Can NurAi understand images in tweets?",
@@ -180,7 +180,7 @@ export default function Home() {
             },
             {
               q: "How human do the replies actually sound?",
-              a: "We obsess over this. NurAi never uses emojis (they're a dead giveaway), avoids AI clichés like 'Great point!' or 'Absolutely!', and uses natural human imperfections like fragmented sentences, casual contractions, and lowercase starts. Most users say nobody can tell it's AI."
+              a: "We obsess over this. NurAi never uses emojis (they're a dead giveaway), avoids AI cliches like 'Great point!' or 'Absolutely!', and uses natural human imperfections like fragmented sentences, casual contractions, and lowercase starts. Most users say nobody can tell it's AI."
             },
             {
               q: "What if the first 4 replies aren't great?",
@@ -234,7 +234,7 @@ export default function Home() {
       </section>
 
       {/* SETUP HELP */}
-      <section className="max-w-3xl mx-auto px-5 py-16">
+      <section className="section-reveal max-w-3xl mx-auto px-5 py-16">
         <h2 className="font-display font-black text-3xl md:text-4xl text-center">
           Setup in 60 seconds
         </h2>
@@ -272,7 +272,7 @@ export default function Home() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="max-w-4xl mx-auto px-5 py-16 text-center">
+      <section className="section-reveal max-w-4xl mx-auto px-5 py-16 text-center">
         <h2 className="font-display font-black text-4xl md:text-5xl">
           Stop overthinking replies.
         </h2>
