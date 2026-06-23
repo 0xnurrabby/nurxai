@@ -629,9 +629,7 @@
           RATE_LIMIT_LOCAL: ["Slow down — please wait a moment.", null],
           NETWORK:          ["Network error. Check your connection.", null],
           EMPTY_CONTEXT:    ["No tweet context found.", null],
-          BAD_RESPONSE:     ["Server returned an unexpected response.", null],
-          GROK_GROUNDING_FAILED: ["Grok search failed. Check AI Gateway env/credits.", null],
-          GROK_IMAGE_FAILED: ["Grok image scan failed. Try regenerating after the image loads.", null]
+          BAD_RESPONSE:     ["Server returned an unexpected response.", null]
         };
         const [m, action] = map[resp?.error] || ["Could not generate suggestions.", null];
         showError(m, action);
