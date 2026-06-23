@@ -3,11 +3,13 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { signToken } from "@/lib/jwt";
 import { isAdminEmail } from "@/lib/admin";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureRuntimeSchema();
     const { email, password } = await req.json();
     if (typeof email !== "string" || typeof password !== "string") {
       return NextResponse.json({ error: "MISSING" }, { status: 400 });

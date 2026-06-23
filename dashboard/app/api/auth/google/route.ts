@@ -3,6 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { prisma } from "@/lib/db";
 import { signToken } from "@/lib/jwt";
 import { isAdminEmail } from "@/lib/admin";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,7 @@ function getGoogleClientId() {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureRuntimeSchema();
     const clientId = getGoogleClientId();
     if (!clientId) {
       return NextResponse.json({ error: "GOOGLE_NOT_CONFIGURED" }, { status: 500 });

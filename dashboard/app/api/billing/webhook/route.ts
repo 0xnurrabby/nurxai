@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { NowPaymentsSDK, normalizePaymentStatus, PaymentStatus } from "@nowpaymentsio/nowpayments-sdk-nodejs";
 import { prisma } from "@/lib/db";
 import { PLANS, PlanKey } from "@/lib/plans";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
@@ -96,6 +97,7 @@ async function activateSubscription(paymentId: string, rawStatus: string | null,
 }
 
 export async function POST(req: NextRequest) {
+  await ensureRuntimeSchema();
   const raw = await req.text();
   const sig = req.headers.get("x-nowpayments-sig") || "";
   const secret = process.env.NOWPAYMENTS_IPN_SECRET;

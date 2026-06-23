@@ -3,6 +3,7 @@ import { NowPaymentsSDK, isSDKError } from "@nowpaymentsio/nowpayments-sdk-nodej
 import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { prisma } from "@/lib/db";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,7 @@ function getPublicUrl() {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureRuntimeSchema();
     const session = await getSessionFromAuthHeader(req);
     if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
