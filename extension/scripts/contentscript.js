@@ -396,11 +396,27 @@
     if (!listEl) return;
     listEl.replaceChildren();
     const wrap = el("div", { class: "loader" });
+    const text = el("span", { class: "loader-text" }, "Generating replies...");
     wrap.append(
       el("div", { class: "dot" }), el("div", { class: "dot" }), el("div", { class: "dot" }),
-      el("span", { class: "loader-text" }, "Generating replies…")
+      text
     );
     listEl.appendChild(wrap);
+
+    const steps = [
+      "Checking tweet context...",
+      "Grounding the reply...",
+      "Writing options..."
+    ];
+    let index = 0;
+    const timer = window.setInterval(() => {
+      if (!wrap.isConnected) {
+        window.clearInterval(timer);
+        return;
+      }
+      text.textContent = steps[index % steps.length];
+      index++;
+    }, 1600);
   }
 
   function showError(msg, action = null) {

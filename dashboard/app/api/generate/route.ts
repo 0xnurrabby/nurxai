@@ -10,6 +10,10 @@ export const maxDuration = 60;
 const MAX_CTX = 1500;
 const AI_GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 const GENERATION_MODEL = "openai/gpt-5.4-mini";
+const IMAGE_FETCH_TIMEOUT_MS = getEnvInt("IMAGE_FETCH_TIMEOUT_MS", 5500, 1500, 12000);
+const ENRICH_TIMEOUT_MS = getEnvInt("AI_GATEWAY_ENRICH_TIMEOUT_MS", 12000, 4000, 25000);
+const ENRICH_ATTEMPTS = getEnvInt("AI_GATEWAY_ENRICH_ATTEMPTS", 1, 1, 2);
+const GENERATION_TIMEOUT_MS = getEnvInt("AI_GATEWAY_GENERATION_TIMEOUT_MS", 35000, 10000, 50000);
 
 const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o-mini": { input: 0.15, output: 0.60 },
@@ -19,6 +23,27 @@ const PRICES: Record<string, { input: number; output: number }> = {
 
 type ImagePart = { type: "image_url"; image_url: { url: string; detail: "high" | "auto" } };
 type EnrichmentResult = { text: string | null; imageUsed: boolean; searchUsed: boolean };
+type Plan = (typeof PLANS)[PlanKey];
+type ImagePreparationResult = {
+  imageParts: ImagePart[];
+  imagesInlined: number;
+  imagesUrlFallback: number;
+};
+type PersonalizationResult = {
+  style: string;
+  customNote: string | null;
+  projectsContext: string;
+};
+
+function getEnvInt(name: string, fallback: number, min: number, max: number) {
+  const raw = Number(process.env[name]);
+  if (!Number.isFinite(raw)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(raw)));
+}
+
+function nowMs() {
+  return Date.now();
+}
 
 // ─── Context Enrichment (Vercel AI Gateway → Grok) ───────────────────────────
 //
@@ -48,7 +73,7 @@ async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promis
   let lastStatus = 0;
   let lastBody = "";
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < ENRICH_ATTEMPTS; attempt++) {
     for (const model of models) {
       try {
         const resp = await fetch(AI_GATEWAY_URL, {
@@ -89,7 +114,7 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
             ],
             max_tokens: 450
           }),
-          signal: AbortSignal.timeout(20000)
+          signal: AbortSignal.timeout(ENRICH_TIMEOUT_MS)
         });
 
         if (!resp.ok) {
@@ -119,7 +144,7 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
 
 // ─── Image Fetching ───────────────────────────────────────────────────────────
 
-async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+function imageCandidates(url: string) {
   const candidates = [
     url,
     url.replace(/&name=\w+/, "&name=large"),
@@ -128,36 +153,135 @@ async function fetchImageAsDataUrl(url: string): Promise<string | null> {
     url.replace(/[?&]name=\w+/, "")
   ];
   const seen = new Set<string>();
-  const tries = candidates.filter(u => { if (seen.has(u)) return false; seen.add(u); return true; });
+  return candidates.filter(u => {
+    if (!u || seen.has(u)) return false;
+    seen.add(u);
+    return true;
+  });
+}
 
-  for (const candidate of tries) {
-    try {
-      const resp = await fetch(candidate, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-          Referer: "https://x.com/",
-          "Sec-Fetch-Dest": "image",
-          "Sec-Fetch-Mode": "no-cors",
-          "Sec-Fetch-Site": "cross-site",
-          "Cache-Control": "no-cache"
-        },
-        signal: AbortSignal.timeout(18000),
-        redirect: "follow"
-      });
-      if (!resp.ok) continue;
-      const ct = (resp.headers.get("content-type") || "").split(";")[0].trim() || "image/jpeg";
-      if (!ct.startsWith("image/")) continue;
-      const buf = Buffer.from(await resp.arrayBuffer());
-      if (!buf.length || buf.length > 10 * 1024 * 1024) continue;
-      console.log("[vision] fetched", ct, buf.length, "bytes");
-      return `data:${ct};base64,${buf.toString("base64")}`;
-    } catch (e: any) {
+async function fetchImageCandidate(candidate: string, signal: AbortSignal): Promise<string | null> {
+  try {
+    const resp = await fetch(candidate, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        Referer: "https://x.com/",
+        "Sec-Fetch-Dest": "image",
+        "Sec-Fetch-Mode": "no-cors",
+        "Sec-Fetch-Site": "cross-site",
+        "Cache-Control": "no-cache"
+      },
+      signal,
+      redirect: "follow"
+    });
+    if (!resp.ok) return null;
+    const ct = (resp.headers.get("content-type") || "").split(";")[0].trim() || "image/jpeg";
+    if (!ct.startsWith("image/")) return null;
+    const buf = Buffer.from(await resp.arrayBuffer());
+    if (!buf.length || buf.length > 10 * 1024 * 1024) return null;
+    console.log("[vision] fetched", ct, buf.length, "bytes");
+    return `data:${ct};base64,${buf.toString("base64")}`;
+  } catch (e: any) {
+    if (e?.name !== "AbortError") {
       console.warn("[vision] fetch threw", e?.name, candidate.slice(0, 80));
     }
+    return null;
   }
-  return null;
+}
+
+async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+  const tries = imageCandidates(url);
+  if (!tries.length) return null;
+
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    const winner = Promise.any(
+      tries.map(async (candidate) => {
+        const dataUrl = await fetchImageCandidate(candidate, controller.signal);
+        if (!dataUrl) throw new Error("image_fetch_failed");
+        return dataUrl;
+      })
+    ).catch(() => null);
+
+    const budget = new Promise<null>((resolve) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        resolve(null);
+      }, IMAGE_FETCH_TIMEOUT_MS);
+    });
+
+    return await Promise.race([winner, budget]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    controller.abort();
+  }
+}
+
+async function prepareImages(rawImageUrls: string[], plan: Plan): Promise<ImagePreparationResult> {
+  if (!plan.vision || rawImageUrls.length === 0) {
+    return { imageParts: [], imagesInlined: 0, imagesUrlFallback: 0 };
+  }
+
+  const limit = plan.qualityTier === "masterpiece" ? 3 : 2;
+  const urls = rawImageUrls.slice(0, limit);
+  const detail: "high" | "auto" = plan.qualityTier === "masterpiece" ? "high" : "auto";
+  const dataUrls = await Promise.all(urls.map((u) => fetchImageAsDataUrl(u)));
+
+  let imagesInlined = 0;
+  let imagesUrlFallback = 0;
+  const imageParts = dataUrls.map((dataUrl, index) => {
+    if (dataUrl) {
+      imagesInlined++;
+      return { type: "image_url" as const, image_url: { url: dataUrl, detail } };
+    }
+    imagesUrlFallback++;
+    return { type: "image_url" as const, image_url: { url: urls[index], detail: "auto" as const } };
+  });
+
+  return { imageParts, imagesInlined, imagesUrlFallback };
+}
+
+async function loadPersonalization(userId: string, plan: Plan): Promise<PersonalizationResult> {
+  const userPromise = prisma.user.findUnique({
+    where: { id: userId },
+    select: { replyStyle: true, customStyleNote: true }
+  });
+
+  const projectsPromise = plan.allowProjects
+    ? prisma.project.findMany({
+        where: { userId, active: true },
+        select: {
+          name: true,
+          contexts: {
+            orderBy: { createdAt: "desc" },
+            take: plan.qualityTier === "masterpiece" ? 8 : 5,
+            select: { content: true }
+          }
+        },
+        take: plan.qualityTier === "masterpiece" ? 12 : 5
+      })
+    : Promise.resolve([]);
+
+  const [user, projects] = await Promise.all([userPromise, projectsPromise]);
+  const style = plan.allowStyles ? user?.replyStyle || "default" : "default";
+  const customNote = plan.allowStyles ? user?.customStyleNote || null : null;
+
+  const projectsContext = projects.length
+    ? projects
+        .map((p) => {
+          const ctx = p.contexts.map((c) => c.content).join("\n\n");
+          return ctx ? `Project: ${p.name}\n${ctx}` : "";
+        })
+        .filter(Boolean)
+        .join("\n\n---\n\n")
+        .slice(0, plan.qualityTier === "masterpiece" ? 5000 : 3500)
+    : "";
+
+  return { style, customNote, projectsContext };
 }
 
 // ─── Style instruction ────────────────────────────────────────────────────────
@@ -314,30 +438,15 @@ OUTPUT: JSON only. Use \\n\\n only for Lane A two-line replies. Use \\n for Lane
 // ─── Main Route ───────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const auth = await getAuthUserFromHeader(req);
+  const requestStarted = nowMs();
+  const requestId = crypto.randomUUID().slice(0, 8);
+  const [auth, body] = await Promise.all([
+    getAuthUserFromHeader(req),
+    req.json().catch(() => ({}))
+  ]);
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   const userId = auth.user.id;
 
-  const sub = await prisma.subscription.findFirst({
-    where: { userId, status: "active", endsAt: { gt: new Date() } },
-    orderBy: { endsAt: "desc" }
-  });
-  if (!sub) return NextResponse.json({ error: "NO_SUBSCRIPTION" }, { status: 402 });
-
-  const plan = PLANS[sub.plan as PlanKey];
-  if (!plan) return NextResponse.json({ error: "BAD_PLAN" }, { status: 402 });
-
-  const day = new Date().toISOString().slice(0, 10);
-  const usage = await prisma.usageLog.upsert({
-    where: { userId_day: { userId, day } },
-    create: { userId, day, count: 0 },
-    update: {}
-  });
-  if (usage.count >= plan.dailyLimit) {
-    return NextResponse.json({ error: "QUOTA_EXCEEDED", limit: plan.dailyLimit }, { status: 429 });
-  }
-
-  const body = await req.json().catch(() => ({}));
   let context = String(body?.context || "").trim();
   if (!context) return NextResponse.json({ error: "EMPTY_CONTEXT" }, { status: 400 });
   context = context.slice(0, MAX_CTX);
@@ -346,34 +455,51 @@ export async function POST(req: NextRequest) {
     ? body.imageUrls.filter((u: any) => typeof u === "string").slice(0, 4)
     : [];
 
+  const day = new Date().toISOString().slice(0, 10);
+  const dbStarted = nowMs();
+  const [sub, usage] = await Promise.all([
+    prisma.subscription.findFirst({
+      where: { userId, status: "active", endsAt: { gt: new Date() } },
+      orderBy: { endsAt: "desc" }
+    }),
+    prisma.usageLog.findUnique({
+      where: { userId_day: { userId, day } },
+      select: { count: true }
+    })
+  ]);
+  const dbMs = nowMs() - dbStarted;
+  if (!sub) return NextResponse.json({ error: "NO_SUBSCRIPTION" }, { status: 402 });
+
+  const plan = PLANS[sub.plan as PlanKey];
+  if (!plan) return NextResponse.json({ error: "BAD_PLAN" }, { status: 402 });
+
+  const usageCount = usage?.count ?? 0;
+  if (usageCount >= plan.dailyLimit) {
+    return NextResponse.json({ error: "QUOTA_EXCEEDED", limit: plan.dailyLimit }, { status: 429 });
+  }
+
   // ── Vision image preparation for Grok ────────────────────────────────────────
-  const imageParts: ImagePart[] = [];
-  let imagesInlined = 0;
-  let imagesUrlFallback = 0;
+  const personalizationStarted = nowMs();
+  const personalizationPromise = loadPersonalization(userId, plan).catch((e: any) => {
+    console.warn("[generate]", requestId, "personalization failed", e?.message || "?");
+    return { style: "default", customNote: null, projectsContext: "" };
+  });
+  const imageStarted = nowMs();
+  const imagePrep = await prepareImages(rawImageUrls, plan);
+  const imageMs = nowMs() - imageStarted;
 
   if (rawImageUrls.length > 0) {
-    for (const u of rawImageUrls.slice(0, 3)) {
-      const dataUrl = await fetchImageAsDataUrl(u);
-      if (dataUrl) {
-        imagesInlined++;
-        const detail: "high" | "auto" = plan.qualityTier === "masterpiece" ? "high" : "auto";
-        imageParts.push({ type: "image_url", image_url: { url: dataUrl, detail } });
-      } else {
-        imagesUrlFallback++;
-        imageParts.push({ type: "image_url", image_url: { url: u, detail: "auto" } });
-      }
-    }
-    console.log("[vision] plan=", plan.key, "received=", rawImageUrls.length,
-      "inlined=", imagesInlined, "url-fallback=", imagesUrlFallback);
+    console.log("[vision]", requestId, "plan=", plan.key, "received=", rawImageUrls.length,
+      "inlined=", imagePrep.imagesInlined, "url-fallback=", imagePrep.imagesUrlFallback, "ms=", imageMs);
   }
   // ── Context + image enrichment via Grok on Vercel AI Gateway ─────────────────
-  let enrichedContext: string | null = null;
-  let imageUsedByGrok = false;
-  let searchUsedByGrok = false;
-  const enrichment = await enrichContext(context, imageParts);
-  enrichedContext = enrichment.text;
-  imageUsedByGrok = enrichment.imageUsed;
-  searchUsedByGrok = enrichment.searchUsed;
+  const enrichStarted = nowMs();
+  const enrichment = await enrichContext(context, imagePrep.imageParts);
+  const enrichedContext = enrichment.text;
+  const imageUsedByGrok = enrichment.imageUsed;
+  const searchUsedByGrok = enrichment.searchUsed;
+  const hadVerifiedImageContext = Boolean(enrichedContext && imageUsedByGrok);
+  const enrichMs = nowMs() - enrichStarted;
 
   // ── User settings ─────────────────────────────────────────────────────────
   const isRegenerate = !!body?.regenerate;
@@ -381,33 +507,13 @@ export async function POST(req: NextRequest) {
     ? body.previousSuggestions.filter((s: any) => typeof s === "string").slice(0, 12)
     : [];
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { replyStyle: true, customStyleNote: true }
-  });
-  const style = plan.allowStyles ? user?.replyStyle || "default" : "default";
-  const customNote = plan.allowStyles ? user?.customStyleNote || null : null;
+  const { style, customNote, projectsContext } = await personalizationPromise;
+  const personalizationMs = nowMs() - personalizationStarted;
 
   // ── Project contexts ──────────────────────────────────────────────────────
-  let projectsContext = "";
-  if (plan.allowProjects) {
-    const projects = await prisma.project.findMany({
-      where: { userId, active: true },
-      include: { contexts: { orderBy: { createdAt: "desc" }, take: 5 } }
-    });
-    if (projects.length) {
-      projectsContext = projects
-        .map(p => {
-          const ctx = p.contexts.map(c => c.content).join("\n\n");
-          return ctx ? `Project: ${p.name}\n${ctx}` : "";
-        })
-        .filter(Boolean).join("\n\n---\n\n").slice(0, 4000);
-    }
-  }
-
   const systemPrompt = buildSystemPrompt(
     plan.qualityTier, style, customNote,
-    projectsContext, imageUsedByGrok, enrichedContext
+    projectsContext, hadVerifiedImageContext, enrichedContext
   );
 
   // ── Build user message ────────────────────────────────────────────────────
@@ -448,7 +554,7 @@ export async function POST(req: NextRequest) {
         temperature,
         max_tokens: maxTokens
       }),
-      signal: AbortSignal.timeout(45000)
+      signal: AbortSignal.timeout(GENERATION_TIMEOUT_MS)
     });
   } catch {
     return NextResponse.json({ error: "UPSTREAM" }, { status: 502 });
@@ -479,24 +585,32 @@ export async function POST(req: NextRequest) {
   const costUSD = (inputTokens / 1_000_000) * price.input + (outputTokens / 1_000_000) * price.output;
 
   const ctxHash = crypto.createHash("sha256").update(context).digest("hex").slice(0, 32);
-  await prisma.generation.create({
-    data: {
-      userId, contextHash: ctxHash, suggestions: suggestions as any,
-      inputTokens, outputTokens, costUSD: costUSD.toFixed(6),
-      model, hadImage: imageUsedByGrok
-    }
-  });
+  const writeStarted = nowMs();
+  await Promise.all([
+    prisma.generation.create({
+      data: {
+        userId, contextHash: ctxHash, suggestions: suggestions as any,
+        inputTokens, outputTokens, costUSD: costUSD.toFixed(6),
+        model, hadImage: hadVerifiedImageContext
+      }
+    }),
+    prisma.usageLog.upsert({
+      where: { userId_day: { userId, day } },
+      create: { userId, day, count: 1 },
+      update: { count: { increment: 1 } }
+    })
+  ]);
+  const writeMs = nowMs() - writeStarted;
 
-  await prisma.usageLog.update({
-    where: { userId_day: { userId, day } },
-    data: { count: { increment: 1 } }
-  });
+  console.log("[generate]", requestId, "plan=", plan.key, "total=", nowMs() - requestStarted,
+    "db=", dbMs, "image=", imageMs, "enrich=", enrichMs, "personalization=", personalizationMs,
+    "write=", writeMs, "vision=", hadVerifiedImageContext, "search=", searchUsedByGrok);
 
   return NextResponse.json({
     suggestions,
-    usage: { used: usage.count + 1, limit: plan.dailyLimit, plan: sub.plan },
+    usage: { used: usageCount + 1, limit: plan.dailyLimit, plan: sub.plan },
     model,
-    visionUsed: imageUsedByGrok,
+    visionUsed: hadVerifiedImageContext,
     searchUsed: searchUsedByGrok
   });
 }

@@ -47,6 +47,17 @@ export default function Dashboard() {
         }
         const d = await r.json();
         setData(d);
+
+        fetch("/api/me?details=usage", {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+          .then((usageRes) => (usageRes.ok ? usageRes.json() : null))
+          .then((usageData) => {
+            if (usageData?.usageHistory) {
+              setData((current) => current ? { ...current, ...usageData } : usageData);
+            }
+          })
+          .catch(() => {});
       } finally {
         setLoading(false);
       }
