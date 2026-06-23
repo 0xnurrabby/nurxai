@@ -8,10 +8,13 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_CTX = 1500;
+const AI_GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
+const GENERATION_MODEL = "openai/gpt-5.4-mini";
 
 const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o-mini": { input: 0.15, output: 0.60 },
-  "gpt-4o":      { input: 2.50, output: 10.00 }
+  "gpt-4o":      { input: 2.50, output: 10.00 },
+  "openai/gpt-5.4-mini": { input: 0.15, output: 0.60 }
 };
 
 type ImagePart = { type: "image_url"; image_url: { url: string; detail: "high" | "auto" } };
@@ -48,7 +51,7 @@ async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promis
   for (let attempt = 0; attempt < 3; attempt++) {
     for (const model of models) {
       try {
-        const resp = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
+        const resp = await fetch(AI_GATEWAY_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -418,19 +421,23 @@ export async function POST(req: NextRequest) {
   };
 
   // ── Call OpenAI ───────────────────────────────────────────────────────────
-  const model = plan.model;
+  const model = process.env.AI_GATEWAY_GENERATION_MODEL || plan.model || GENERATION_MODEL;
+  const apiKey = process.env.AI_GATEWAY_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: "AI_GATEWAY_NOT_CONFIGURED" }, { status: 500 });
+  }
   const masterpiece = plan.qualityTier === "masterpiece";
   // Keep enough entropy for human variation while Grok context keeps it grounded.
   const temperature = isRegenerate ? 0.78 : masterpiece ? 0.68 : 0.62;
   const maxTokens = masterpiece ? 900 : 700;
 
-  let openaiResp: Response;
+  let gatewayResp: Response;
   try {
-    openaiResp = await fetch("https://api.openai.com/v1/chat/completions", {
+    gatewayResp = await fetch(AI_GATEWAY_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model,
@@ -448,13 +455,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "UPSTREAM" }, { status: 502 });
   }
 
-  if (!openaiResp.ok) {
-    const errBody = await openaiResp.text().catch(() => "");
-    console.error("OpenAI error:", openaiResp.status, errBody);
+  if (!gatewayResp.ok) {
+    const errBody = await gatewayResp.text().catch(() => "");
+    console.error("AI Gateway error:", gatewayResp.status, errBody);
     return NextResponse.json({ error: "UPSTREAM" }, { status: 502 });
   }
 
-  const data = await openaiResp.json().catch(() => null);
+  const data = await gatewayResp.json().catch(() => null);
   const raw = data?.choices?.[0]?.message?.content || "";
   const inputTokens = data?.usage?.prompt_tokens || 0;
   const outputTokens = data?.usage?.completion_tokens || 0;
@@ -469,7 +476,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "EMPTY_SUGGESTIONS" }, { status: 502 });
   }
 
-  const price = PRICES[model] || PRICES["gpt-4o-mini"];
+  const price = PRICES[model] || PRICES[GENERATION_MODEL];
   const costUSD = (inputTokens / 1_000_000) * price.input + (outputTokens / 1_000_000) * price.output;
 
   const ctxHash = crypto.createHash("sha256").update(context).digest("hex").slice(0, 32);

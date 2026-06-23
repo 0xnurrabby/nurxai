@@ -59,19 +59,34 @@ Extension:
 Dashboard env file:
 
 ```env
-DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres?sslmode=require
 JWT_SECRET=generate_a_long_random_secret
-OPENAI_API_KEY=sk-...
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 PUBLIC_URL=http://localhost:3000
 AI_GATEWAY_API_KEY=vai_...
 AI_GATEWAY_MODEL=xai/grok-4.1-fast-reasoning
+AI_GATEWAY_GENERATION_MODEL=openai/gpt-5.4-mini
 BASE_PAY_RECIPIENT=0x_your_usdc_receiver
-NOWPAYMENTS_KEY=
+NOWPAYMENTS_API_KEY=
 NOWPAYMENTS_IPN_SECRET=
-DEV_ADMIN_KEY=
+ADMIN_EMAILS=owner@example.com,second-admin@example.com
 ```
 
-If you do not need billing locally, leave NOWPayments values empty.
+If you do not need billing locally, leave NOWPayments values empty. `NOWPAYMENTS_KEY`
+is still accepted for older deployments, but `NOWPAYMENTS_API_KEY` is preferred.
+
+Production uses Supabase Postgres through Prisma. Point `DATABASE_URL` at the
+Supabase direct connection string, then run:
+
+```powershell
+cd dashboard
+npx prisma migrate deploy
+npx prisma generate
+```
+
+Admin access is controlled by `ADMIN_EMAILS`; database `isAdmin` is only synced
+for display and cannot grant access by itself.
 
 ---
 

@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
-
-async function requireAdmin(req: NextRequest) {
-  const session = await getSessionFromAuthHeader(req);
-  if (!session?.sub) return null;
-  const user = await prisma.user.findUnique({ where: { id: session.sub } });
-  if (!user?.isAdmin) return null;
-  return user;
-}
 
 /**
  * Admin-only password reset for Telegram-based recovery.

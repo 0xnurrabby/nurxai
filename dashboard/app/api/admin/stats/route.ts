@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  const session = await getSessionFromAuthHeader(req);
-  if (!session?.sub) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  const user = await prisma.user.findUnique({ where: { id: session.sub } });
-  if (!user?.isAdmin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const admin = await requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
   const today = new Date().toISOString().slice(0, 10);
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);

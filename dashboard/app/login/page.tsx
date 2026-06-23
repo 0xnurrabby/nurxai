@@ -1,8 +1,9 @@
 "use client";
-import { useState, Suspense } from "react";
+import { useState, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -12,6 +13,14 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/dashboard";
+
+  const finishAuth = useCallback((token: string, user: any) => {
+    try {
+      localStorage.setItem("nurxai_jwt", token);
+      localStorage.setItem("nurxai_user", JSON.stringify(user));
+    } catch {}
+    router.push(next);
+  }, [next, router]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,14 +34,10 @@ function LoginForm() {
       });
       const d = await r.json();
       if (!r.ok) {
-        setErr(d.error || "Invalid credentials");
+        setErr(d.error === "USE_GOOGLE_LOGIN" ? "This account uses Google sign-in." : d.error || "Invalid credentials");
         return;
       }
-      try {
-        localStorage.setItem("nurxai_jwt", d.token);
-        localStorage.setItem("nurxai_user", JSON.stringify(d.user));
-      } catch {}
-      router.push(next);
+      finishAuth(d.token, d.user);
     } catch {
       setErr("Network error.");
     } finally {
@@ -42,8 +47,26 @@ function LoginForm() {
 
   return (
     <div className="nb-card p-7">
-      <h1 className="font-display font-black text-3xl">Sign in</h1>
-      <form onSubmit={submit} className="mt-6 space-y-4">
+      <h1 className="font-display font-black text-3xl">Welcome back</h1>
+      <p className="mt-2 text-sm opacity-70">
+        Sign in to manage your NurAi account, billing and extension.
+      </p>
+
+      <div className="mt-6">
+        <GoogleSignInButton
+          label="signin_with"
+          onSuccess={finishAuth}
+          onError={setErr}
+        />
+      </div>
+
+      <div className="my-6 flex items-center gap-3 text-xs font-bold opacity-60">
+        <div className="h-px flex-1 bg-ink/30 dark:bg-nightInk/30" />
+        <span>OR EMAIL</span>
+        <div className="h-px flex-1 bg-ink/30 dark:bg-nightInk/30" />
+      </div>
+
+      <form onSubmit={submit} className="space-y-4">
         <div>
           <label className="font-semibold text-sm">Email</label>
           <input
@@ -64,29 +87,20 @@ function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        {err && (
-          <p className="text-sm font-semibold" style={{ color: "#b00020" }}>
-            {err}
-          </p>
-        )}
+        {err && <p className="text-sm font-semibold" style={{ color: "#b00020" }}>{err}</p>}
         <button className="nb-btn nb-btn-primary w-full" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? "Signing in..." : "Sign in with email"}
         </button>
       </form>
+
       <div className="mt-4 flex justify-between items-center text-sm">
-        <Link
-          href="/forgot-password"
-          className="opacity-70 hover:opacity-100 underline"
-        >
+        <Link href="/forgot-password" className="opacity-70 hover:opacity-100 underline">
           Forgot password?
         </Link>
         <Link href="/signup" className="font-bold underline">
           Create account
         </Link>
       </div>
-      <p className="mt-3 text-xs opacity-60">
-        Need help? Telegram <strong>@Nur_Xai</strong>
-      </p>
     </div>
   );
 }
@@ -96,7 +110,7 @@ export default function Login() {
     <>
       <Navbar />
       <main className="max-w-md mx-auto px-5 py-12">
-        <Suspense fallback={<div className="nb-card p-7">Loading…</div>}>
+        <Suspense fallback={<div className="nb-card p-7">Loading...</div>}>
           <LoginForm />
         </Suspense>
       </main>

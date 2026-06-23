@@ -149,7 +149,7 @@ export default function Pricing() {
           <h3 className="font-display font-black text-xl">Premium math</h3>
           <p className="mt-2 text-sm">
             Pro = 150 / day = $0.0022 per comment. Premium = 500 / day =
-            $0.002 per comment, on the smarter GPT-4o model with full image
+            $0.002 per comment, on GPT-5.4 mini through Vercel AI Gateway with full image
             understanding. Premium is dramatically better at picking up
             nuance, sarcasm, and visual detail.
           </p>
@@ -185,8 +185,8 @@ export default function Pricing() {
             <p className="mt-2 text-sm">
               Each tier targets a different need. Trial is for testing the
               tone. Starter unlocks all 7 personalization styles. Pro adds
-              image understanding and project contexts. Premium uses GPT-4o
-              for masterpiece quality and unlimited project contexts.
+              image understanding and project contexts. Premium uses Gateway
+              generation tuned for masterpiece quality and unlimited project contexts.
             </p>
           </details>
         </div>

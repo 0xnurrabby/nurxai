@@ -10,7 +10,7 @@ export const PLANS = {
     priceUSD: 2,
     days: 10,
     dailyLimit: 30,
-    model: "gpt-4o-mini",
+    model: "openai/gpt-5.4-mini",
     vision: false,
     allowStyles: false,
     allowProjects: false,
@@ -18,7 +18,7 @@ export const PLANS = {
     perks: [
       "30 comments / day",
       "10 days full access",
-      "Standard model (text only)",
+      "GPT-5.4 mini via Vercel AI Gateway (text only)",
       "Try before you commit"
     ]
   },
@@ -28,14 +28,14 @@ export const PLANS = {
     priceUSD: 5,
     days: 30,
     dailyLimit: 60,
-    model: "gpt-4o-mini",
+    model: "openai/gpt-5.4-mini",
     vision: false,
     allowStyles: true,
     allowProjects: false,
     qualityTier: "high",
     perks: [
       "60 comments / day",
-      "Standard model (text only)",
+      "GPT-5.4 mini via Vercel AI Gateway (text only)",
       "All personalization styles",
       "Custom style note",
       "Email support"
@@ -47,14 +47,14 @@ export const PLANS = {
     priceUSD: 10,
     days: 30,
     dailyLimit: 150,
-    model: "gpt-4o-mini",
+    model: "openai/gpt-5.4-mini",
     vision: true,
     allowStyles: true,
     allowProjects: true,
     qualityTier: "high",
     perks: [
       "150 comments / day",
-      "Standard model + IMAGE understanding",
+      "GPT-5.4 mini + image understanding",
       "All personalization styles",
       "Project contexts",
       "Priority queue"
@@ -66,14 +66,14 @@ export const PLANS = {
     priceUSD: 30,
     days: 30,
     dailyLimit: 500,
-    model: "gpt-4o",
+    model: "openai/gpt-5.4-mini",
     vision: true,
     allowStyles: true,
     allowProjects: true,
     qualityTier: "masterpiece",
     perks: [
       "500 comments / day (3.3x Pro)",
-      "GPT-4o premium model, masterpiece replies",
+      "GPT-5.4 mini via Vercel AI Gateway, masterpiece replies",
       "Full image + post understanding",
       "Unlimited project contexts",
       "All personalization styles",

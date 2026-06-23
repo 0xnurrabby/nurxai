@@ -76,6 +76,7 @@ export default function PlanCard({ plan, currentPlan }: Props) {
         showError(data, "Could not create NowPayments invoice.");
         return;
       }
+      setError(data.message || "Invoice created. Redirecting to secure crypto checkout...");
       window.location.href = data.url;
     } catch (e: any) {
       setError(e?.message || "Network error. Try again.");
@@ -240,8 +241,11 @@ export default function PlanCard({ plan, currentPlan }: Props) {
             onClick={buyWithNowPayments}
             disabled={!!loading}
           >
-            {loading === "nowp" ? "Redirecting..." : "Pay with BTC / ETH / USDT"}
+            {loading === "nowp" ? "Creating invoice..." : "Pay with BTC / ETH / USDT"}
           </button>
+          <p className="text-xs opacity-70 leading-relaxed">
+            You will choose the coin on NOWPayments. Access turns on automatically after the payment reaches final confirmation.
+          </p>
           <button
             className="text-xs opacity-60 hover:opacity-100 underline mt-1"
             onClick={() => setChooserOpen(false)}

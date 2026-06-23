@@ -6,6 +6,10 @@ import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  if (process.env.NODE_ENV === "production" || process.env.ENABLE_DEV_GRANT !== "true") {
+    return NextResponse.json({ error: "DISABLED" }, { status: 404 });
+  }
+
   // Only allow if DEV_ADMIN_KEY matches
   const adminKey = req.headers.get("x-admin-key");
   if (!process.env.DEV_ADMIN_KEY || adminKey !== process.env.DEV_ADMIN_KEY) {

@@ -9,8 +9,10 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@nowpaymentsio/nowpayments-sdk-nodejs": "^0.2.1",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
+    "google-auth-library": "^10.7.0",
     "jose": "^5.9.6",
     "next": "14.2.18",
     "prisma": "^5.22.0",

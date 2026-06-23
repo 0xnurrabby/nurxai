@@ -185,7 +185,7 @@ export default function Dashboard() {
                   <li>✓ {limit} comments per day</li>
                   <li>✓ Resets daily at 00:00 UTC</li>
                   <li>✓ {daysLeft} days remaining</li>
-                  {sub.plan === "premium" && <li>✓ GPT-4o premium model</li>}
+                  {sub.plan === "premium" && <li>✓ Premium Gateway generation</li>}
                 </ul>
                 {showCta && (
                   <Link href="/pricing" className={`nb-btn ${ctaStyle} mt-5 inline-block`}>

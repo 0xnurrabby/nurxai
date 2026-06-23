@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
+import { requireAdmin, isAdminEmail } from "@/lib/admin";
 
 export const runtime = "nodejs";
-
-async function requireAdmin(req: NextRequest) {
-  const session = await getSessionFromAuthHeader(req);
-  if (!session?.sub) return null;
-  const user = await prisma.user.findUnique({ where: { id: session.sub } });
-  if (!user?.isAdmin) return null;
-  return user;
-}
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
@@ -30,11 +22,25 @@ export async function GET(req: NextRequest) {
       : {},
     include: {
       subscriptions: {
-        where: { status: "active", endsAt: { gt: new Date() } },
         orderBy: { endsAt: "desc" },
-        take: 1
+        take: 3
       },
-      _count: { select: { payments: true, generations: true } }
+      payments: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          provider: true,
+          providerId: true,
+          providerPaymentId: true,
+          amount: true,
+          currency: true,
+          plan: true,
+          status: true,
+          createdAt: true
+        }
+      },
+      _count: { select: { payments: true, generations: true, projects: true } }
     },
     orderBy: { createdAt: "desc" },
     take: 100
@@ -65,8 +71,11 @@ export async function GET(req: NextRequest) {
 
   const enriched = users.map((u) => {
     const s = statsByUser.get(u.id);
+    const activeSub = u.subscriptions.find((sub) => sub.status === "active" && sub.endsAt > new Date());
     return {
       ...u,
+      isAdmin: isAdminEmail(u.email),
+      activeSubscription: activeSub || null,
       gen: {
         total: u._count.generations,
         usedToday: todayByUser.get(u.id) || 0,

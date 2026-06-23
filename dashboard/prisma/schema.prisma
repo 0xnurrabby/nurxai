@@ -10,7 +10,9 @@ datasource db {
 model User {
   id              String         @id @default(cuid())
   email           String         @unique
-  passwordHash    String
+  passwordHash    String?
+  googleId        String?        @unique
+  authProvider    String         @default("password")
   name            String?
   isAdmin         Boolean        @default(false)
   // Personalization
@@ -51,17 +53,20 @@ model Payment {
   userId     String
   provider   String   // "nowpayments" | "basepay"
   providerId String   @unique // NOWP order_id, or our basepay orderId
+  providerPaymentId String? // NOWPayments invoice/payment id, when available
   amount     Decimal
   currency   String
   plan       String
   status     String   // "waiting" | "confirmed" | "failed"
   txHash     String?  // base mainnet tx hash (basepay only)
   payerAddr  String?  // sender address (basepay only)
+  raw        Json?
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@index([txHash])
+  @@index([providerPaymentId])
 }
 
 model Project {
