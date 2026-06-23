@@ -150,8 +150,9 @@ export default function Pricing() {
           <h3 className="font-display font-black text-xl">Premium math</h3>
           <p className="mt-2 text-sm">
             Pro = 150 / day = $0.0022 per comment. Premium = 500 / day =
-            $0.002 per comment, with full image understanding. Premium is dramatically better at picking up
-            nuance, sarcasm, and visual detail.
+            $0.002 per comment, with the full GPT + Grok + Gemini stack.
+            Premium is dramatically better at picking up nuance, sarcasm,
+            visual detail, and live context.
           </p>
         </div>
 
@@ -185,8 +186,9 @@ export default function Pricing() {
             <p className="mt-2 text-sm">
               Each tier targets a different need. Trial gives 3 free days with
               10 comments per day. Starter unlocks all 7 personalization styles.
-              Pro adds image understanding and project contexts. Premium adds
-              masterpiece quality and unlimited project contexts.
+              Pro adds Grok-powered image understanding and project contexts.
+              Premium adds the full GPT + Grok + Gemini stack, masterpiece
+              quality and unlimited project contexts.
             </p>
           </details>
         </div>

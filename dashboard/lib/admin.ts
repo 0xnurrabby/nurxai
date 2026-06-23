@@ -19,7 +19,13 @@ export async function requireAdmin(req: NextRequest) {
   if (!session?.sub) return null;
 
   const user = await prisma.user.findUnique({ where: { id: session.sub } });
-  if (!user || !isAdminEmail(user.email)) return null;
+  if (!user) return null;
+  if (!isAdminEmail(user.email)) {
+    if (user.isAdmin) {
+      await prisma.user.update({ where: { id: user.id }, data: { isAdmin: false } });
+    }
+    return null;
+  }
 
   if (!user.isAdmin) {
     await prisma.user.update({

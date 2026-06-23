@@ -5,7 +5,7 @@
 ![Extension](https://img.shields.io/badge/Extension-Manifest+V3-C7D2FE?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
 [![Dashboard](https://img.shields.io/badge/Dashboard-Next.js+14-BBF7D0?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)](https://www.nurxai.xyz)
 ![Database](https://img.shields.io/badge/Database-Prisma-FDE68A?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
-![AI](https://img.shields.io/badge/AI-GPT--5.4+mini-FBCFE8?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
+![AI](https://img.shields.io/badge/AI-GPT+%2B+Grok+%2B+Gemini-FBCFE8?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
 
 </div>
 
@@ -21,7 +21,7 @@
 | --- | --- |
 | Chrome extension | Injects a reply helper on `x.com` and `twitter.com`. |
 | Account dashboard | Signup, login, billing, settings, projects, and extension token handoff. |
-| AI generation | Uses GPT-5.4 mini, Grok context enrichment, and Gemini web context for reply suggestions. |
+| AI generation | Uses a GPT + Grok + Gemini stack for writing, image/context understanding, and web-aware grounding. |
 | Billing hooks | NOWPayments and Base Pay routes are wired into the dashboard. |
 | Local cache | Extension caches suggestions and keeps a small audit log in browser storage. |
 
@@ -65,8 +65,9 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 PUBLIC_URL=http://localhost:3000
 AI_GATEWAY_API_KEY=vai_...
-AI_GATEWAY_MODEL=xai/grok-4.1-fast-reasoning
-AI_GATEWAY_GENERATION_MODEL=openai/gpt-5.4-mini
+AI_GATEWAY_MODEL=your_grok_model_id
+AI_GATEWAY_SEARCH_MODEL=your_gemini_model_id
+AI_GATEWAY_GENERATION_MODEL=your_gpt_model_id
 BASE_PAY_RECIPIENT=0x_your_usdc_receiver
 NOWPAYMENTS_API_KEY=
 NOWPAYMENTS_IPN_SECRET=

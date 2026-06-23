@@ -118,7 +118,7 @@ export default function Home() {
             Pro gets you 150 replies per day for $10. Premium gets you{" "}
             <strong>500 replies per day for just $30</strong>, that's{" "}
             <strong>3.3x more replies</strong> for only 3x the price. Plus
-            the strongest reply quality with image understanding.
+            the strongest GPT, Grok and Gemini AI stack for deeper context and image understanding.
           </p>
           <Link href="/pricing" className="nb-btn mt-6 inline-block">
             Compare plans
@@ -208,7 +208,7 @@ export default function Home() {
             },
             {
               q: "What's the difference between Pro and Premium?",
-              a: "Pro gives 150 replies per day with GPT-5.4 mini and image understanding ($10/month). Premium gives 500 replies per day with masterpiece-quality replies ($30/month). Premium replies are noticeably more clever and human, and you get 3.3x more of them."
+              a: "Pro gives 150 replies per day with GPT-powered writing and Grok image understanding ($10/month). Premium gives 500 replies per day with the full GPT + Grok + Gemini stack tuned for masterpiece-quality replies ($30/month). Premium replies are noticeably more clever and human, and you get 3.3x more of them."
             },
             {
               q: "Can I cancel anytime?",

@@ -269,12 +269,12 @@ export default function AdminPage() {
             {stats.tokens && (
               <div className="grid md:grid-cols-3 gap-4 mt-4">
                 <StatCard
-                  label="Tokens Today"
+                  label="AI Stack Tokens Today"
                   value={(stats.tokens.today.input + stats.tokens.today.output).toLocaleString()}
                   sub={`cost ~$${money(stats.tokens.today.cost, 4)}`}
                 />
                 <StatCard
-                  label="Tokens 30 days"
+                  label="AI Stack Tokens 30 days"
                   value={(stats.tokens.last30d.input + stats.tokens.last30d.output).toLocaleString()}
                   sub={`cost ~$${money(stats.tokens.last30d.cost, 2)}`}
                 />
@@ -594,7 +594,7 @@ function DetailPanel({
       <MiniList title="Recent generations">
         {(detail.generations || []).map((g) => (
           <div key={g.id} className="py-2 border-b border-ink/20 dark:border-nightInk/20 text-sm">
-            <div className="font-bold">{g.model} | {(g.inputTokens + g.outputTokens).toLocaleString()} tokens</div>
+            <div className="font-bold">AI stack | {(g.inputTokens + g.outputTokens).toLocaleString()} tokens</div>
             <div className="text-xs opacity-70">${money(g.costUSD, 4)} | {fmtDate(g.createdAt, true)}</div>
           </div>
         ))}

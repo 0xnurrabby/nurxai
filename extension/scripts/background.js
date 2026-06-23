@@ -95,7 +95,7 @@ async function callGenerate(context, imageUrls, regenerate, previousSuggestions)
     usage: data.usage,
     visionUsed: !!data.visionUsed,
     searchUsed: !!data.searchUsed,
-    model: data.model || ""
+    aiStack: data.aiStack || ""
   };
 }
 

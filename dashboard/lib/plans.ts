@@ -18,7 +18,7 @@ export const PLANS = {
     perks: [
       "10 comments / day",
       "3 days free access",
-      "GPT-5.4 mini text replies",
+      "GPT-powered text replies",
       "Auto-starts when you create an account"
     ]
   },
@@ -35,7 +35,7 @@ export const PLANS = {
     qualityTier: "high",
     perks: [
       "60 comments / day",
-      "GPT-5.4 mini text replies",
+      "GPT-powered text replies",
       "All personalization styles",
       "Custom style note",
       "Email support"
@@ -54,7 +54,7 @@ export const PLANS = {
     qualityTier: "high",
     perks: [
       "150 comments / day",
-      "GPT-5.4 mini + image understanding",
+      "GPT + Grok image understanding",
       "All personalization styles",
       "Project contexts",
       "Priority queue"
@@ -73,7 +73,7 @@ export const PLANS = {
     qualityTier: "masterpiece",
     perks: [
       "500 comments / day (3.3x Pro)",
-      "GPT-5.4 mini, masterpiece replies",
+      "GPT + Grok + Gemini AI stack",
       "Full image + post understanding",
       "Unlimited project contexts",
       "All personalization styles",

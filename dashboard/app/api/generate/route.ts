@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { google } from "@ai-sdk/google";
-import { generateText } from "ai";
+import { gateway, generateText } from "ai";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -23,12 +23,30 @@ const MIN_REPLY_COUNT = 3;
 const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o-mini": { input: 0.15, output: 0.60 },
   "gpt-4o":      { input: 2.50, output: 10.00 },
-  "openai/gpt-5.4-mini": { input: 0.15, output: 0.60 }
+  "openai/gpt-5.4-mini": { input: 0.15, output: 0.60 },
+  "xai/grok-4.1-fast-reasoning": { input: 0.20, output: 0.60 },
+  "google/gemini-3.1-flash-lite": { input: 0.10, output: 0.40 },
+  "google/gemini-3.1-flash-lite-preview": { input: 0.10, output: 0.40 }
 };
 
 type ImagePart = { type: "image_url"; image_url: { url: string; detail: "high" | "auto" } };
-type EnrichmentResult = { text: string | null; imageUsed: boolean; searchUsed: boolean };
-type SearchContextResult = { text: string | null; used: boolean };
+type AiUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  costUSD: number;
+  generationIds: string[];
+  calls: Array<{
+    stage: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    costUSD: number;
+    generationId?: string;
+  }>;
+};
+type EnrichmentResult = { text: string | null; imageUsed: boolean; searchUsed: boolean; usage: AiUsage };
+type SearchContextResult = { text: string | null; used: boolean; usage: AiUsage };
+type RepairResult = { suggestions: string[]; usage: AiUsage };
 type Plan = (typeof PLANS)[PlanKey];
 type ImagePreparationResult = {
   imageParts: ImagePart[];
@@ -51,6 +69,107 @@ function nowMs() {
   return Date.now();
 }
 
+function emptyUsage(): AiUsage {
+  return { inputTokens: 0, outputTokens: 0, costUSD: 0, generationIds: [], calls: [] };
+}
+
+function addUsage(...items: AiUsage[]) {
+  return items.reduce<AiUsage>((total, item) => ({
+    inputTokens: total.inputTokens + item.inputTokens,
+    outputTokens: total.outputTokens + item.outputTokens,
+    costUSD: total.costUSD + item.costUSD,
+    generationIds: [...total.generationIds, ...item.generationIds],
+    calls: [...total.calls, ...item.calls]
+  }), emptyUsage());
+}
+
+function estimateCost(model: string, inputTokens: number, outputTokens: number) {
+  const price = PRICES[model] || PRICES[GENERATION_MODEL];
+  return (inputTokens / 1_000_000) * price.input + (outputTokens / 1_000_000) * price.output;
+}
+
+function gatewayGenerationId(metadata: unknown): string | undefined {
+  const id = (metadata as any)?.gateway?.generationId;
+  return typeof id === "string" && id.startsWith("gen_") ? id : undefined;
+}
+
+async function usageFromGatewayInfo(stage: string, model: string, generationId?: string): Promise<AiUsage | null> {
+  if (!generationId) return null;
+  try {
+    const info = await gateway.getGenerationInfo({ id: generationId });
+    const inputTokens = Number(info.promptTokens || 0) + Number(info.cachedTokens || 0) + Number(info.cacheCreationTokens || 0);
+    const outputTokens = Number(info.completionTokens || 0) + Number(info.reasoningTokens || 0);
+    const costUSD = Number(info.totalCost || info.usage || 0);
+    return {
+      inputTokens,
+      outputTokens,
+      costUSD,
+      generationIds: [generationId],
+      calls: [{
+        stage,
+        model: info.model || model,
+        inputTokens,
+        outputTokens,
+        costUSD,
+        generationId
+      }]
+    };
+  } catch (e: any) {
+    console.warn("[metering] gateway lookup failed", stage, generationId, e?.message || "?");
+    return null;
+  }
+}
+
+async function usageFromOpenAIResponse(stage: string, model: string, data: any): Promise<AiUsage> {
+  const rawId = typeof data?.id === "string" && data.id.startsWith("gen_") ? data.id : undefined;
+  const generationId = gatewayGenerationId(data?.providerMetadata) || rawId;
+  const fromGateway = await usageFromGatewayInfo(stage, model, generationId);
+  if (fromGateway) return fromGateway;
+
+  const inputTokens = Number(data?.usage?.prompt_tokens || data?.usage?.input_tokens || 0);
+  const outputTokens = Number(data?.usage?.completion_tokens || data?.usage?.output_tokens || 0);
+  const costUSD = estimateCost(model, inputTokens, outputTokens);
+  return {
+    inputTokens,
+    outputTokens,
+    costUSD,
+    generationIds: generationId ? [generationId] : [],
+    calls: [{
+      stage,
+      model,
+      inputTokens,
+      outputTokens,
+      costUSD,
+      ...(generationId ? { generationId } : {})
+    }]
+  };
+}
+
+async function usageFromAiSdkResult(stage: string, model: string, result: any): Promise<AiUsage> {
+  const generationId = gatewayGenerationId(result?.providerMetadata);
+  const fromGateway = await usageFromGatewayInfo(stage, model, generationId);
+  if (fromGateway) return fromGateway;
+
+  const usage = result?.totalUsage || result?.usage || {};
+  const inputTokens = Number(usage.inputTokens || 0);
+  const outputTokens = Number(usage.outputTokens || 0) + Number(usage.reasoningTokens || 0);
+  const costUSD = estimateCost(model, inputTokens, outputTokens);
+  return {
+    inputTokens,
+    outputTokens,
+    costUSD,
+    generationIds: generationId ? [generationId] : [],
+    calls: [{
+      stage,
+      model,
+      inputTokens,
+      outputTokens,
+      costUSD,
+      ...(generationId ? { generationId } : {})
+    }]
+  };
+}
+
 // ─── Context Enrichment ───────────────────────────────────────────────────────
 //
 // Send extracted tweet context and images to Grok for X-native grounding.
@@ -59,7 +178,7 @@ function nowMs() {
 
 async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promise<EnrichmentResult> {
   const apiKey = process.env.AI_GATEWAY_API_KEY;
-  if (!apiKey) return { text: null, imageUsed: false, searchUsed: false };
+  if (!apiKey) return { text: null, imageUsed: false, searchUsed: false, usage: emptyUsage() };
 
   const primaryModel = process.env.AI_GATEWAY_MODEL || "xai/grok-4.1-fast-reasoning";
   const fallbackModel = "xai/grok-4.1-fast-reasoning";
@@ -132,12 +251,13 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
         const data = await resp.json().catch(() => null);
         const text: string = data?.choices?.[0]?.message?.content || "";
         const cleaned = text.trim();
-        if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: hasImages, searchUsed: true };
+        const usage = await usageFromOpenAIResponse("grok-context", model, data);
+        if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: hasImages, searchUsed: true, usage };
         if (cleaned && cleaned.length > 30) {
           console.log("[enrich] got context, length:", text.length, "model:", model, "attempt:", attempt + 1);
-          return { text: cleaned, imageUsed: hasImages, searchUsed: true };
+          return { text: cleaned, imageUsed: hasImages, searchUsed: true, usage };
         }
-        return { text: null, imageUsed: hasImages, searchUsed: true };
+        return { text: null, imageUsed: hasImages, searchUsed: true, usage };
       } catch (e: any) {
         lastBody = e?.message || "?";
       }
@@ -145,12 +265,12 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
   }
 
   console.warn("[enrich] gateway failed after retries", lastStatus, lastBody.slice(0, 300));
-  return { text: null, imageUsed: false, searchUsed: false };
+  return { text: null, imageUsed: false, searchUsed: false, usage: emptyUsage() };
 }
 
 async function searchContext(tweetText: string): Promise<SearchContextResult> {
   const apiKey = process.env.AI_GATEWAY_API_KEY;
-  if (!apiKey) return { text: null, used: false };
+  if (!apiKey) return { text: null, used: false, usage: emptyUsage() };
 
   const primaryModel = process.env.AI_GATEWAY_SEARCH_MODEL || "google/gemini-3.1-flash-lite";
   const fallbackModel = "google/gemini-3.1-flash-lite-preview";
@@ -180,15 +300,16 @@ Return at most 3 tiny bullets, each under 16 words.`,
       });
 
       const cleaned = result.text.trim();
-      if (!cleaned || /^NO_WEB_CONTEXT\b/i.test(cleaned)) return { text: null, used: true };
-      return { text: cleaned.slice(0, 700), used: true };
+      const usage = await usageFromAiSdkResult("gemini-web-context", model, result);
+      if (!cleaned || /^NO_WEB_CONTEXT\b/i.test(cleaned)) return { text: null, used: true, usage };
+      return { text: cleaned.slice(0, 700), used: true, usage };
     } catch (e: any) {
       lastBody = e?.message || "?";
     }
   }
 
   console.warn("[search] gateway failed", lastBody.slice(0, 300));
-  return { text: null, used: false };
+  return { text: null, used: false, usage: emptyUsage() };
 }
 
 // ─── Image Fetching ───────────────────────────────────────────────────────────
@@ -568,6 +689,7 @@ export async function POST(req: NextRequest) {
   const searchUsedByGrok = enrichment.searchUsed || webSearch.used;
   const hadVerifiedImageContext = Boolean(enrichedContext && imageUsedByGrok);
   const enrichMs = nowMs() - enrichStarted;
+  let aiUsage = addUsage(enrichment.usage, webSearch.usage);
 
   // ── User settings ─────────────────────────────────────────────────────────
   const isRegenerate = !!body?.regenerate;
@@ -636,12 +758,12 @@ export async function POST(req: NextRequest) {
 
   const data = await gatewayResp.json().catch(() => null);
   const raw = data?.choices?.[0]?.message?.content || "";
-  const inputTokens = data?.usage?.prompt_tokens || 0;
-  const outputTokens = data?.usage?.completion_tokens || 0;
+  const generationUsage = await usageFromOpenAIResponse("gpt-reply", model, data);
+  aiUsage = addUsage(aiUsage, generationUsage);
 
   let suggestions = sanitizeSuggestions(parseSuggestions(raw), context);
   if (suggestions.length < MIN_REPLY_COUNT) {
-    suggestions = await repairSuggestions({
+    const repair = await repairSuggestions({
       apiKey,
       model,
       context,
@@ -649,6 +771,8 @@ export async function POST(req: NextRequest) {
       previousSuggestions,
       isRegenerate
     });
+    suggestions = repair.suggestions;
+    aiUsage = addUsage(aiUsage, repair.usage);
   }
   if (suggestions.length < MIN_REPLY_COUNT) {
     suggestions = sanitizeSuggestions(parseSuggestions(raw).map(forceShortReply), context);
@@ -657,17 +781,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "EMPTY_SUGGESTIONS" }, { status: 502 });
   }
 
-  const price = PRICES[model] || PRICES[GENERATION_MODEL];
-  const costUSD = (inputTokens / 1_000_000) * price.input + (outputTokens / 1_000_000) * price.output;
-
   const ctxHash = crypto.createHash("sha256").update(context).digest("hex").slice(0, 32);
   const writeStarted = nowMs();
   await Promise.all([
     prisma.generation.create({
       data: {
         userId, contextHash: ctxHash, suggestions: suggestions as any,
-        inputTokens, outputTokens, costUSD: costUSD.toFixed(6),
-        model, hadImage: hadVerifiedImageContext
+        inputTokens: Math.round(aiUsage.inputTokens),
+        outputTokens: Math.round(aiUsage.outputTokens),
+        costUSD: aiUsage.costUSD.toFixed(6),
+        model: "GPT + Grok + Gemini",
+        hadImage: hadVerifiedImageContext
       }
     }),
     prisma.usageLog.upsert({
@@ -680,12 +804,14 @@ export async function POST(req: NextRequest) {
 
   console.log("[generate]", requestId, "plan=", plan.key, "total=", nowMs() - requestStarted,
     "db=", dbMs, "image=", imageMs, "enrich=", enrichMs, "personalization=", personalizationMs,
-    "write=", writeMs, "vision=", hadVerifiedImageContext, "grok=", enrichment.searchUsed, "gemini=", webSearch.used);
+    "write=", writeMs, "vision=", hadVerifiedImageContext, "grok=", enrichment.searchUsed, "gemini=", webSearch.used,
+    "aiTokens=", aiUsage.inputTokens + aiUsage.outputTokens, "aiCost=", aiUsage.costUSD.toFixed(6),
+    "aiCalls=", aiUsage.calls.length);
 
   return NextResponse.json({
     suggestions,
     usage: { used: usageCount + 1, limit: plan.dailyLimit, plan: sub.plan },
-    model,
+    aiStack: "GPT + Grok + Gemini",
     visionUsed: hadVerifiedImageContext,
     searchUsed: searchUsedByGrok
   });
@@ -753,7 +879,7 @@ async function repairSuggestions({
   rawSuggestions: string[];
   previousSuggestions: string[];
   isRegenerate: boolean;
-}) {
+}): Promise<RepairResult> {
   try {
     const resp = await fetch(AI_GATEWAY_URL, {
       method: "POST",
@@ -786,12 +912,13 @@ Rules:
       }),
       signal: AbortSignal.timeout(12000)
     });
-    if (!resp.ok) return [];
+    if (!resp.ok) return { suggestions: [], usage: emptyUsage() };
     const data = await resp.json().catch(() => null);
     const raw = data?.choices?.[0]?.message?.content || "";
-    return sanitizeSuggestions(parseSuggestions(raw), context);
+    const usage = await usageFromOpenAIResponse("gpt-repair", model, data);
+    return { suggestions: sanitizeSuggestions(parseSuggestions(raw), context), usage };
   } catch {
-    return [];
+    return { suggestions: [], usage: emptyUsage() };
   }
 }
 
