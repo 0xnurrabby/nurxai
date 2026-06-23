@@ -16,6 +16,9 @@ const IMAGE_FETCH_TIMEOUT_MS = getEnvInt("IMAGE_FETCH_TIMEOUT_MS", 5500, 1500, 1
 const ENRICH_TIMEOUT_MS = getEnvInt("AI_GATEWAY_ENRICH_TIMEOUT_MS", 12000, 4000, 25000);
 const ENRICH_ATTEMPTS = getEnvInt("AI_GATEWAY_ENRICH_ATTEMPTS", 1, 1, 2);
 const SEARCH_TIMEOUT_MS = getEnvInt("AI_GATEWAY_SEARCH_TIMEOUT_MS", 9000, 3000, 20000);
+const SEARCH_PROMPT_CHARS = getEnvInt("AI_GATEWAY_SEARCH_PROMPT_CHARS", 420, 240, 900);
+const SEARCH_MAX_OUTPUT_TOKENS = getEnvInt("AI_GATEWAY_SEARCH_MAX_OUTPUT_TOKENS", 70, 40, 140);
+const SEARCH_CACHE_TTL_MS = getEnvInt("AI_GATEWAY_SEARCH_CACHE_TTL_HOURS", 24, 1, 168) * 60 * 60 * 1000;
 const GENERATION_TIMEOUT_MS = getEnvInt("AI_GATEWAY_GENERATION_TIMEOUT_MS", 35000, 10000, 50000);
 const MAX_REPLY_CHARS = getEnvInt("MAX_REPLY_CHARS", 150, 90, 220);
 const MIN_REPLY_COUNT = 3;
@@ -48,6 +51,7 @@ type EnrichmentResult = { text: string | null; imageUsed: boolean; searchUsed: b
 type SearchContextResult = { text: string | null; used: boolean; usage: AiUsage };
 type RepairResult = { suggestions: string[]; usage: AiUsage };
 type Plan = (typeof PLANS)[PlanKey];
+type CachedSearchContext = { text: string | null; expiresAt: number };
 type ImagePreparationResult = {
   imageParts: ImagePart[];
   imagesInlined: number;
@@ -58,6 +62,13 @@ type PersonalizationResult = {
   customNote: string | null;
   projectsContext: string;
 };
+
+declare global {
+  var __nurxaiSearchContextCache: Map<string, CachedSearchContext> | undefined;
+}
+
+const searchContextCache =
+  globalThis.__nurxaiSearchContextCache ?? (globalThis.__nurxaiSearchContextCache = new Map());
 
 function getEnvInt(name: string, fallback: number, min: number, max: number) {
   const raw = Number(process.env[name]);
@@ -268,41 +279,103 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
   return { text: null, imageUsed: false, searchUsed: false, usage: emptyUsage() };
 }
 
-async function searchContext(tweetText: string): Promise<SearchContextResult> {
+function searchableTweetText(tweetText: string) {
+  return tweetText
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^Author:/i.test(line))
+    .join("\n");
+}
+
+function compactTweetForSearch(tweetText: string) {
+  const lines = tweetText
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const searchableLines = searchableTweetText(tweetText)
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const signalLines = lines.filter((line) =>
+    !/^Author:/i.test(line) &&
+    /https?:\/\/|[@$][A-Za-z0-9_]+|\b(today|yesterday|tomorrow|now|just|breaking|launch|launched|airdrop|claim|mint|mainnet|testnet|partnership|hack|exploit|listing|delist|token|price|market|funding|acquired|merger|sec|etf|fed|cpi|fomc)\b/i.test(line)
+  );
+
+  const selected = (signalLines.length ? signalLines : searchableLines.length ? searchableLines : lines).slice(0, 8).join("\n");
+  return selected.slice(0, SEARCH_PROMPT_CHARS);
+}
+
+function shouldUseWebSearch(tweetText: string, plan: Plan) {
+  if (plan.qualityTier !== "masterpiece") return false;
+  if (process.env.AI_GATEWAY_SEARCH_MODE === "off") return false;
+  if (process.env.AI_GATEWAY_SEARCH_MODE === "always") return true;
+
+  const compact = compactTweetForSearch(tweetText);
+  const searchable = searchableTweetText(tweetText);
+  if (compact.length < 18) return false;
+
+  return /https?:\/\/|[@$][A-Za-z0-9_]+|\b(today|yesterday|tomorrow|now|latest|breaking|just|announced|launch(?:ed|ing)?|airdrop|claim|mint|mainnet|testnet|partnership|hack|exploit|listing|delist|token|price|market|funding|acquired|merger|sec|etf|fed|cpi|fomc|election|lawsuit|earnings)\b/i.test(searchable);
+}
+
+function searchCacheKey(tweetText: string) {
+  const compact = compactTweetForSearch(tweetText).toLowerCase().replace(/\s+/g, " ").trim();
+  return crypto.createHash("sha256").update(compact).digest("hex").slice(0, 32);
+}
+
+async function searchContext(tweetText: string, plan: Plan): Promise<SearchContextResult> {
   const apiKey = process.env.AI_GATEWAY_API_KEY;
   if (!apiKey) return { text: null, used: false, usage: emptyUsage() };
+  if (!shouldUseWebSearch(tweetText, plan)) return { text: null, used: false, usage: emptyUsage() };
+
+  const cacheKey = searchCacheKey(tweetText);
+  const cached = searchContextCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { text: cached.text, used: Boolean(cached.text), usage: emptyUsage() };
+  }
 
   const primaryModel = process.env.AI_GATEWAY_SEARCH_MODEL || "google/gemini-3.1-flash-lite";
   const fallbackModel = "google/gemini-3.1-flash-lite-preview";
   const models = primaryModel === fallbackModel ? [primaryModel] : [primaryModel, fallbackModel];
   let lastBody = "";
+  const searchPrompt = compactTweetForSearch(tweetText);
 
   for (const model of models) {
     try {
       const result = await generateText({
         model,
-        system: `You verify current public web context for an X reply generator.
-
-Use Google/web knowledge only to identify what visible subjects in the tweet refer to.
-Do not invent subjects. Do not write reply ideas. Do not summarize the whole post.
-If there is no useful current context, return exactly: NO_WEB_CONTEXT.
-
-Return at most 3 tiny bullets, each under 16 words.`,
-        prompt: `Visible tweet context:\n"""\n${tweetText.slice(0, 1200)}\n"""`,
+        system: `Identify only current public facts needed to ground an X reply.
+No reply ideas. No summary. No guesses.
+Return NO_WEB_CONTEXT if web lookup adds nothing.
+Otherwise return max 2 bullets, under 12 words each.`,
+        prompt: searchPrompt,
         tools: {
           google_search: google.tools.googleSearch({
             searchTypes: { webSearch: {} }
           })
         },
-        maxOutputTokens: 180,
+        maxOutputTokens: SEARCH_MAX_OUTPUT_TOKENS,
         temperature: 0,
         abortSignal: AbortSignal.timeout(SEARCH_TIMEOUT_MS)
       });
 
       const cleaned = result.text.trim();
       const usage = await usageFromAiSdkResult("gemini-web-context", model, result);
-      if (!cleaned || /^NO_WEB_CONTEXT\b/i.test(cleaned)) return { text: null, used: true, usage };
-      return { text: cleaned.slice(0, 700), used: true, usage };
+      if (!cleaned || /^NO_WEB_CONTEXT\b/i.test(cleaned)) {
+        searchContextCache.set(cacheKey, { text: null, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
+        return { text: null, used: true, usage };
+      }
+
+      const text = cleaned
+        .split(/\n+/)
+        .map((line) => line.replace(/^[-*•]\s*/, "- ").trim())
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("\n")
+        .slice(0, 220);
+      searchContextCache.set(cacheKey, { text, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
+      return { text, used: true, usage };
     } catch (e: any) {
       lastBody = e?.message || "?";
     }
@@ -681,7 +754,7 @@ export async function POST(req: NextRequest) {
   const enrichStarted = nowMs();
   const [enrichment, webSearch] = await Promise.all([
     enrichContext(context, imagePrep.imageParts),
-    searchContext(context)
+    searchContext(context, plan)
   ]);
   const enrichedContext = enrichment.text;
   const webContext = webSearch.text;
