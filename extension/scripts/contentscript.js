@@ -450,11 +450,14 @@
       const item = el("div", { class: "item", role: "listitem" });
       item.appendChild(el("div", { class: "item-text" }, text));
       const useBtn = el("button", { class: "use", "aria-label": "Use this reply" }, "Use");
-      useBtn.addEventListener("click", () => {
-        if (!isActiveRun()) return;
-        pasteIntoComposer(text);
+      useBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isActiveRun() || useBtn.disabled) return;
+        if (!pasteIntoComposer(text)) return;
         // Mark as used
         usedSet.add(idx);
+        useBtn.disabled = true;
         useBtn.classList.add("used");
         useBtn.textContent = "Used";
       });
@@ -470,89 +473,76 @@
 
   let lastPasteKey = "";
   let lastPasteAt = 0;
+  const PASTE_LOCK_MS = 2500;
 
   function pasteIntoComposer(text) {
-    if (!isActiveRun()) return;
+    if (!isActiveRun()) return false;
     const c = findComposer();
-    if (!c) return;
+    if (!c) return false;
     c.focus();
 
     const pasteText = cleanSuggestionText(text);
-    if (!pasteText) return;
+    if (!pasteText) return false;
 
     const pasteKey = activeContextKey + "|" + pasteText;
     const now = Date.now();
-    if (pasteKey === lastPasteKey && now - lastPasteAt < 1500) return;
-    if (window.__NURAI_LAST_PASTE_KEY === pasteKey && now - (window.__NURAI_LAST_PASTE_AT || 0) < 1500) return;
+    if (isDuplicatePaste(pasteKey, now)) return false;
+    rememberPaste(pasteKey, now);
+
+    replaceComposerText(c, pasteText, pasteKey);
+    return true;
+  }
+
+  function isDuplicatePaste(pasteKey, now) {
+    if (pasteKey === lastPasteKey && now - lastPasteAt < PASTE_LOCK_MS) return true;
+    if (window.__NURAI_LAST_PASTE_KEY === pasteKey && now - (window.__NURAI_LAST_PASTE_AT || 0) < PASTE_LOCK_MS) return true;
+    if (window.__NURAI_ACTIVE_PASTE_KEY === pasteKey && now < (window.__NURAI_ACTIVE_PASTE_UNTIL || 0)) return true;
+    return false;
+  }
+
+  function rememberPaste(pasteKey, now) {
     lastPasteKey = pasteKey;
     lastPasteAt = now;
     window.__NURAI_LAST_PASTE_KEY = pasteKey;
     window.__NURAI_LAST_PASTE_AT = now;
-
-    replaceComposerText(c, pasteText);
+    window.__NURAI_ACTIVE_PASTE_KEY = pasteKey;
+    window.__NURAI_ACTIVE_PASTE_UNTIL = now + PASTE_LOCK_MS;
   }
 
-  function replaceComposerText(target, text) {
-    selectComposerContents(target);
-    document.execCommand("delete");
-
+  function replaceComposerText(target, text, pasteKey) {
+    forceComposerText(target, text);
     requestAnimationFrame(() => {
-      const freshComposer = findComposer();
-      if (!freshComposer || !isActiveRun()) return;
-      freshComposer.focus();
-
-      if (dispatchPasteEvent(freshComposer, text)) {
-        setTimeout(() => {
-          const current = findComposer();
-          if (!current || !isActiveRun()) return;
-          if (normalizeComposerText(current.innerText) !== normalizeComposerText(text)) {
-            insertTextIntoSelection(current, text);
-          }
-          verifyComposerText(text);
-        }, 250);
-        return;
-      }
-
-      insertTextIntoSelection(freshComposer, text);
-      verifyComposerText(text);
+      verifyComposerText(text, pasteKey);
     });
+    [120, 350, 900].forEach(delay => setTimeout(() => verifyComposerText(text, pasteKey), delay));
   }
 
-  function insertTextIntoSelection(target, text) {
-    selectComposerContents(target);
+  function forceComposerText(target, text) {
+    const composer = target || findComposer();
+    if (!composer || !isActiveRun()) return;
+    composer.focus();
+    selectComposerContents(composer);
+    document.execCommand("delete");
+    selectComposerContents(composer);
     document.execCommand("insertText", false, text);
-  }
-
-  function dispatchPasteEvent(target, text) {
-    try {
-      const data = new DataTransfer();
-      data.setData("text/plain", text);
-      const event = new ClipboardEvent("paste", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: data
-      });
-      return !target.dispatchEvent(event);
-    } catch {
-      return false;
-    }
   }
 
   function normalizeComposerText(text) {
     return String(text || "").replace(/\u200B/g, "").replace(/\r\n?/g, "\n").trim();
   }
 
-  function verifyComposerText(expected) {
-    setTimeout(() => {
-      const composer = findComposer();
-      if (!composer || !isActiveRun()) return;
+  function verifyComposerText(expected, pasteKey) {
+    if (!isActiveRun()) return;
+    if (pasteKey && window.__NURAI_ACTIVE_PASTE_KEY !== pasteKey) return;
 
-      const current = normalizeComposerText(composer.innerText);
-      const wanted = normalizeComposerText(expected);
-      if (current === wanted + wanted) {
-        insertTextIntoSelection(composer, expected);
-      }
-    }, 700);
+    const composer = findComposer();
+    if (!composer) return;
+
+    const current = normalizeComposerText(composer.innerText);
+    const wanted = normalizeComposerText(expected);
+    if (current === wanted) return;
+
+    forceComposerText(composer, expected);
   }
 
   function selectComposerContents(target) {
