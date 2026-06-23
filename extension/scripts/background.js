@@ -2,11 +2,26 @@
 import { CONFIG } from "./config.js";
 import { log, audit } from "./logger.js";
 import { tryAcquire } from "./rate-limiter.js";
-import { secureUUID } from "./crypto-utils.js";
+import { secureUUID, encryptString, decryptString } from "./crypto-utils.js";
 
 const get = (k) => chrome.storage.local.get(k);
 const set = (o) => chrome.storage.local.set(o);
 const del = (k) => chrome.storage.local.remove(k);
+
+/* ---------- Token storage (encrypted at rest) ---------- */
+// The JWT is stored AES-GCM encrypted under a per-install master key. Older
+// installs may still hold a plaintext string token, so reads fall back to it.
+async function setToken(token) {
+  const enc = await encryptString(token);
+  await set({ [CONFIG.STORAGE_KEYS.TOKEN]: enc });
+}
+async function getToken() {
+  const r = await get(CONFIG.STORAGE_KEYS.TOKEN);
+  const stored = r[CONFIG.STORAGE_KEYS.TOKEN];
+  if (!stored) return null;
+  if (typeof stored === "string") return stored; // legacy plaintext token
+  return decryptString(stored);
+}
 
 async function getInstallId() {
   const k = CONFIG.STORAGE_KEYS.INSTALL_ID;
@@ -37,8 +52,7 @@ function cleanSuggestion(s) {
 
 /* ---------- Backend call ---------- */
 async function callGenerate(context, imageUrls, regenerate, previousSuggestions) {
-  const r = await get(CONFIG.STORAGE_KEYS.TOKEN);
-  const token = r[CONFIG.STORAGE_KEYS.TOKEN];
+  const token = await getToken();
   if (!token) return { ok: false, error: "NOT_LOGGED_IN" };
 
   const installId = await getInstallId();
@@ -170,11 +184,12 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: false, error: "BAD_TOKEN" });
       return false;
     }
-    set({
-      [CONFIG.STORAGE_KEYS.TOKEN]: t,
-      [CONFIG.STORAGE_KEYS.USER]: u
-    }).then(() => audit("login", { uid: u?.id }))
-      .then(() => sendResponse({ ok: true }));
+    (async () => {
+      await setToken(t);
+      await set({ [CONFIG.STORAGE_KEYS.USER]: u });
+      await audit("login", { uid: u?.id });
+      sendResponse({ ok: true });
+    })();
     return true;
   }
 
