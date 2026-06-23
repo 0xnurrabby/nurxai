@@ -133,10 +133,16 @@ export default function Navbar() {
                     </button>
                   </>
                 ) : (
-                  <Link href="/signup" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
-                    <span>Start free trial</span>
-                    <small>3 days included</small>
-                  </Link>
+                  <>
+                    <Link href="/login" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+                      <span>Sign in</span>
+                      <small>Existing account</small>
+                    </Link>
+                    <Link href="/signup" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+                      <span>Start free trial</span>
+                      <small>3 days included</small>
+                    </Link>
+                  </>
                 )}
 
                 <div className="nav-menu-divider" />

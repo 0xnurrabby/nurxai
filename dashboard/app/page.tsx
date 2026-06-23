@@ -10,20 +10,20 @@ export default function Home() {
       {/* HERO */}
       <section className="hero-stage section-reveal relative overflow-hidden px-5 py-16 md:py-24 text-center">
         <HeroMotion />
-        <div className="relative z-10 max-w-6xl mx-auto">
+        <div className="hero-content relative z-10 max-w-6xl mx-auto">
           <span className="nb-tag">CHROME EXTENSION - AI POWERED</span>
-          <h1 className="mt-5 font-display font-black text-[44px] sm:text-6xl md:text-7xl leading-[1.05] tracking-normal">
+          <h1 className="hero-title mt-5 font-display font-black text-[44px] sm:text-6xl md:text-7xl leading-[1.05] tracking-normal">
             Reply on X like a{" "}
             <span className="hero-highlight">
               real human
             </span>
             .
           </h1>
-          <p className="mt-6 max-w-2xl mx-auto text-lg">
+          <p className="hero-copy mt-6 max-w-2xl mx-auto text-lg">
             NurAi reads each tweet you reply to and instantly suggests 4 witty,
             contextual replies. Emotion-aware, human-toned, never robotic.
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <div className="hero-actions mt-8 flex flex-wrap justify-center gap-3">
             <Link href="/signup" className="nb-btn nb-btn-primary text-lg">
               Start free trial
             </Link>

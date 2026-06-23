@@ -10,9 +10,19 @@ type Particle = {
   size: number;
   phase: number;
   tone: number;
+  lane: number;
 };
 
-const COLORS = ["#b8e1ff", "#c4f0c2", "#fff89c", "#ffd1dc"];
+const COLORS = ["#83cfff", "#8ee38a", "#fff064", "#ff9fbd"];
+
+function withAlpha(hex: string, alpha: number) {
+  const value = hex.replace("#", "");
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 export default function HeroMotion() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -37,16 +47,17 @@ export default function HeroMotion() {
 
     function resetParticles() {
       particles.length = 0;
-      const count = Math.max(18, Math.min(34, Math.round(width / 34)));
+      const count = Math.max(28, Math.min(48, Math.round(width / 25)));
       for (let i = 0; i < count; i++) {
         particles.push({
           x: Math.random() * width,
-          y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.32,
-          vy: (Math.random() - 0.5) * 0.22,
-          size: 5 + Math.random() * 8,
+          y: height * (0.18 + Math.random() * 0.68),
+          vx: 0.38 + Math.random() * 0.55,
+          vy: (Math.random() - 0.5) * 0.16,
+          size: 6 + Math.random() * 10,
           phase: Math.random() * Math.PI * 2,
-          tone: i % COLORS.length
+          tone: i % COLORS.length,
+          lane: i % 5
         });
       }
     }
@@ -67,7 +78,9 @@ export default function HeroMotion() {
       drawCtx.globalAlpha = alpha;
       drawCtx.fillStyle = color;
       drawCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--border").trim() || "#0f1419";
-      drawCtx.lineWidth = 2;
+      drawCtx.shadowBlur = 14;
+      drawCtx.shadowColor = withAlpha(color, 0.45);
+      drawCtx.lineWidth = 2.25;
       drawCtx.beginPath();
       drawCtx.roundRect(x, y, w, h, 10);
       drawCtx.fill();
@@ -75,17 +88,72 @@ export default function HeroMotion() {
       drawCtx.restore();
     }
 
+    function drawSignalField(ink: string) {
+      const laneCount = 5;
+
+      for (let i = 0; i < laneCount; i++) {
+        const y = height * (0.22 + i * 0.14) + Math.sin(tick * 1.3 + i) * 14;
+        const lift = Math.sin(tick * 0.9 + i * 1.7) * 34;
+        const color = COLORS[i % COLORS.length];
+
+        drawCtx.save();
+        drawCtx.globalAlpha = 0.64;
+        drawCtx.strokeStyle = color;
+        drawCtx.lineWidth = 5;
+        drawCtx.lineCap = "round";
+        drawCtx.shadowBlur = 16;
+        drawCtx.shadowColor = withAlpha(color, 0.28);
+        drawCtx.setLineDash([34, 34]);
+        drawCtx.lineDashOffset = -tick * 118 - i * 24;
+        drawCtx.beginPath();
+        drawCtx.moveTo(-90, y);
+        drawCtx.bezierCurveTo(width * 0.24, y - 58 + lift, width * 0.64, y + 54 - lift, width + 90, y);
+        drawCtx.stroke();
+        drawCtx.restore();
+
+        drawCtx.save();
+        drawCtx.globalAlpha = 0.28;
+        drawCtx.strokeStyle = ink;
+        drawCtx.lineWidth = 1.9;
+        drawCtx.lineCap = "round";
+        drawCtx.setLineDash([7, 20]);
+        drawCtx.lineDashOffset = tick * 92 + i * 16;
+        drawCtx.beginPath();
+        drawCtx.moveTo(-70, y + 20);
+        drawCtx.bezierCurveTo(width * 0.28, y + 64 - lift, width * 0.72, y - 42 + lift, width + 70, y + 20);
+        drawCtx.stroke();
+        drawCtx.restore();
+      }
+    }
+
+    function drawSignalSweep() {
+      const sweepX = ((tick * 110) % (width + 280)) - 140;
+      const gradient = drawCtx.createLinearGradient(sweepX - 120, 0, sweepX + 120, 0);
+      gradient.addColorStop(0, "rgba(131, 207, 255, 0)");
+      gradient.addColorStop(0.5, "rgba(131, 207, 255, 0.32)");
+      gradient.addColorStop(1, "rgba(142, 227, 138, 0)");
+
+      drawCtx.save();
+      drawCtx.translate(width / 2, height / 2);
+      drawCtx.rotate(-0.08);
+      drawCtx.fillStyle = gradient;
+      drawCtx.fillRect(sweepX - width / 2 - 120, -height, 240, height * 2);
+      drawCtx.restore();
+    }
+
     function draw() {
-      tick += prefersReducedMotion ? 0 : 0.012;
+      tick += prefersReducedMotion ? 0 : 0.02;
       drawCtx.clearRect(0, 0, width, height);
 
       const rootStyle = getComputedStyle(document.documentElement);
       const ink = rootStyle.getPropertyValue("--border").trim() || "#0f1419";
 
+      drawSignalSweep();
+      drawSignalField(ink);
+
       drawCtx.save();
-      drawCtx.globalAlpha = 0.11;
       drawCtx.strokeStyle = ink;
-      drawCtx.lineWidth = 2;
+      drawCtx.lineWidth = 2.15;
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const a = particles[i];
@@ -93,8 +161,9 @@ export default function HeroMotion() {
           const dx = a.x - b.x;
           const dy = a.y - b.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance < 150) {
-            drawCtx.globalAlpha = (1 - distance / 150) * 0.14;
+          const linkDistance = 185;
+          if (distance < linkDistance) {
+            drawCtx.globalAlpha = (1 - distance / linkDistance) * 0.38;
             drawCtx.beginPath();
             drawCtx.moveTo(a.x, a.y);
             drawCtx.lineTo(b.x, b.y);
@@ -106,18 +175,19 @@ export default function HeroMotion() {
 
       for (const p of particles) {
         if (!prefersReducedMotion) {
-          p.x += p.vx + Math.cos(tick + p.phase) * 0.08;
-          p.y += p.vy + Math.sin(tick + p.phase) * 0.06;
+          const laneY = height * (0.2 + p.lane * 0.14) + Math.sin(tick * 1.15 + p.phase) * 20;
+          p.x += p.vx + Math.cos(tick + p.phase) * 0.2;
+          p.y += p.vy + Math.sin(tick + p.phase) * 0.16 + (laneY - p.y) * 0.004;
         }
 
         if (pointer.active) {
           const dx = p.x - pointer.x;
           const dy = p.y - pointer.y;
           const distance = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-          if (distance < 135) {
-            const force = (135 - distance) / 135;
-            p.x += (dx / distance) * force * 2.3;
-            p.y += (dy / distance) * force * 2.3;
+          if (distance < 175) {
+            const force = (175 - distance) / 175;
+            p.x += (dx / distance) * force * 3.6;
+            p.y += (dy / distance) * force * 3.6;
           }
         }
 
@@ -126,24 +196,44 @@ export default function HeroMotion() {
         if (p.y < -30) p.y = height + 30;
         if (p.y > height + 30) p.y = -30;
 
-        const w = p.size * (3.7 + Math.sin(tick + p.phase) * 0.18);
-        const h = p.size * 1.85;
-        drawBubble(p.x - w / 2, p.y - h / 2, w, h, COLORS[p.tone], 0.34);
+        const w = p.size * (4.1 + Math.sin(tick + p.phase) * 0.26);
+        const h = p.size * 1.95;
+        drawBubble(p.x - w / 2, p.y - h / 2, w, h, COLORS[p.tone], 0.72);
       }
 
       drawCtx.save();
-      drawCtx.globalAlpha = 0.2;
+      drawCtx.globalAlpha = 0.44;
       drawCtx.strokeStyle = ink;
-      drawCtx.lineWidth = 2;
+      drawCtx.lineWidth = 2.35;
+      drawCtx.lineCap = "round";
       const centerX = width * 0.5;
       const centerY = height * 0.48;
       for (let i = 0; i < 3; i++) {
         const radius = 86 + i * 42 + Math.sin(tick * 1.6 + i) * 4;
+        if (i === 1) {
+          drawCtx.setLineDash([22, 22]);
+          drawCtx.lineDashOffset = -tick * 72;
+        } else {
+          drawCtx.setLineDash([]);
+        }
         drawCtx.beginPath();
         drawCtx.ellipse(centerX, centerY, radius * 1.9, radius * 0.58, -0.08, 0, Math.PI * 2);
         drawCtx.stroke();
       }
       drawCtx.restore();
+
+      if (pointer.active) {
+        drawCtx.save();
+        drawCtx.globalAlpha = 0.36;
+        drawCtx.strokeStyle = COLORS[Math.floor(tick * 6) % COLORS.length];
+        drawCtx.lineWidth = 2;
+        drawCtx.setLineDash([10, 12]);
+        drawCtx.lineDashOffset = -tick * 80;
+        drawCtx.beginPath();
+        drawCtx.ellipse(pointer.x, pointer.y, 58, 28, -0.1, 0, Math.PI * 2);
+        drawCtx.stroke();
+        drawCtx.restore();
+      }
 
       if (!prefersReducedMotion) raf = requestAnimationFrame(draw);
     }
