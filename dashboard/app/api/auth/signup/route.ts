@@ -16,7 +16,10 @@ export async function POST(req: NextRequest) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return NextResponse.json({ error: "BAD_EMAIL" }, { status: 400 });
     if (password.length < 8) return NextResponse.json({ error: "WEAK_PASSWORD" }, { status: 400 });
 
-    const exists = await prisma.user.findUnique({ where: { email: e } });
+    const exists = await prisma.user.findUnique({
+      where: { email: e },
+      select: { id: true }
+    });
     if (exists) return NextResponse.json({ error: "EMAIL_TAKEN" }, { status: 409 });
 
     const hash = await bcrypt.hash(password, 12);
@@ -32,7 +35,8 @@ export async function POST(req: NextRequest) {
       token,
       user: { id: user.id, email: user.email, name: user.name, isAdmin }
     });
-  } catch {
-    return NextResponse.json({ error: "SERVER" }, { status: 500 });
+  } catch (error) {
+    console.error("Signup failed:", error);
+    return NextResponse.json({ error: "SERVER_ERROR", message: "Could not create account. Check database migrations." }, { status: 500 });
   }
 }
