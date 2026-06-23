@@ -51,7 +51,7 @@ export default function Signup() {
         <div className="nb-card p-7">
           <h1 className="font-display font-black text-3xl">Create account</h1>
           <p className="mt-2 text-sm opacity-70">
-            Start with Google for the fastest, cleaner login experience.
+            Create an account and your free 3-day trial starts automatically.
           </p>
 
           <div className="mt-6">

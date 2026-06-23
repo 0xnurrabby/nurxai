@@ -7,19 +7,19 @@ export const PLANS = {
   trial: {
     key: "trial",
     name: "Trial",
-    priceUSD: 2,
-    days: 10,
-    dailyLimit: 30,
+    priceUSD: 0,
+    days: 3,
+    dailyLimit: 10,
     model: "openai/gpt-5.4-mini",
     vision: false,
     allowStyles: false,
     allowProjects: false,
     qualityTier: "standard",
     perks: [
-      "30 comments / day",
-      "10 days full access",
-      "GPT-5.4 mini via Vercel AI Gateway (text only)",
-      "Try before you commit"
+      "10 comments / day",
+      "3 days free access",
+      "GPT-5.4 mini text replies",
+      "Auto-starts when you create an account"
     ]
   },
   starter: {
@@ -35,7 +35,7 @@ export const PLANS = {
     qualityTier: "high",
     perks: [
       "60 comments / day",
-      "GPT-5.4 mini via Vercel AI Gateway (text only)",
+      "GPT-5.4 mini text replies",
       "All personalization styles",
       "Custom style note",
       "Email support"
@@ -73,7 +73,7 @@ export const PLANS = {
     qualityTier: "masterpiece",
     perks: [
       "500 comments / day (3.3x Pro)",
-      "GPT-5.4 mini via Vercel AI Gateway, masterpiece replies",
+      "GPT-5.4 mini, masterpiece replies",
       "Full image + post understanding",
       "Unlimited project contexts",
       "All personalization styles",

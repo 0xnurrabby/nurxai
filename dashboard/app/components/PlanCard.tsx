@@ -25,10 +25,11 @@ async function loadBasePay(): Promise<any> {
 }
 
 export default function PlanCard({ plan, currentPlan }: Props) {
-  const [loading, setLoading] = useState<"" | "base" | "nowp">("");
+  const [loading, setLoading] = useState<"" | "base" | "nowp" | "trial">("");
   const [error, setError] = useState("");
   const [chooserOpen, setChooserOpen] = useState(false);
   const isCurrent = currentPlan === plan.key;
+  const isFree = plan.priceUSD <= 0;
 
   function getToken(): string | null {
     return typeof window === "undefined"
@@ -181,6 +182,33 @@ export default function PlanCard({ plan, currentPlan }: Props) {
     }
   }
 
+  async function startFreeTrial() {
+    setError("");
+    setLoading("trial");
+    try {
+      const token = getToken();
+      if (!token) {
+        window.location.href = "/signup";
+        return;
+      }
+
+      const res = await fetch("/api/billing/start-trial", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showError(data, "Could not start free trial.");
+        return;
+      }
+      window.location.href = "/dashboard?trial=1";
+    } catch (e: any) {
+      setError(e?.message || "Network error. Try again.");
+    } finally {
+      setLoading("");
+    }
+  }
+
   const cardClass = isCurrent
     ? "nb-card nb-current p-6 flex flex-col"
     : plan.featured
@@ -202,7 +230,7 @@ export default function PlanCard({ plan, currentPlan }: Props) {
 
       <h3 className="font-display font-black text-2xl">{plan.name}</h3>
       <div className="mt-2 flex items-baseline gap-1">
-        <span className="font-display font-black text-4xl">${plan.priceUSD}</span>
+        <span className="font-display font-black text-4xl">{isFree ? "Free" : `$${plan.priceUSD}`}</span>
         <span className="text-sm font-semibold opacity-70">
           / {plan.days === 1 ? "1 day" : plan.days < 30 ? `${plan.days} days` : "month"}
         </span>
@@ -219,6 +247,14 @@ export default function PlanCard({ plan, currentPlan }: Props) {
 
       {isCurrent ? (
         <button className="nb-btn mt-6" disabled>Active</button>
+      ) : isFree ? (
+        <button
+          className="nb-btn nb-btn-primary mt-6"
+          onClick={startFreeTrial}
+          disabled={!!loading || !!currentPlan}
+        >
+          {loading === "trial" ? "Starting..." : currentPlan ? "Included with active plan" : "Start Free Trial"}
+        </button>
       ) : !chooserOpen ? (
         <button
           className={`nb-btn mt-6 ${plan.featured ? "nb-btn-success" : "nb-btn-primary"}`}

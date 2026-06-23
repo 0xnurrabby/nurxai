@@ -25,6 +25,12 @@ export async function POST(req: NextRequest) {
     const { plan } = body;
     const p = PLANS[plan as PlanKey];
     if (!p) return NextResponse.json({ error: "BAD_PLAN" }, { status: 400 });
+    if (p.priceUSD <= 0) {
+      return NextResponse.json(
+        { error: "FREE_PLAN", message: "Trial is free. Create an account or start the free trial from the pricing page." },
+        { status: 400 }
+      );
+    }
 
     const orderId = `nurxai_${session.sub}_${plan}_${Date.now()}`;
     const baseUrl = getPublicUrl();

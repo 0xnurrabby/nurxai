@@ -51,7 +51,7 @@ function nowMs() {
   return Date.now();
 }
 
-// ─── Context Enrichment (Vercel AI Gateway → Grok) ───────────────────────────
+// ─── Context Enrichment ───────────────────────────────────────────────────────
 //
 // Send extracted tweet context and images to Grok for X-native grounding.
 // It must return nothing when the visible tweet/handles/links/images are ambiguous.
@@ -556,7 +556,7 @@ export async function POST(req: NextRequest) {
     console.log("[vision]", requestId, "plan=", plan.key, "received=", rawImageUrls.length,
       "inlined=", imagePrep.imagesInlined, "url-fallback=", imagePrep.imagesUrlFallback, "ms=", imageMs);
   }
-  // ── Context + image enrichment via Grok on Vercel AI Gateway ─────────────────
+  // ── Context + image enrichment ───────────────────────────────────────────────
   const enrichStarted = nowMs();
   const [enrichment, webSearch] = await Promise.all([
     enrichContext(context, imagePrep.imageParts),
@@ -630,7 +630,7 @@ export async function POST(req: NextRequest) {
 
   if (!gatewayResp.ok) {
     const errBody = await gatewayResp.text().catch(() => "");
-    console.error("AI Gateway error:", gatewayResp.status, errBody);
+    console.error("AI provider error:", gatewayResp.status, errBody);
     return NextResponse.json({ error: "UPSTREAM" }, { status: 502 });
   }
 

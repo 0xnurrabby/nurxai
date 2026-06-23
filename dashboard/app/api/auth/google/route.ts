@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { signToken } from "@/lib/jwt";
 import { isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { createTrialSubscription } from "@/lib/trial";
 
 export const runtime = "nodejs";
 
@@ -37,22 +38,31 @@ export async function POST(req: NextRequest) {
     }
 
     const isAdmin = isAdminEmail(email);
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {
-        googleId,
-        authProvider: "google",
-        isAdmin,
-        name: payload.name || payload.given_name || undefined
-      },
-      create: {
-        email,
-        googleId,
-        authProvider: "google",
-        isAdmin,
-        name: payload.name || payload.given_name || null
-      }
-    });
+    const displayName = payload.name || payload.given_name || null;
+    const existing = await prisma.user.findUnique({ where: { email } });
+    const user = existing
+      ? await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            googleId,
+            authProvider: "google",
+            isAdmin,
+            name: displayName || undefined
+          }
+        })
+      : await prisma.$transaction(async (tx) => {
+          const created = await tx.user.create({
+            data: {
+              email,
+              googleId,
+              authProvider: "google",
+              isAdmin,
+              name: displayName
+            }
+          });
+          await createTrialSubscription(tx, created.id);
+          return created;
+        });
 
     await prisma.auditLog.create({
       data: {

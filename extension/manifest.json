@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NurAi — AI Reply for X",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "AI-powered, human-like reply suggestions for X/Twitter.",
   "default_locale": "en",
   "icons": {

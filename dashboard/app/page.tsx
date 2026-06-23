@@ -22,14 +22,14 @@ export default function Home() {
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link href="/signup" className="nb-btn nb-btn-primary text-lg">
-            Start trial - $2
+            Start free trial
           </Link>
           <Link href="/pricing" className="nb-btn nb-btn-warn text-lg">
             See plans
           </Link>
         </div>
         <p className="mt-4 text-sm opacity-70">
-          Pay with crypto. No credit card. Cancel anytime.
+          3 days free. No credit card. Paid plans support crypto.
         </p>
       </section>
 
@@ -89,7 +89,7 @@ export default function Home() {
         <div className="mt-10 grid md:grid-cols-4 gap-5">
           {[
             { n: "1", t: "Install", d: "Add NurAi from the Chrome Web Store. 30 seconds." },
-            { n: "2", t: "Sign up", d: "Create an account here. Pick a plan or start trial." },
+            { n: "2", t: "Sign up", d: "Create an account here. Your free trial starts automatically." },
             { n: "3", t: "Open X", d: "Click reply on any tweet. NurAi panel opens automatically." },
             { n: "4", t: "Click and send", d: "Pick a suggestion, hit Reply. That's it." }
           ].map((x) => (
@@ -118,7 +118,7 @@ export default function Home() {
             Pro gets you 150 replies per day for $10. Premium gets you{" "}
             <strong>500 replies per day for just $30</strong>, that's{" "}
             <strong>3.3x more replies</strong> for only 3x the price. Plus
-            GPT-5.4 mini through Vercel AI Gateway and image understanding.
+            the strongest reply quality with image understanding.
           </p>
           <Link href="/pricing" className="nb-btn mt-6 inline-block">
             Compare plans
@@ -208,7 +208,7 @@ export default function Home() {
             },
             {
               q: "What's the difference between Pro and Premium?",
-              a: "Pro gives 150 replies per day with GPT-5.4 mini and image understanding ($10/month). Premium gives 500 replies per day with the same Vercel AI Gateway model tuned for masterpiece replies ($30/month). Premium replies are noticeably more clever and human, and you get 3.3x more of them."
+              a: "Pro gives 150 replies per day with GPT-5.4 mini and image understanding ($10/month). Premium gives 500 replies per day with masterpiece-quality replies ($30/month). Premium replies are noticeably more clever and human, and you get 3.3x more of them."
             },
             {
               q: "Can I cancel anytime?",
@@ -216,7 +216,7 @@ export default function Home() {
             },
             {
               q: "Is there a free trial?",
-              a: "The $2 / 10-day trial gives you 30 replies per day, enough to test for a real week and a half before committing."
+              a: "Yes. New accounts automatically get 3 free days with 10 comment generations per day."
             },
             {
               q: "How do I get help?",
@@ -253,7 +253,7 @@ export default function Home() {
               .
             </li>
             <li>Sign up on this site (use the button below).</li>
-            <li>Pick a plan. Start with the $2 trial.</li>
+            <li>Your free trial starts automatically. Upgrade only when you need more.</li>
             <li>
               Click the NurAi icon in your Chrome toolbar. It auto-links to your account.
             </li>
@@ -277,10 +277,10 @@ export default function Home() {
           Stop overthinking replies.
         </h2>
         <p className="mt-4 text-lg">
-          Try NurAi for $2. If you don't love it, you've lost two bucks.
+          Try NurAi free for 3 days, then upgrade only when it earns the spot.
         </p>
         <Link href="/signup" className="nb-btn nb-btn-primary mt-8 inline-block text-lg">
-          Start trial
+          Start free trial
         </Link>
       </section>
 

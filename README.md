@@ -5,7 +5,7 @@
 ![Extension](https://img.shields.io/badge/Extension-Manifest+V3-C7D2FE?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
 [![Dashboard](https://img.shields.io/badge/Dashboard-Next.js+14-BBF7D0?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)](https://www.nurxai.xyz)
 ![Database](https://img.shields.io/badge/Database-Prisma-FDE68A?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
-![AI](https://img.shields.io/badge/AI-Gateway+%2B+OpenAI-FBCFE8?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
+![AI](https://img.shields.io/badge/AI-GPT--5.4+mini-FBCFE8?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
 
 </div>
 
@@ -21,7 +21,7 @@
 | --- | --- |
 | Chrome extension | Injects a reply helper on `x.com` and `twitter.com`. |
 | Account dashboard | Signup, login, billing, settings, projects, and extension token handoff. |
-| AI generation | Uses Vercel AI Gateway and OpenAI-compatible requests for reply suggestions. |
+| AI generation | Uses GPT-5.4 mini, Grok context enrichment, and Gemini web context for reply suggestions. |
 | Billing hooks | NOWPayments and Base Pay routes are wired into the dashboard. |
 | Local cache | Extension caches suggestions and keeps a small audit log in browser storage. |
 

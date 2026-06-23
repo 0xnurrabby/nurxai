@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { signToken } from "@/lib/jwt";
 import { isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { createTrialSubscription } from "@/lib/trial";
 
 export const runtime = "nodejs";
 
@@ -26,11 +27,15 @@ export async function POST(req: NextRequest) {
 
     const hash = await bcrypt.hash(password, 12);
     const isAdmin = isAdminEmail(e);
-    const user = await prisma.user.create({
-      data: { email: e, passwordHash: hash, name: name?.toString().slice(0, 60) || null, isAdmin }
-    });
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { email: e, passwordHash: hash, name: name?.toString().slice(0, 60) || null, isAdmin }
+      });
 
-    await prisma.auditLog.create({ data: { userId: user.id, event: "signup" } });
+      await tx.auditLog.create({ data: { userId: created.id, event: "signup" } });
+      await createTrialSubscription(tx, created.id);
+      return created;
+    });
 
     const token = await signToken({ sub: user.id, email: user.email });
     return NextResponse.json({

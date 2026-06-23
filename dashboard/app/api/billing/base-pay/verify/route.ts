@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
 
   const p = PLANS[plan as PlanKey];
   if (!p) return NextResponse.json({ error: "BAD_PLAN" }, { status: 400 });
+  if (p.priceUSD <= 0) {
+    return NextResponse.json({ error: "FREE_PLAN", message: "Free trial does not require payment." }, { status: 400 });
+  }
 
   const expectedRecipient = process.env.BASE_PAY_RECIPIENT;
   if (!expectedRecipient || !/^0x[a-fA-F0-9]{40}$/.test(expectedRecipient)) {
