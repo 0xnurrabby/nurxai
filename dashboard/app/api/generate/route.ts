@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
+import { google } from "@ai-sdk/google";
+import { generateText } from "ai";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -13,7 +15,10 @@ const GENERATION_MODEL = "openai/gpt-5.4-mini";
 const IMAGE_FETCH_TIMEOUT_MS = getEnvInt("IMAGE_FETCH_TIMEOUT_MS", 5500, 1500, 12000);
 const ENRICH_TIMEOUT_MS = getEnvInt("AI_GATEWAY_ENRICH_TIMEOUT_MS", 12000, 4000, 25000);
 const ENRICH_ATTEMPTS = getEnvInt("AI_GATEWAY_ENRICH_ATTEMPTS", 1, 1, 2);
+const SEARCH_TIMEOUT_MS = getEnvInt("AI_GATEWAY_SEARCH_TIMEOUT_MS", 9000, 3000, 20000);
 const GENERATION_TIMEOUT_MS = getEnvInt("AI_GATEWAY_GENERATION_TIMEOUT_MS", 35000, 10000, 50000);
+const MAX_REPLY_CHARS = getEnvInt("MAX_REPLY_CHARS", 150, 90, 220);
+const MIN_REPLY_COUNT = 3;
 
 const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o-mini": { input: 0.15, output: 0.60 },
@@ -23,6 +28,7 @@ const PRICES: Record<string, { input: number; output: number }> = {
 
 type ImagePart = { type: "image_url"; image_url: { url: string; detail: "high" | "auto" } };
 type EnrichmentResult = { text: string | null; imageUsed: boolean; searchUsed: boolean };
+type SearchContextResult = { text: string | null; used: boolean };
 type Plan = (typeof PLANS)[PlanKey];
 type ImagePreparationResult = {
   imageParts: ImagePart[];
@@ -140,6 +146,49 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
 
   console.warn("[enrich] gateway failed after retries", lastStatus, lastBody.slice(0, 300));
   return { text: null, imageUsed: false, searchUsed: false };
+}
+
+async function searchContext(tweetText: string): Promise<SearchContextResult> {
+  const apiKey = process.env.AI_GATEWAY_API_KEY;
+  if (!apiKey) return { text: null, used: false };
+
+  const primaryModel = process.env.AI_GATEWAY_SEARCH_MODEL || "google/gemini-3.1-flash-lite";
+  const fallbackModel = "google/gemini-3.1-flash-lite-preview";
+  const models = primaryModel === fallbackModel ? [primaryModel] : [primaryModel, fallbackModel];
+  let lastBody = "";
+
+  for (const model of models) {
+    try {
+      const result = await generateText({
+        model,
+        system: `You verify current public web context for an X reply generator.
+
+Use Google/web knowledge only to identify what visible subjects in the tweet refer to.
+Do not invent subjects. Do not write reply ideas. Do not summarize the whole post.
+If there is no useful current context, return exactly: NO_WEB_CONTEXT.
+
+Return at most 3 tiny bullets, each under 16 words.`,
+        prompt: `Visible tweet context:\n"""\n${tweetText.slice(0, 1200)}\n"""`,
+        tools: {
+          google_search: google.tools.googleSearch({
+            searchTypes: { webSearch: {} }
+          })
+        },
+        maxOutputTokens: 180,
+        temperature: 0,
+        abortSignal: AbortSignal.timeout(SEARCH_TIMEOUT_MS)
+      });
+
+      const cleaned = result.text.trim();
+      if (!cleaned || /^NO_WEB_CONTEXT\b/i.test(cleaned)) return { text: null, used: true };
+      return { text: cleaned.slice(0, 700), used: true };
+    } catch (e: any) {
+      lastBody = e?.message || "?";
+    }
+  }
+
+  console.warn("[search] gateway failed", lastBody.slice(0, 300));
+  return { text: null, used: false };
 }
 
 // ─── Image Fetching ───────────────────────────────────────────────────────────
@@ -309,11 +358,17 @@ function buildSystemPrompt(
   customNote: string | null,
   projectsContext: string,
   hasImage: boolean,
-  enrichedContext: string | null
+  grokContext: string | null,
+  webContext: string | null
 ): string {
   const masterpiece = qualityTier === "masterpiece";
 
   return `You write Twitter/X replies that sound like the user's own opinion, not a caption, summary, review, or analysis of the post.
+
+Most replies should be short enough to fit in a reply box without wrapping much.
+Default shape: 1 sentence, 8-18 words, under ${MAX_REPLY_CHARS} characters.
+Long reply = bad output unless the original tweet is a long technical list.
+Do not explain the post back to the author. Do not write mini-threads.
 
 ${masterpiece
     ? "You're deep in crypto/tech. Seen cycles. You respond with personal takes, small judgments, and lived-in opinions. Not trying to impress."
@@ -336,9 +391,15 @@ Perspective modes. Pick the one that fits the post, do not label it:
 BAD: "That walk in Regent's Park sounds like a pivotal moment."
 BAD: "The images capture the essence of your journey."
 BAD: "Meeting X clearly set the stage for your journey."
+BAD: "the part i'd care about is the key-holder gate on the feed, that's where the action gets real and not just social chatter"
+BAD: "bunnies as onchain action feeds is the right primitive if the unlock path stays clean for holders and agents"
+BAD: "~ Builder Spotlight on Base Hub is the kind of distribution i'd want\n~ @project leaning into signals, recommendations, and executable actions is the useful part"
 GOOD: "the underrated part is how much distribution still comes from being in the right room"
 GOOD: "base winning here is less about infra and more about giving builders a default home"
 GOOD: "this is why consumer crypto keeps coming back to relationships, not just rails"
+GOOD: "the key-holder gate is the part i'd actually bet on"
+GOOD: "onchain feeds only matter if people can act from them"
+GOOD: "Base Hub is quietly becoming a real distribution layer"
 
 ━━ GROUNDING RULES ━━
 Only reply from the visible tweet context and verified background below.
@@ -385,13 +446,13 @@ Do not use the same lane for every kind of post. Pick from these rules:
 - Otherwise use Lane A for normal updates, product posts, image posts, and quote tweets.
 
 Lane A - Standard Human (default, use for most posts):
-- Either one clean sentence, or two short lines with one empty line between them.
+- One clean sentence. Only use two short lines if both lines are under 45 characters.
 - This is best for normal opinions, product updates, quote tweets, images, and most tech/crypto posts.
-- Do not use the two-line blank-gap subtype for every post. Use it only when a hook + support line feels natural.
+- Do not use the two-line blank-gap subtype for normal product posts like "Builder Spotlight".
 
 Lane B - Simple Stack (only for list/data/multi-item posts):
 - Header line, then '~' bullets with NO empty lines.
-- Use when the original post itself has a list, finalists, many companies, features, stats, or comparisons.
+- Use only when the original post itself has a visible list, finalists, many companies, features, stats, or comparisons.
 - For ticker/watchlist posts, make compact stack replies from the visible tickers/handles only.
 
 Lane C - Drift (only for nuanced two-part takes):
@@ -414,7 +475,7 @@ No domain-specific examples are provided intentionally. Never copy wording from 
 4. Each of 4 replies = different angle and wording, but keep the same layout lane for the batch.
 5. Lowercase ok. Fragments ok. Contractions ok (im, its, dont, wont).
 6. "tbh", "fr", "lemme", "gonna", "tbf" - use naturally, max 1 of 4 replies. Never use "ngl".
-7. Under 280 chars total per reply (including line breaks).
+7. Hard length cap: under ${MAX_REPLY_CHARS} chars total per reply. Aim 60-120.
 8. Do not wrap replies or individual lines in quotation marks.
 9. Do not name external projects/protocols/tools unless they appear in the tweet context or verified background.
 10. Never include structure names or labels in the reply text.
@@ -422,16 +483,19 @@ No domain-specific examples are provided intentionally. Never copy wording from 
 12. Never write like you are evaluating the tweet. Write like you are adding your own opinion to the conversation.
 13. Do not reuse the same opener, cadence, or pet phrase across the 4 replies. No repeated "i think", "tbh", "my read", or similar starts.
 14. At least 2 replies should be from a clear self-perspective: what the user would bet on, care about, flex, doubt, or choose.
+15. Do not use more than one comma unless the reply is still under 110 chars.
+16. Never use bullets, "~", numbered lines, or 3+ line replies unless the original tweet is clearly a list post.
 ${hasImage ? `
 ━━ IMAGE ━━
 Use the Grok-verified visual context below. At least 2 of 4 replies should reference concrete visual details if they matter:
 exact numbers, text on screen, bar chart values, brand names, UI elements shown.
 Never vague ("nice pic"). Never claim you personally inspected anything beyond the verified context.` : ""}
 ${styleInstruction(style, customNote) !== "Casual, direct, like a smart friend in the space." ? `\n━━ STYLE ━━\n${styleInstruction(style, customNote)}` : ""}
-${enrichedContext ? `\n━━ CONTEXT (verified background - use if relevant) ━━\n${enrichedContext}` : ""}
+${grokContext ? `\n━━ GROK CONTEXT (use silently, if relevant) ━━\n${grokContext}` : ""}
+${webContext ? `\n━━ GOOGLE WEB CONTEXT VIA GEMINI (use silently, if relevant) ━━\n${webContext}` : ""}
 ${projectsContext ? `\n━━ YOUR EXPERTISE ━━\n${projectsContext}` : ""}
 
-OUTPUT: JSON only. Use \\n\\n only for Lane A two-line replies. Use \\n for Lane B stack bullets.
+OUTPUT: JSON only. 4 short replies. No explanation. No bullets unless the original tweet is a visible list.
 {"suggestions": ["reply 1", "reply 2", "reply 3", "reply 4"]}`;
 }
 
@@ -494,10 +558,14 @@ export async function POST(req: NextRequest) {
   }
   // ── Context + image enrichment via Grok on Vercel AI Gateway ─────────────────
   const enrichStarted = nowMs();
-  const enrichment = await enrichContext(context, imagePrep.imageParts);
+  const [enrichment, webSearch] = await Promise.all([
+    enrichContext(context, imagePrep.imageParts),
+    searchContext(context)
+  ]);
   const enrichedContext = enrichment.text;
+  const webContext = webSearch.text;
   const imageUsedByGrok = enrichment.imageUsed;
-  const searchUsedByGrok = enrichment.searchUsed;
+  const searchUsedByGrok = enrichment.searchUsed || webSearch.used;
   const hadVerifiedImageContext = Boolean(enrichedContext && imageUsedByGrok);
   const enrichMs = nowMs() - enrichStarted;
 
@@ -513,7 +581,7 @@ export async function POST(req: NextRequest) {
   // ── Project contexts ──────────────────────────────────────────────────────
   const systemPrompt = buildSystemPrompt(
     plan.qualityTier, style, customNote,
-    projectsContext, hadVerifiedImageContext, enrichedContext
+    projectsContext, hadVerifiedImageContext, enrichedContext, webContext
   );
 
   // ── Build user message ────────────────────────────────────────────────────
@@ -534,8 +602,8 @@ export async function POST(req: NextRequest) {
   }
   const masterpiece = plan.qualityTier === "masterpiece";
   // Keep enough entropy for human variation while Grok context keeps it grounded.
-  const temperature = isRegenerate ? 0.78 : masterpiece ? 0.68 : 0.62;
-  const maxTokens = masterpiece ? 900 : 700;
+  const temperature = isRegenerate ? 0.72 : masterpiece ? 0.58 : 0.55;
+  const maxTokens = masterpiece ? 420 : 360;
 
   let gatewayResp: Response;
   try {
@@ -571,12 +639,20 @@ export async function POST(req: NextRequest) {
   const inputTokens = data?.usage?.prompt_tokens || 0;
   const outputTokens = data?.usage?.completion_tokens || 0;
 
-  let suggestions = parseSuggestions(raw);
-  suggestions = suggestions
-    .map(stripEmojis)
-    .map(cleanReply)
-    .filter(s => isAllowedReply(s, context));
-  suggestions = dedupeReplyOpeners(suggestions);
+  let suggestions = sanitizeSuggestions(parseSuggestions(raw), context);
+  if (suggestions.length < MIN_REPLY_COUNT) {
+    suggestions = await repairSuggestions({
+      apiKey,
+      model,
+      context,
+      rawSuggestions: parseSuggestions(raw),
+      previousSuggestions,
+      isRegenerate
+    });
+  }
+  if (suggestions.length < MIN_REPLY_COUNT) {
+    suggestions = sanitizeSuggestions(parseSuggestions(raw).map(forceShortReply), context);
+  }
   if (!suggestions.length) {
     return NextResponse.json({ error: "EMPTY_SUGGESTIONS" }, { status: 502 });
   }
@@ -604,7 +680,7 @@ export async function POST(req: NextRequest) {
 
   console.log("[generate]", requestId, "plan=", plan.key, "total=", nowMs() - requestStarted,
     "db=", dbMs, "image=", imageMs, "enrich=", enrichMs, "personalization=", personalizationMs,
-    "write=", writeMs, "vision=", hadVerifiedImageContext, "search=", searchUsedByGrok);
+    "write=", writeMs, "vision=", hadVerifiedImageContext, "grok=", enrichment.searchUsed, "gemini=", webSearch.used);
 
   return NextResponse.json({
     suggestions,
@@ -626,6 +702,97 @@ function parseSuggestions(raw: string): string[] {
     return arr.filter((s: any) => typeof s === "string").map((s: string) => s.trim()).filter(Boolean).slice(0, 4);
   } catch {}
   return raw.split(/\n+/).map(s => s.replace(/^\d+[.)]\s*/, "").trim()).filter(Boolean).slice(0, 4);
+}
+
+function isListLikeContext(context: string) {
+  const lines = context.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const bulletish = lines.filter((line) => /^[-*~•]|\d+[.)]\s|[@$][a-z0-9_]+/i.test(line)).length;
+  const symbolCount = (context.match(/[@$][A-Za-z0-9_]+/g) || []).length;
+  return bulletish >= 3 || symbolCount >= 4 || /\btop\s+\d+|watchlist|finalists|rankings?\b/i.test(context);
+}
+
+function isShortHumanReply(reply: string, context: string) {
+  const trimmed = reply.trim();
+  if (!trimmed) return false;
+  if (trimmed.length > MAX_REPLY_CHARS) return false;
+  if (trimmed.split(/\s+/).length > 26) return false;
+  if (!isListLikeContext(context) && /(^|\n)\s*(~|-|\d+[.)])\s/.test(trimmed)) return false;
+  if (!isListLikeContext(context) && trimmed.split("\n").filter(Boolean).length > 2) return false;
+  if ((trimmed.match(/,/g) || []).length > 1 && trimmed.length > 110) return false;
+  return true;
+}
+
+function sanitizeSuggestions(list: string[], context: string): string[] {
+  const cleaned = list
+    .map(stripEmojis)
+    .map(cleanReply)
+    .filter((s) => isShortHumanReply(s, context))
+    .filter((s) => isAllowedReply(s, context));
+
+  return dedupeReplyOpeners(cleaned).slice(0, 4);
+}
+
+function forceShortReply(reply: string) {
+  const firstLine = cleanReply(reply).split(/\n+/).find((line) => line.trim() && !/^\s*(~|-|\d+[.)])\s/.test(line)) || "";
+  const firstSentence = firstLine.split(/(?<=[.!])\s+/)[0] || firstLine;
+  const words = firstSentence.trim().split(/\s+/).slice(0, 18).join(" ");
+  return words.length > MAX_REPLY_CHARS ? words.slice(0, MAX_REPLY_CHARS - 1).trim() : words;
+}
+
+async function repairSuggestions({
+  apiKey,
+  model,
+  context,
+  rawSuggestions,
+  previousSuggestions,
+  isRegenerate
+}: {
+  apiKey: string;
+  model: string;
+  context: string;
+  rawSuggestions: string[];
+  previousSuggestions: string[];
+  isRegenerate: boolean;
+}) {
+  try {
+    const resp = await fetch(AI_GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: `Rewrite bad X replies into 4 short human replies.
+
+Rules:
+- each reply under ${MAX_REPLY_CHARS} chars, aim 8-16 words
+- one sentence each
+- no bullets, no lists, no explanation
+- no questions at the end
+- sound like a real person with a small opinion
+- keep only names/handles/claims visible in the tweet`
+          },
+          {
+            role: "user",
+            content: `Tweet:\n"""\n${context}\n"""\n\nBad/long replies:\n${rawSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}${isRegenerate && previousSuggestions.length ? `\n\nAvoid these previous replies:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}` : ""}\n\nReturn JSON only: {"suggestions":["...","...","...","..."]}`
+          }
+        ],
+        temperature: 0.45,
+        max_tokens: 280
+      }),
+      signal: AbortSignal.timeout(12000)
+    });
+    if (!resp.ok) return [];
+    const data = await resp.json().catch(() => null);
+    const raw = data?.choices?.[0]?.message?.content || "";
+    return sanitizeSuggestions(parseSuggestions(raw), context);
+  } catch {
+    return [];
+  }
 }
 
 function stripEmojis(s: string): string {
