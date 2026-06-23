@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
+import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
 import crypto from "crypto";
 
@@ -314,9 +314,9 @@ OUTPUT: JSON only. Use \\n\\n only for Lane A two-line replies. Use \\n for Lane
 // ─── Main Route ───────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromAuthHeader(req);
-  if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  const userId = session.sub;
+  const auth = await getAuthUserFromHeader(req);
+  if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const userId = auth.user.id;
 
   const sub = await prisma.subscription.findFirst({
     where: { userId, status: "active", endsAt: { gt: new Date() } },

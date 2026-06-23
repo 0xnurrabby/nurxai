@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
+import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { isAdminEmail } from "@/lib/admin";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  const session = await getSessionFromAuthHeader(req);
-  if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-
-  const user = await prisma.user.findUnique({ where: { id: session.sub } });
-  if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const auth = await getAuthUserFromHeader(req);
+  if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const user = auth.user;
 
   const sub = await prisma.subscription.findFirst({
     where: { userId: user.id, status: "active", endsAt: { gt: new Date() } },

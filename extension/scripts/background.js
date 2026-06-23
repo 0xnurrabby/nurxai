@@ -78,7 +78,11 @@ async function callGenerate(context, imageUrls, regenerate, previousSuggestions)
     await audit("auth_invalidated");
     return { ok: false, error: "SESSION_EXPIRED" };
   }
-  if (resp.status === 402) return { ok: false, error: "NO_SUBSCRIPTION" };
+  if (resp.status === 402) {
+    await del([CONFIG.STORAGE_KEYS.TOKEN, CONFIG.STORAGE_KEYS.USER]);
+    await audit("subscription_check_failed");
+    return { ok: false, error: "NEEDS_RECONNECT" };
+  }
   if (resp.status === 429) return { ok: false, error: "QUOTA_EXCEEDED" };
 
   let data;

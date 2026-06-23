@@ -624,6 +624,7 @@
         const map = {
           NOT_LOGGED_IN:    ["Please sign in to use NurAi.", "login"],
           SESSION_EXPIRED:  ["Session expired. Please sign in again.", "login"],
+          NEEDS_RECONNECT:  ["Reconnect NurAi to refresh your subscription.", "login"],
           NO_SUBSCRIPTION:  ["No active subscription. Pick a plan to continue.", "pricing"],
           QUOTA_EXCEEDED:   ["Daily quota reached. Upgrade for more.", "pricing"],
           RATE_LIMIT_LOCAL: ["Slow down — please wait a moment.", null],
