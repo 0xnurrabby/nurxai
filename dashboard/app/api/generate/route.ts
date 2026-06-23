@@ -446,8 +446,7 @@ export async function POST(req: NextRequest) {
           userMessage
         ],
         temperature,
-        max_tokens: maxTokens,
-        response_format: { type: "json_object" }
+        max_tokens: maxTokens
       }),
       signal: AbortSignal.timeout(45000)
     });

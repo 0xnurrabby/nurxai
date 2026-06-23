@@ -630,7 +630,9 @@
           RATE_LIMIT_LOCAL: ["Slow down — please wait a moment.", null],
           NETWORK:          ["Network error. Check your connection.", null],
           EMPTY_CONTEXT:    ["No tweet context found.", null],
-          BAD_RESPONSE:     ["Server returned an unexpected response.", null]
+          BAD_RESPONSE:     ["Server returned an unexpected response.", null],
+          UPSTREAM:         ["AI service error. Try again in a moment.", null],
+          EMPTY_SUGGESTIONS:["No good suggestions returned. Try again.", null]
         };
         const [m, action] = map[resp?.error] || ["Could not generate suggestions.", null];
         showError(m, action);
