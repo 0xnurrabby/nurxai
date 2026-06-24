@@ -341,6 +341,10 @@ body {
   margin: 2px 0;
 }
 
+.mobile-nav-shell {
+  display: none;
+}
+
 .section-reveal {
   animation: rise-in .52s cubic-bezier(.2, .8, .2, 1) both;
 }
@@ -394,13 +398,26 @@ body {
   }
 
   .hero-content {
-    width: min(100%, 334px);
+    width: min(100%, 340px);
     max-width: calc(100vw - 40px);
   }
 
+  .hero-badges {
+    max-width: 310px;
+    margin-inline: auto;
+  }
+
+  .hero-badges .nb-tag {
+    max-width: 100%;
+    padding-inline: 8px;
+    font-size: 11px;
+    line-height: 1.25;
+    white-space: normal;
+  }
+
   .hero-title {
-    max-width: 7.5em;
-    font-size: clamp(2.15rem, 10.8vw, 2.85rem);
+    max-width: 7em;
+    font-size: clamp(2rem, 9.3vw, 2.45rem);
     line-height: 1.08;
   }
 
@@ -428,16 +445,17 @@ body {
 
   .site-header nav {
     min-height: 74px;
+    position: relative;
+    padding-right: 72px;
   }
 
   .brand-link {
     flex: 1 1 auto;
-    max-width: 42vw;
+    max-width: calc(100vw - 116px);
   }
 
   .nav-actions {
-    flex: 0 0 auto;
-    gap: 7px;
+    display: none;
   }
 
   .nav-link {
@@ -449,12 +467,61 @@ body {
   }
 
   .nav-menu-trigger {
+    position: static;
     width: 46px;
     min-height: 44px;
   }
 
+  .nav-menu {
+    position: fixed;
+    right: 12px;
+    top: 66px;
+    z-index: 70;
+  }
+
   .nav-menu-home {
     display: flex;
+  }
+
+  .mobile-nav-shell {
+    display: block;
+    position: fixed;
+    right: 14px;
+    top: 14px;
+    z-index: 80;
+  }
+
+  .mobile-nav-trigger {
+    width: 46px;
+    min-height: 44px;
+    padding-inline: 0;
+    font-size: 22px;
+    line-height: 1;
+    letter-spacing: 2px;
+  }
+
+  .mobile-nav-menu {
+    position: fixed;
+    right: 12px;
+    top: 66px;
+    width: min(300px, calc(100vw - 24px));
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-8px) scale(.98);
+    transform-origin: top right;
+    transition:
+      opacity .18s ease,
+      transform .22s cubic-bezier(.2, .8, .2, 1),
+      visibility 0s linear .18s;
+  }
+
+  .mobile-nav-menu-open {
+    pointer-events: auto;
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition-delay: 0s;
   }
 }
 
@@ -466,7 +533,7 @@ body {
 
 @media (max-width: 420px) {
   .brand-link {
-    max-width: 36vw;
+    max-width: calc(100vw - 110px);
     font-size: 19px;
   }
 

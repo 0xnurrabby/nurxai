@@ -10,6 +10,7 @@ export default function Navbar() {
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -23,7 +24,13 @@ export default function Navbar() {
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+      const target = event.target as Node;
+      if (
+        !menuRef.current?.contains(target) &&
+        !mobileMenuRef.current?.contains(target)
+      ) {
+        setMenuOpen(false);
+      }
     }
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setMenuOpen(false);
@@ -152,6 +159,73 @@ export default function Navbar() {
           </div>
         </div>
       </nav>
+
+      <div ref={mobileMenuRef} className="mobile-nav-shell">
+        <button
+          type="button"
+          className="nb-btn mobile-nav-trigger"
+          aria-label="Open navigation menu"
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span aria-hidden="true">...</span>
+        </button>
+
+        <div
+          className={`mobile-nav-menu ${menuOpen ? "mobile-nav-menu-open" : ""}`}
+          role="menu"
+          aria-hidden={!menuOpen}
+        >
+          <div className="nav-menu-panel">
+            <Link href="/" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+              <span>Home</span>
+              <small>Main page</small>
+            </Link>
+            <Link href="/pricing" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+              <span>Pricing</span>
+              <small>Plans and billing</small>
+            </Link>
+
+            {mounted && loggedIn ? (
+              <>
+                <Link href="/dashboard" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+                  <span>Dashboard</span>
+                  <small>Usage and subscription</small>
+                </Link>
+                <Link href="/settings" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+                  <span>Settings</span>
+                  <small>Style and projects</small>
+                </Link>
+                {isAdmin && (
+                  <Link href="/admin" className="nav-menu-item nav-menu-warn" role="menuitem" onClick={closeMenu}>
+                    <span>Admin</span>
+                    <small>Users and billing</small>
+                  </Link>
+                )}
+                <button type="button" onClick={logout} className="nav-menu-item nav-menu-button" role="menuitem">
+                  <span>Sign out</span>
+                  <small>End this session</small>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+                  <span>Sign in</span>
+                  <small>Existing account</small>
+                </Link>
+                <Link href="/signup" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+                  <span>Start free trial</span>
+                  <small>3 days included</small>
+                </Link>
+              </>
+            )}
+
+            <div className="nav-menu-divider" />
+            <ThemeToggle variant="menu" />
+          </div>
+        </div>
+      </div>
     </header>
   );
 }
