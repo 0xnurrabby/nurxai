@@ -31,6 +31,7 @@ model Subscription {
   userId    String
   plan      String
   status    String
+  dailyLimit Int?
   startsAt  DateTime @default(now())
   endsAt    DateTime
   user      User     @relation(fields: [userId], references: [id])
@@ -96,6 +97,7 @@ model Generation {
   userId        String
   contextHash   String
   suggestions   Json
+  usageDetails  Json?
   inputTokens   Int      @default(0)
   outputTokens  Int      @default(0)
   costUSD       Decimal  @default(0)

@@ -64,6 +64,7 @@ async function activateSubscription(paymentId: string, rawStatus: string | null,
         userId: payment.userId,
         plan: payment.plan,
         status: "active",
+        dailyLimit: plan.dailyLimit,
         endsAt
       }
     });
@@ -89,6 +90,7 @@ async function activateSubscription(paymentId: string, rawStatus: string | null,
           orderId: payment.providerId,
           providerPaymentId: body.payment_id || body.invoice_id || null,
           plan: payment.plan,
+          dailyLimit: plan.dailyLimit,
           endsAt: endsAt.toISOString()
         } as any
       }

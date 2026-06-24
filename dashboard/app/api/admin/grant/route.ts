@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin";
 import { PLANS, PlanKey } from "@/lib/plans";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,7 @@ async function getActiveSubscription(userId: string) {
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  await ensureRuntimeSchema();
 
   const { userId, plan, days, action, endsAt } = await req.json().catch(() => ({}));
   if (!userId || typeof userId !== "string") {
@@ -104,6 +106,7 @@ export async function POST(req: NextRequest) {
       userId,
       plan,
       status: "active",
+      dailyLimit: selectedPlan.dailyLimit,
       endsAt: new Date(Date.now() + customDays * DAY_MS)
     }
   });
@@ -112,9 +115,9 @@ export async function POST(req: NextRequest) {
     data: {
       userId: admin.id,
       event: "admin_grant",
-      meta: { targetId: userId, plan, days: customDays, subscriptionId: sub.id } as any
-    }
-  });
+        meta: { targetId: userId, plan, days: customDays, dailyLimit: selectedPlan.dailyLimit, subscriptionId: sub.id } as any
+      }
+    });
 
   return NextResponse.json({ ok: true, action: "granted", subscription: sub });
 }

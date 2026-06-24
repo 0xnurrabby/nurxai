@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
 
   const session = await getSessionFromAuthHeader(req);
   if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  await ensureRuntimeSchema();
 
   const { plan } = await req.json();
   const p = PLANS[plan as PlanKey];
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   const endsAt = new Date(Date.now() + p.days * 24 * 60 * 60 * 1000);
   await prisma.subscription.create({
-    data: { userId: session.sub, plan, status: "active", endsAt }
+    data: { userId: session.sub, plan, status: "active", dailyLimit: p.dailyLimit, endsAt }
   });
 
   return NextResponse.json({ ok: true, endsAt });

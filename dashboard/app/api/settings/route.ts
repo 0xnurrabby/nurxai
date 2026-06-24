@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey, REPLY_STYLES } from "@/lib/plans";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,7 @@ async function getActivePlan(userId: string) {
 export async function GET(req: NextRequest) {
   const session = await getSessionFromAuthHeader(req);
   if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  await ensureRuntimeSchema();
 
   const user = await prisma.user.findUnique({
     where: { id: session.sub },
@@ -43,6 +45,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await getSessionFromAuthHeader(req);
   if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  await ensureRuntimeSchema();
 
   const plan = await getActivePlan(session.sub);
   if (!plan) return NextResponse.json({ error: "NO_SUBSCRIPTION" }, { status: 402 });

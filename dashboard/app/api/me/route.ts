@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUserFromHeader } from "@/lib/auth-helpers";
-import { PLANS, PlanKey } from "@/lib/plans";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { getSubscriptionDailyLimit } from "@/lib/subscription-limits";
 import { isAdminEmail } from "@/lib/admin";
 
 export const runtime = "nodejs";
@@ -11,6 +12,7 @@ export async function GET(req: NextRequest) {
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   const user = auth.user;
   const details = new URL(req.url).searchParams.get("details") || "summary";
+  await ensureRuntimeSchema();
 
   const day = new Date().toISOString().slice(0, 10);
   const [sub, usage] = await Promise.all([
@@ -51,7 +53,7 @@ export async function GET(req: NextRequest) {
           plan: sub.plan,
           startsAt: sub.startsAt.toISOString(),
           endsAt: sub.endsAt.toISOString(),
-          dailyLimit: PLANS[sub.plan as PlanKey]?.dailyLimit ?? 0
+          dailyLimit: getSubscriptionDailyLimit(sub)
         }
       : null,
     usageToday: usage?.count ?? 0,

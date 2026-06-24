@@ -7,6 +7,7 @@ type Subscription = {
   id: string;
   plan: string;
   status: string;
+  dailyLimit?: number | null;
   startsAt: string;
   endsAt: string;
 };
@@ -53,6 +54,7 @@ type UserDetail = AdminUser & {
     inputTokens: number;
     outputTokens: number;
     costUSD: string;
+    usageDetails?: any;
     hadImage: boolean;
     createdAt: string;
   }>;
@@ -64,12 +66,32 @@ type Stats = {
   totalUsers: number;
   activeSubs: number;
   totalPayments: number;
+  totalComments: number;
   todayUsage: number;
   revenue: string;
   tokens?: {
     allTime: { input: number; output: number; cost: string };
     today: { input: number; output: number; cost: string };
     last30d: { input: number; output: number; cost: string };
+  };
+  comments?: {
+    allTime: number;
+    today: number;
+    last30d: number;
+    avgCostUSD: string;
+  };
+  gatewaySpend?: {
+    last30d?: {
+      cost: number;
+      inputTokens: number;
+      outputTokens: number;
+      requests: number;
+      rows: Array<{ model: string; cost: number; inputTokens: number; outputTokens: number; requests: number }>;
+    } | null;
+  };
+  planEconomics?: {
+    estimatedCostPerCommentUSD: number;
+    dailyLimits: { starter: number; pro: number; premium: number };
   };
   profitMargin?: { revenue: number; cost: number; profit: number };
 };
@@ -90,6 +112,18 @@ function daysRemaining(value?: string | null) {
 
 function money(value: string | number | undefined | null, digits = 2) {
   return Number(value || 0).toFixed(digits);
+}
+
+function usageBreakdown(details: any) {
+  return Array.isArray(details?.calls) ? details.calls : [];
+}
+
+function compactStage(stage?: string) {
+  if (!stage) return "ai";
+  if (stage.startsWith("gpt")) return "GPT";
+  if (stage.startsWith("grok")) return "Grok";
+  if (stage.startsWith("gemini")) return "Gemini";
+  return stage.replace(/-/g, " ");
 }
 
 export default function AdminPage() {
@@ -258,16 +292,17 @@ export default function AdminPage() {
 
         {stats && (
           <>
-            <div className="grid md:grid-cols-5 gap-4 mt-6">
+            <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6">
               <StatCard label="Total Users" value={stats.totalUsers} color="var(--accent3)" />
               <StatCard label="Active Subs" value={stats.activeSubs} color="var(--accent2)" />
-              <StatCard label="Paid Payments" value={stats.totalPayments} color="var(--accent)" />
+              <StatCard label="Total Comments" value={(stats.totalComments || 0).toLocaleString()} />
               <StatCard label="Today Usage" value={stats.todayUsage} />
+              <StatCard label="Paid Payments" value={stats.totalPayments} color="var(--accent)" />
               <StatCard label="Revenue" value={`$${money(stats.revenue)}`} />
             </div>
 
             {stats.tokens && (
-              <div className="grid md:grid-cols-3 gap-4 mt-4">
+              <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
                 <StatCard
                   label="AI Stack Tokens Today"
                   value={(stats.tokens.today.input + stats.tokens.today.output).toLocaleString()}
@@ -279,10 +314,31 @@ export default function AdminPage() {
                   sub={`cost ~$${money(stats.tokens.last30d.cost, 2)}`}
                 />
                 <StatCard
+                  label="Avg DB Cost / Comment"
+                  value={`$${money(stats.comments?.avgCostUSD, 4)}`}
+                  sub={`${(stats.comments?.allTime || 0).toLocaleString()} stored comments`}
+                />
+                <StatCard
+                  label="Gateway Spend 30d"
+                  value={`$${money(stats.gatewaySpend?.last30d?.cost, 2)}`}
+                  sub={`${(stats.gatewaySpend?.last30d?.requests || 0).toLocaleString()} requests | ${(((stats.gatewaySpend?.last30d?.inputTokens || 0) + (stats.gatewaySpend?.last30d?.outputTokens || 0))).toLocaleString()} tokens`}
+                />
+              </div>
+            )}
+
+            {stats.planEconomics && (
+              <div className="grid md:grid-cols-2 gap-4 mt-4">
+                <StatCard
                   label="All-time Profit"
                   value={`$${money(stats.profitMargin?.profit, 2)}`}
                   sub={`revenue $${money(stats.profitMargin?.revenue)} - cost $${money(stats.profitMargin?.cost, 4)}`}
                   color="var(--accent2)"
+                />
+                <StatCard
+                  label="Current Plan Limits"
+                  value={`${stats.planEconomics.dailyLimits.starter}/${stats.planEconomics.dailyLimits.pro}/${stats.planEconomics.dailyLimits.premium}`}
+                  sub={`starter / pro / premium per day | cost model ~$${money(stats.planEconomics.estimatedCostPerCommentUSD, 4)}/comment`}
+                  color="var(--accent3)"
                 />
               </div>
             )}
@@ -395,7 +451,12 @@ function UserTable({
                   {u.isAdmin && <span className="nb-tag mt-1" style={{ background: "var(--accent3)" }}>ADMIN</span>}
                 </td>
                 <td className="p-3">
-                  {sub ? <span className="nb-tag" style={{ background: "var(--accent2)" }}>{sub.plan}</span> : <span className="opacity-50">none</span>}
+                  {sub ? (
+                    <>
+                      <span className="nb-tag" style={{ background: "var(--accent2)" }}>{sub.plan}</span>
+                      <div className="text-xs opacity-70 mt-1">{sub.dailyLimit ? `${sub.dailyLimit}/day` : "legacy limit"}</div>
+                    </>
+                  ) : <span className="opacity-50">none</span>}
                 </td>
                 <td className="p-3 text-xs">{sub ? `${fmtDate(sub.endsAt)} (${daysRemaining(sub.endsAt)}d)` : "-"}</td>
                 <td className="p-3">
@@ -522,6 +583,7 @@ function DetailPanel({
         {active ? (
           <div className="mt-2 p-3 border-2 border-ink dark:border-nightInk rounded-lg" style={{ background: "var(--accent2)" }}>
             <div className="font-black uppercase">{active.plan}</div>
+            <div className="text-sm font-bold">Limit {active.dailyLimit ? `${active.dailyLimit} comments/day` : "legacy plan limit"}</div>
             <div className="text-sm">Started {fmtDate(active.startsAt)}</div>
             <div className="text-sm">Ends {fmtDate(active.endsAt, true)}</div>
             <div className="text-sm font-bold">{daysRemaining(active.endsAt)} days remaining</div>
@@ -558,6 +620,7 @@ function DetailPanel({
         {allSubs.slice(0, 8).map((s) => (
           <div key={s.id} className="py-2 border-b border-ink/20 dark:border-nightInk/20 text-sm">
             <div className="font-bold">{s.plan} <span className="opacity-60">({s.status})</span></div>
+            <div className="text-xs opacity-70">{s.dailyLimit ? `${s.dailyLimit} comments/day` : "legacy limit"}</div>
             <div className="text-xs opacity-70">{fmtDate(s.startsAt)} to {fmtDate(s.endsAt)}</div>
           </div>
         ))}
@@ -594,8 +657,15 @@ function DetailPanel({
       <MiniList title="Recent generations">
         {(detail.generations || []).map((g) => (
           <div key={g.id} className="py-2 border-b border-ink/20 dark:border-nightInk/20 text-sm">
-            <div className="font-bold">AI stack | {(g.inputTokens + g.outputTokens).toLocaleString()} tokens</div>
+            <div className="font-bold">{g.model || "AI stack"} | {(g.inputTokens + g.outputTokens).toLocaleString()} tokens</div>
             <div className="text-xs opacity-70">${money(g.costUSD, 4)} | {fmtDate(g.createdAt, true)}</div>
+            {usageBreakdown(g.usageDetails).length > 0 && (
+              <div className="text-[11px] opacity-60 mt-1 leading-snug">
+                {usageBreakdown(g.usageDetails).slice(0, 4).map((c: any) =>
+                  `${compactStage(c.stage)} ${(Number(c.inputTokens || 0) + Number(c.outputTokens || 0)).toLocaleString()}t $${money(c.costUSD, 4)}`
+                ).join(" | ")}
+              </div>
+            )}
           </div>
         ))}
       </MiniList>

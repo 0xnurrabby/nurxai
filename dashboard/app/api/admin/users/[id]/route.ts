@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAdmin, isAdminEmail } from "@/lib/admin";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  await ensureRuntimeSchema();
 
   const user = await prisma.user.findUnique({
     where: { id: ctx.params.id },
@@ -25,6 +27,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
         select: {
           id: true,
           model: true,
+          usageDetails: true,
           inputTokens: true,
           outputTokens: true,
           costUSD: true,

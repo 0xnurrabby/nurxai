@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { getSubscriptionDailyLimit } from "@/lib/subscription-limits";
 import { google } from "@ai-sdk/google";
 import { gateway, generateText } from "ai";
 import crypto from "crypto";
@@ -15,9 +17,10 @@ const GENERATION_MODEL = "openai/gpt-5.4-mini";
 const IMAGE_FETCH_TIMEOUT_MS = getEnvInt("IMAGE_FETCH_TIMEOUT_MS", 5500, 1500, 12000);
 const ENRICH_TIMEOUT_MS = getEnvInt("AI_GATEWAY_ENRICH_TIMEOUT_MS", 12000, 4000, 25000);
 const ENRICH_ATTEMPTS = getEnvInt("AI_GATEWAY_ENRICH_ATTEMPTS", 1, 1, 2);
+const ENRICH_MAX_TOKENS = getEnvInt("AI_GATEWAY_ENRICH_MAX_TOKENS", 260, 120, 450);
 const SEARCH_TIMEOUT_MS = getEnvInt("AI_GATEWAY_SEARCH_TIMEOUT_MS", 9000, 3000, 20000);
-const SEARCH_PROMPT_CHARS = getEnvInt("AI_GATEWAY_SEARCH_PROMPT_CHARS", 420, 240, 900);
-const SEARCH_MAX_OUTPUT_TOKENS = getEnvInt("AI_GATEWAY_SEARCH_MAX_OUTPUT_TOKENS", 70, 40, 140);
+const SEARCH_PROMPT_CHARS = getEnvInt("AI_GATEWAY_SEARCH_PROMPT_CHARS", 280, 160, 700);
+const SEARCH_MAX_OUTPUT_TOKENS = getEnvInt("AI_GATEWAY_SEARCH_MAX_OUTPUT_TOKENS", 55, 32, 120);
 const SEARCH_CACHE_TTL_MS = getEnvInt("AI_GATEWAY_SEARCH_CACHE_TTL_HOURS", 24, 1, 168) * 60 * 60 * 1000;
 const GENERATION_TIMEOUT_MS = getEnvInt("AI_GATEWAY_GENERATION_TIMEOUT_MS", 35000, 10000, 50000);
 const MAX_REPLY_CHARS = getEnvInt("MAX_REPLY_CHARS", 150, 90, 220);
@@ -94,9 +97,38 @@ function addUsage(...items: AiUsage[]) {
   }), emptyUsage());
 }
 
+function formatAiStack(usage: AiUsage) {
+  const labels = new Set<string>();
+  for (const call of usage.calls) {
+    if (call.stage.startsWith("gpt")) labels.add("GPT");
+    else if (call.stage.startsWith("grok")) labels.add("Grok");
+    else if (call.stage.startsWith("gemini")) labels.add("Gemini");
+  }
+  return labels.size ? [...labels].join(" + ") : "GPT";
+}
+
 function estimateCost(model: string, inputTokens: number, outputTokens: number) {
   const price = PRICES[model] || PRICES[GENERATION_MODEL];
   return (inputTokens / 1_000_000) * price.input + (outputTokens / 1_000_000) * price.output;
+}
+
+function gatewayRequestHeaders(apiKey: string) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+    "ai-gateway-protocol-version": "0.0.1"
+  };
+  const o11y: Array<[string, string]> = [
+    ["VERCEL_DEPLOYMENT_ID", "ai-o11y-deployment-id"],
+    ["VERCEL_ENV", "ai-o11y-environment"],
+    ["VERCEL_REGION", "ai-o11y-region"],
+    ["VERCEL_PROJECT_ID", "ai-o11y-project-id"]
+  ];
+  for (const [envName, headerName] of o11y) {
+    const value = process.env[envName];
+    if (value) headers[headerName] = value;
+  }
+  return headers;
 }
 
 function gatewayGenerationId(metadata: unknown): string | undefined {
@@ -108,9 +140,10 @@ async function usageFromGatewayInfo(stage: string, model: string, generationId?:
   if (!generationId) return null;
   try {
     const info = await gateway.getGenerationInfo({ id: generationId });
-    const inputTokens = Number(info.promptTokens || 0) + Number(info.cachedTokens || 0) + Number(info.cacheCreationTokens || 0);
+    const inputTokens = Number(info.promptTokens || 0);
     const outputTokens = Number(info.completionTokens || 0) + Number(info.reasoningTokens || 0);
-    const costUSD = Number(info.totalCost || info.usage || 0);
+    const gatewayCost = Number(info.totalCost ?? info.usage);
+    const costUSD = Number.isFinite(gatewayCost) ? gatewayCost : estimateCost(info.model || model, inputTokens, outputTokens);
     return {
       inputTokens,
       outputTokens,
@@ -187,7 +220,8 @@ async function usageFromAiSdkResult(stage: string, model: string, result: any): 
 // It must return nothing when the visible tweet/handles/links/images are ambiguous.
 // This runs for every generation when AI_GATEWAY_API_KEY is set in env.
 
-async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promise<EnrichmentResult> {
+async function enrichContext(tweetText: string, imageParts: ImagePart[], plan: Plan): Promise<EnrichmentResult> {
+  if (!plan.vision) return { text: null, imageUsed: false, searchUsed: false, usage: emptyUsage() };
   const apiKey = process.env.AI_GATEWAY_API_KEY;
   if (!apiKey) return { text: null, imageUsed: false, searchUsed: false, usage: emptyUsage() };
 
@@ -214,10 +248,7 @@ async function enrichContext(tweetText: string, imageParts: ImagePart[]): Promis
       try {
         const resp = await fetch(AI_GATEWAY_URL, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`
-          },
+          headers: gatewayRequestHeaders(apiKey),
           body: JSON.stringify({
             model,
             messages: [
@@ -248,7 +279,7 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
                 content: userContent
               }
             ],
-            max_tokens: 450
+            max_tokens: ENRICH_MAX_TOKENS
           }),
           signal: AbortSignal.timeout(ENRICH_TIMEOUT_MS)
         });
@@ -300,7 +331,7 @@ function compactTweetForSearch(tweetText: string) {
 
   const signalLines = lines.filter((line) =>
     !/^Author:/i.test(line) &&
-    /https?:\/\/|[@$][A-Za-z0-9_]+|\b(today|yesterday|tomorrow|now|just|breaking|launch|launched|airdrop|claim|mint|mainnet|testnet|partnership|hack|exploit|listing|delist|token|price|market|funding|acquired|merger|sec|etf|fed|cpi|fomc)\b/i.test(line)
+    /https?:\/\/|\$[A-Za-z][A-Za-z0-9_]{1,12}\b|\b(today|yesterday|tomorrow|now|latest|just|breaking|announce|announced|launch|launched|airdrop|claim|mint|mainnet|testnet|partnership|hack|exploit|listing|delist|token|price|market|funding|acquired|merger|sec|etf|fed|cpi|fomc|earnings|lawsuit)\b/i.test(line)
   );
 
   const selected = (signalLines.length ? signalLines : searchableLines.length ? searchableLines : lines).slice(0, 8).join("\n");
@@ -316,7 +347,13 @@ function shouldUseWebSearch(tweetText: string, plan: Plan) {
   const searchable = searchableTweetText(tweetText);
   if (compact.length < 18) return false;
 
-  return /https?:\/\/|[@$][A-Za-z0-9_]+|\b(today|yesterday|tomorrow|now|latest|breaking|just|announced|launch(?:ed|ing)?|airdrop|claim|mint|mainnet|testnet|partnership|hack|exploit|listing|delist|token|price|market|funding|acquired|merger|sec|etf|fed|cpi|fomc|election|lawsuit|earnings)\b/i.test(searchable);
+  const hasUrl = /https?:\/\//i.test(searchable);
+  const hasTicker = /\$[A-Za-z][A-Za-z0-9_]{1,12}\b/.test(searchable);
+  const hasCurrentSignal =
+    /\b(today|yesterday|tomorrow|now|latest|breaking|just|announced|launch(?:ed|ing)?|airdrop|claim|mint|mainnet|testnet|partnership|hack|exploit|listing|delist|price|market|funding|acquired|merger|sec|etf|fed|cpi|fomc|election|lawsuit|earnings|vote|snapshot)\b/i.test(searchable);
+  const hasEntitySignal = /https?:\/\/|\$[A-Za-z][A-Za-z0-9_]{1,12}\b|@[A-Za-z0-9_]{2,20}\b|\b[A-Z][A-Za-z0-9]{2,}\b/.test(searchable);
+
+  return hasUrl || hasTicker || (hasCurrentSignal && hasEntitySignal);
 }
 
 function searchCacheKey(tweetText: string) {
@@ -708,6 +745,7 @@ export async function POST(req: NextRequest) {
   let context = String(body?.context || "").trim();
   if (!context) return NextResponse.json({ error: "EMPTY_CONTEXT" }, { status: 400 });
   context = context.slice(0, MAX_CTX);
+  await ensureRuntimeSchema();
 
   const rawImageUrls: string[] = Array.isArray(body?.imageUrls)
     ? body.imageUrls.filter((u: any) => typeof u === "string").slice(0, 4)
@@ -730,10 +768,11 @@ export async function POST(req: NextRequest) {
 
   const plan = PLANS[sub.plan as PlanKey];
   if (!plan) return NextResponse.json({ error: "BAD_PLAN" }, { status: 402 });
+  const dailyLimit = getSubscriptionDailyLimit(sub);
 
   const usageCount = usage?.count ?? 0;
-  if (usageCount >= plan.dailyLimit) {
-    return NextResponse.json({ error: "QUOTA_EXCEEDED", limit: plan.dailyLimit }, { status: 429 });
+  if (usageCount >= dailyLimit) {
+    return NextResponse.json({ error: "QUOTA_EXCEEDED", limit: dailyLimit }, { status: 429 });
   }
 
   // ── Vision image preparation for Grok ────────────────────────────────────────
@@ -753,7 +792,7 @@ export async function POST(req: NextRequest) {
   // ── Context + image enrichment ───────────────────────────────────────────────
   const enrichStarted = nowMs();
   const [enrichment, webSearch] = await Promise.all([
-    enrichContext(context, imagePrep.imageParts),
+    enrichContext(context, imagePrep.imageParts, plan),
     searchContext(context, plan)
   ]);
   const enrichedContext = enrichment.text;
@@ -804,10 +843,7 @@ export async function POST(req: NextRequest) {
   try {
     gatewayResp = await fetch(AI_GATEWAY_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
+      headers: gatewayRequestHeaders(apiKey),
       body: JSON.stringify({
         model,
         messages: [
@@ -855,15 +891,27 @@ export async function POST(req: NextRequest) {
   }
 
   const ctxHash = crypto.createHash("sha256").update(context).digest("hex").slice(0, 32);
+  const aiStack = formatAiStack(aiUsage);
   const writeStarted = nowMs();
   await Promise.all([
     prisma.generation.create({
       data: {
         userId, contextHash: ctxHash, suggestions: suggestions as any,
+        usageDetails: {
+          inputTokens: Math.round(aiUsage.inputTokens),
+          outputTokens: Math.round(aiUsage.outputTokens),
+          costUSD: Number(aiUsage.costUSD.toFixed(6)),
+          calls: aiUsage.calls.map((call) => ({
+            ...call,
+            inputTokens: Math.round(call.inputTokens),
+            outputTokens: Math.round(call.outputTokens),
+            costUSD: Number(call.costUSD.toFixed(6))
+          }))
+        } as any,
         inputTokens: Math.round(aiUsage.inputTokens),
         outputTokens: Math.round(aiUsage.outputTokens),
         costUSD: aiUsage.costUSD.toFixed(6),
-        model: "GPT + Grok + Gemini",
+        model: aiStack,
         hadImage: hadVerifiedImageContext
       }
     }),
@@ -883,8 +931,8 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     suggestions,
-    usage: { used: usageCount + 1, limit: plan.dailyLimit, plan: sub.plan },
-    aiStack: "GPT + Grok + Gemini",
+    usage: { used: usageCount + 1, limit: dailyLimit, plan: sub.plan },
+    aiStack,
     visionUsed: hadVerifiedImageContext,
     searchUsed: searchUsedByGrok
   });
@@ -956,10 +1004,7 @@ async function repairSuggestions({
   try {
     const resp = await fetch(AI_GATEWAY_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
+      headers: gatewayRequestHeaders(apiKey),
       body: JSON.stringify({
         model,
         messages: [

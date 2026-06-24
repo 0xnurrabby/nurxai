@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,7 @@ async function getActivePlan(userId: string) {
 export async function GET(req: NextRequest) {
   const session = await getSessionFromAuthHeader(req);
   if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  await ensureRuntimeSchema();
 
   const projects = await prisma.project.findMany({
     where: { userId: session.sub },
@@ -29,6 +31,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getSessionFromAuthHeader(req);
   if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  await ensureRuntimeSchema();
 
   // PLAN GATE: only Pro+ can create projects.
   const plan = await getActivePlan(session.sub);

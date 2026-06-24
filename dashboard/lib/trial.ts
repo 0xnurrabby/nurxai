@@ -21,6 +21,7 @@ export async function createTrialSubscription(
       userId,
       plan: "trial",
       status: "active",
+      dailyLimit: PLANS.trial.dailyLimit,
       startsAt,
       endsAt
     }

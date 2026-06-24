@@ -295,7 +295,7 @@ export default function Settings() {
             >
               <strong>Project contexts</strong> let NurAi reply like an insider.{" "}
               <Link href="/pricing" className="font-bold underline">Upgrade to Pro</Link>{" "}
-              to unlock (Premium = unlimited).
+              to unlock deeper saved context.
             </div>
           )}
 
