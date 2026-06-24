@@ -34,7 +34,8 @@ type AdminUser = {
   subscriptions: Subscription[];
   activeSubscription?: Subscription | null;
   payments?: Payment[];
-  _count: { payments: number; generations: number; projects?: number };
+  xAccounts?: XAccountSummary[];
+  _count: { payments: number; generations: number; projects?: number; xAccounts?: number };
   gen: {
     total: number;
     usedToday: number;
@@ -44,10 +45,21 @@ type AdminUser = {
   };
 };
 
+type XAccountSummary = {
+  id: string;
+  username: string;
+  displayName?: string | null;
+  generationCount: number;
+  firstSeenAt?: string;
+  lastSeenAt: string;
+  usage?: Array<{ id: string; day: string; count: number }>;
+};
+
 type UserDetail = AdminUser & {
   payments: Payment[];
   usage: Array<{ id: string; day: string; count: number }>;
   projects: Array<{ id: string; name: string; active: boolean; createdAt: string; _count: { contexts: number } }>;
+  xAccounts: XAccountSummary[];
   generations: Array<{
     id: string;
     model: string;
@@ -64,6 +76,7 @@ type UserDetail = AdminUser & {
 
 type Stats = {
   totalUsers: number;
+  totalXAccounts?: number;
   activeSubs: number;
   totalPayments: number;
   totalComments: number;
@@ -294,6 +307,7 @@ export default function AdminPage() {
           <>
             <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6">
               <StatCard label="Total Users" value={stats.totalUsers} color="var(--accent3)" />
+              <StatCard label="Detected X Accounts" value={stats.totalXAccounts || 0} color="var(--accent2)" />
               <StatCard label="Active Subs" value={stats.activeSubs} color="var(--accent2)" />
               <StatCard label="Total Comments" value={(stats.totalComments || 0).toLocaleString()} />
               <StatCard label="Today Usage" value={stats.todayUsage} />
@@ -316,7 +330,7 @@ export default function AdminPage() {
                 <StatCard
                   label="Avg DB Cost / Comment"
                   value={`$${money(stats.comments?.avgCostUSD, 4)}`}
-                  sub={`${(stats.comments?.allTime || 0).toLocaleString()} stored comments`}
+                  sub={`${(stats.comments?.allTime || 0).toLocaleString()} metered generations`}
                 />
                 <StatCard
                   label="Gateway Spend 30d"
@@ -427,6 +441,7 @@ function UserTable({
             <th className="p-3 text-left">User</th>
             <th className="p-3 text-left">Plan</th>
             <th className="p-3 text-left">Expires</th>
+            <th className="p-3 text-left">X Accounts</th>
             <th className="p-3 text-left">Usage</th>
             <th className="p-3 text-left">Tokens</th>
             <th className="p-3 text-left">Cost</th>
@@ -459,6 +474,14 @@ function UserTable({
                   ) : <span className="opacity-50">none</span>}
                 </td>
                 <td className="p-3 text-xs">{sub ? `${fmtDate(sub.endsAt)} (${daysRemaining(sub.endsAt)}d)` : "-"}</td>
+                <td className="p-3 text-xs min-w-[150px]">
+                  <div className="font-bold">{u._count.xAccounts || 0}</div>
+                  {(u.xAccounts || []).slice(0, 3).map((account) => (
+                    <div key={account.id} className="opacity-70">
+                      @{account.username} ({account.generationCount})
+                    </div>
+                  ))}
+                </td>
                 <td className="p-3">
                   <div className="font-bold">{u.gen?.total || 0}</div>
                   <div className="text-xs opacity-70">today {u.gen?.usedToday || 0}</div>
@@ -492,7 +515,7 @@ function UserTable({
               </tr>
             );
           })}
-          {users.length === 0 && <tr><td colSpan={8} className="p-6 text-center opacity-60">No users found.</td></tr>}
+          {users.length === 0 && <tr><td colSpan={9} className="p-6 text-center opacity-60">No users found.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -641,6 +664,30 @@ function DetailPanel({
           <div key={u.id} className="py-1 flex justify-between text-sm border-b border-ink/10 dark:border-nightInk/10">
             <span>{u.day}</span>
             <strong>{u.count}</strong>
+          </div>
+        ))}
+      </MiniList>
+
+      <MiniList title="X accounts used">
+        {(detail.xAccounts || []).map((account) => (
+          <div key={account.id} className="py-3 border-b border-ink/20 dark:border-nightInk/20 text-sm">
+            <div className="font-bold">
+              @{account.username} <span className="opacity-60">({account.generationCount} comments)</span>
+            </div>
+            {account.displayName && <div className="text-xs opacity-70">{account.displayName}</div>}
+            <div className="text-xs opacity-70">
+              First seen {fmtDate(account.firstSeenAt, true)} | Last seen {fmtDate(account.lastSeenAt, true)}
+            </div>
+            {(account.usage || []).slice(0, 7).length > 0 && (
+              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                {(account.usage || []).slice(0, 7).map((day) => (
+                  <div key={day.id} className="flex justify-between gap-2">
+                    <span>{day.day}</span>
+                    <strong>{day.count}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </MiniList>

@@ -21,6 +21,16 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
         take: 20,
         include: { _count: { select: { contexts: true } } }
       },
+      xAccounts: {
+        orderBy: { lastSeenAt: "desc" },
+        take: 30,
+        include: {
+          usage: {
+            orderBy: { day: "desc" },
+            take: 30
+          }
+        }
+      },
       generations: {
         orderBy: { createdAt: "desc" },
         take: 20,
@@ -35,7 +45,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
           createdAt: true
         }
       },
-      _count: { select: { payments: true, generations: true, projects: true } }
+      _count: { select: { payments: true, generations: true, projects: true, xAccounts: true } }
     }
   });
   if (!user) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -127,6 +137,8 @@ export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) 
     });
     await tx.projectContext.deleteMany({ where: { project: { userId: ctx.params.id } } });
     await tx.project.deleteMany({ where: { userId: ctx.params.id } });
+    await tx.xAccountUsageLog.deleteMany({ where: { xAccount: { userId: ctx.params.id } } });
+    await tx.xAccount.deleteMany({ where: { userId: ctx.params.id } });
     await tx.generation.deleteMany({ where: { userId: ctx.params.id } });
     await tx.usageLog.deleteMany({ where: { userId: ctx.params.id } });
     await tx.subscription.deleteMany({ where: { userId: ctx.params.id } });

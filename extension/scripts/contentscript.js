@@ -206,6 +206,73 @@
       .slice(0, 4);
   }
 
+  const RESERVED_X_PATHS = new Set([
+    "home", "explore", "notifications", "messages", "i", "settings", "search",
+    "compose", "jobs", "premium", "verified-orgs", "bookmarks", "lists",
+    "topics", "communities", "help", "privacy", "tos"
+  ]);
+
+  function normalizeXUsername(value) {
+    const username = String(value || "").replace(/^@/, "").trim();
+    if (!/^[A-Za-z0-9_]{1,15}$/.test(username)) return "";
+    if (RESERVED_X_PATHS.has(username.toLowerCase())) return "";
+    return username.toLowerCase();
+  }
+
+  function displayNameFromAccountRoot(root, username) {
+    const lines = normalizeVisibleText(root?.innerText || root?.textContent || "")
+      .split(/\n+/)
+      .map(line => line.trim())
+      .filter(Boolean);
+    return lines.find(line =>
+      line &&
+      !line.startsWith("@") &&
+      line.toLowerCase() !== username &&
+      !/^\d+[smhd]$/.test(line)
+    )?.slice(0, 80) || "";
+  }
+
+  function usernameFromProfileHref(href) {
+    const clean = String(href || "").split(/[?#]/)[0];
+    const match = clean.match(/^\/([A-Za-z0-9_]{1,15})$/);
+    return normalizeXUsername(match?.[1] || "");
+  }
+
+  function getCurrentXAccount() {
+    const candidates = [];
+    const add = (username, displayName = "") => {
+      const clean = normalizeXUsername(username);
+      if (!clean) return;
+      if (!candidates.some(item => item.username === clean)) {
+        candidates.push({ username: clean, displayName: String(displayName || "").trim().slice(0, 80) || null });
+      }
+    };
+
+    const accountButton = document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]');
+    if (accountButton) {
+      const text = normalizeVisibleText(accountButton.innerText || accountButton.textContent || "");
+      const match = text.match(/@([A-Za-z0-9_]{1,15})\b/);
+      if (match) add(match[1], displayNameFromAccountRoot(accountButton, match[1].toLowerCase()));
+    }
+
+    const profileLinks = Array.from(document.querySelectorAll('a[data-testid="AppTabBar_Profile_Link"][href^="/"]'));
+    for (const link of profileLinks) {
+      const username = usernameFromProfileHref(link.getAttribute("href"));
+      if (username) add(username, displayNameFromAccountRoot(link, username));
+    }
+
+    const navRoots = Array.from(document.querySelectorAll('header[role="banner"], nav[role="navigation"]'));
+    for (const root of navRoots) {
+      const links = Array.from(root.querySelectorAll('a[href^="/"][aria-label*="Profile"], a[href^="/"][role="link"]'));
+      for (const link of links) {
+        const username = usernameFromProfileHref(link.getAttribute("href"));
+        if (username) add(username, displayNameFromAccountRoot(link, username));
+      }
+    }
+
+    return candidates[0] || null;
+  }
+
   function findMatchingPageArticle(dialogArticle, contextText) {
     const dialog = findDialog();
     const context = normalizeVisibleText(contextText);
@@ -764,6 +831,7 @@
         type: "NURAI_GENERATE",
         context: text,
         imageUrls,
+        xAccount: getCurrentXAccount(),
         regenerate: isRegenerate,
         previousSuggestions: isRegenerate ? lastSuggestions : []
       });

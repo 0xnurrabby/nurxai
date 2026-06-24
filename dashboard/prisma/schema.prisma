@@ -24,6 +24,7 @@ model User {
   payments        Payment[]
   projects        Project[]
   generations     Generation[]
+  xAccounts       XAccount[]
 }
 
 model Subscription {
@@ -108,6 +109,33 @@ model Generation {
 
   @@index([userId, contextHash])
   @@index([createdAt])
+}
+
+model XAccount {
+  id              String             @id @default(cuid())
+  userId          String
+  username        String
+  displayName     String?
+  firstSeenAt     DateTime           @default(now())
+  lastSeenAt      DateTime           @default(now())
+  generationCount Int                @default(0)
+  user            User               @relation(fields: [userId], references: [id])
+  usage           XAccountUsageLog[]
+
+  @@unique([userId, username])
+  @@index([username])
+  @@index([lastSeenAt])
+}
+
+model XAccountUsageLog {
+  id         String   @id @default(cuid())
+  xAccountId String
+  day        String
+  count      Int      @default(0)
+  xAccount   XAccount @relation(fields: [xAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([xAccountId, day])
+  @@index([day])
 }
 
 model AuditLog {

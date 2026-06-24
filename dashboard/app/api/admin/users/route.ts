@@ -42,7 +42,18 @@ export async function GET(req: NextRequest) {
           createdAt: true
         }
       },
-      _count: { select: { payments: true, generations: true, projects: true } }
+      xAccounts: {
+        orderBy: { lastSeenAt: "desc" },
+        take: 3,
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          generationCount: true,
+          lastSeenAt: true
+        }
+      },
+      _count: { select: { payments: true, generations: true, projects: true, xAccounts: true } }
     },
     orderBy: { createdAt: "desc" },
     take: 100
