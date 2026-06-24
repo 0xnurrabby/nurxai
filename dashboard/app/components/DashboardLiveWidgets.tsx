@@ -30,6 +30,43 @@ function formatTime(value: string) {
   return date.toLocaleString();
 }
 
+function sortMessages(items: ChatMessage[]) {
+  return [...items].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+function isSamePendingMessage(pending: ChatMessage, message: ChatMessage) {
+  if (!pending.pending) return false;
+  if (!pending.mine || !message.mine) return false;
+  if (pending.body !== message.body) return false;
+  const delta = Math.abs(new Date(pending.createdAt).getTime() - new Date(message.createdAt).getTime());
+  return delta < 60_000;
+}
+
+function mergeChatMessages(current: ChatMessage[], incoming: ChatMessage[]) {
+  const incomingIds = new Set(incoming.map((item) => item.id));
+  const pending = current.filter((item) =>
+    item.pending &&
+    !incomingIds.has(item.id) &&
+    !incoming.some((serverItem) => isSamePendingMessage(item, serverItem))
+  );
+  return sortMessages([...incoming, ...pending]);
+}
+
+function replaceOptimisticMessage(current: ChatMessage[], tempId: string, message: ChatMessage) {
+  let replaced = false;
+  const next = current.map((item) => {
+    if (item.id === tempId) {
+      replaced = true;
+      return message;
+    }
+    return item;
+  });
+  if (!replaced && !next.some((item) => item.id === message.id)) {
+    next.push(message);
+  }
+  return sortMessages(next.filter((item) => item.id === message.id || !isSamePendingMessage(item, message)));
+}
+
 export default function DashboardLiveWidgets({
   isAdmin,
   profile
@@ -71,7 +108,7 @@ export default function DashboardLiveWidgets({
     const res = await authFetch(`/api/chat${markRead ? "?markRead=1" : ""}`);
     if (!res.ok) return;
     const data = await res.json();
-    setMessages(data.messages || []);
+    setMessages((items) => mergeChatMessages(items, data.messages || []));
     setChatUnreadCount(data.unreadCount || 0);
   }
 
@@ -137,7 +174,7 @@ export default function DashboardLiveWidgets({
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
       if (data.message) {
-        setMessages((items) => items.map((item) => item.id === tempId ? data.message : item));
+        setMessages((items) => replaceOptimisticMessage(items, tempId, data.message));
       } else {
         await fetchChat();
       }
@@ -174,7 +211,7 @@ export default function DashboardLiveWidgets({
           }}
           aria-label="Open global chat"
         >
-          <span className="chat-globe" aria-hidden="true">🌍</span>
+          <span className="chat-globe" aria-hidden="true">&#127757;</span>
           {chatUnreadCount > 0 && <strong>{chatUnreadCount > 99 ? "99+" : chatUnreadCount}</strong>}
         </button>
       </div>
