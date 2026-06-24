@@ -92,8 +92,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               try {
                 var t = localStorage.getItem('nurxai_theme');
-                if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
                 if (t === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
               } catch (e) {}
             `
           }}
