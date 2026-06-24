@@ -2,8 +2,24 @@ import { prisma } from "@/lib/db";
 
 let schemaReady: Promise<void> | null = null;
 
-export function ensureRuntimeSchema() {
-  schemaReady ??= prisma.$transaction([
+async function verifyRuntimeSchema() {
+  await Promise.all([
+    prisma.$queryRawUnsafe('SELECT "chatReadAt" FROM "User" LIMIT 0'),
+    prisma.$queryRawUnsafe('SELECT "id" FROM "ChatMessage" LIMIT 0'),
+    prisma.$queryRawUnsafe('SELECT "id" FROM "AnnouncementRead" LIMIT 0')
+  ]);
+}
+
+function runRuntimeMigration() {
+  const legacyCleanup = process.env.RUN_LEGACY_DB_CLEANUP === "1"
+    ? [
+        prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "XAccountUsageLog"'),
+        prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "XAccount"'),
+        prisma.$executeRawUnsafe('UPDATE "Generation" SET "suggestions" = \'[]\'::jsonb WHERE "suggestions" <> \'[]\'::jsonb')
+      ]
+    : [];
+
+  return prisma.$transaction([
     prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "googleId" TEXT'),
     prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "authProvider" TEXT NOT NULL DEFAULT \'password\''),
     prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT'),
@@ -15,8 +31,6 @@ export function ensureRuntimeSchema() {
     prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "Payment_providerPaymentId_idx" ON "Payment"("providerPaymentId")'),
     prisma.$executeRawUnsafe('ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "dailyLimit" INTEGER'),
     prisma.$executeRawUnsafe('ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "usageDetails" JSONB'),
-    prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "XAccountUsageLog"'),
-    prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "XAccount"'),
     prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "Announcement" (
         "id" TEXT PRIMARY KEY,
@@ -47,8 +61,12 @@ export function ensureRuntimeSchema() {
     `),
     prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ChatMessage_createdAt_idx" ON "ChatMessage"("createdAt")'),
     prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ChatMessage_userId_createdAt_idx" ON "ChatMessage"("userId", "createdAt")'),
-    prisma.$executeRawUnsafe('UPDATE "Generation" SET "suggestions" = \'[]\'::jsonb WHERE "suggestions" <> \'[]\'::jsonb')
+    ...legacyCleanup
   ]).then(() => undefined);
+}
+
+export function ensureRuntimeSchema() {
+  schemaReady ??= verifyRuntimeSchema().catch(runRuntimeMigration);
 
   return schemaReady;
 }

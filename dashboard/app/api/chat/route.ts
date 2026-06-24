@@ -6,6 +6,7 @@ import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 const CHAT_TTL_MS = 48 * 60 * 60 * 1000;
+let lastCleanupAt = 0;
 
 function cleanDisplayName(name?: string | null) {
   const clean = String(name || "").replace(/[\x00-\x1F\x7F]/g, "").trim();
@@ -17,6 +18,9 @@ function cutoffDate() {
 }
 
 async function deleteExpiredMessages() {
+  const now = Date.now();
+  if (now - lastCleanupAt < 10 * 60 * 1000) return;
+  lastCleanupAt = now;
   await prisma.chatMessage.deleteMany({
     where: { createdAt: { lt: cutoffDate() } }
   });
@@ -41,22 +45,14 @@ export async function GET(req: NextRequest) {
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   await ensureRuntimeSchema();
   await deleteExpiredMessages();
-  const markRead = new URL(req.url).searchParams.get("markRead") === "1";
+  const searchParams = new URL(req.url).searchParams;
+  const markRead = searchParams.get("markRead") === "1";
+  const summaryOnly = searchParams.get("summary") === "1";
 
-  const [viewer, messages] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: auth.user.id },
-      select: { chatReadAt: true }
-    }),
-    prisma.chatMessage.findMany({
-      where: { createdAt: { gte: cutoffDate() } },
-      orderBy: { createdAt: "desc" },
-      take: 80,
-      include: {
-        user: { select: { id: true, email: true, name: true, avatarUrl: true } }
-      }
-    })
-  ]);
+  const viewer = await prisma.user.findUnique({
+    where: { id: auth.user.id },
+    select: { chatReadAt: true }
+  });
   const lastReadAt = viewer?.chatReadAt || new Date(0);
   const computedUnread = markRead
     ? 0
@@ -72,6 +68,18 @@ export async function GET(req: NextRequest) {
       data: { chatReadAt: new Date() }
     });
   }
+  if (summaryOnly) {
+    return NextResponse.json({ unreadCount: computedUnread, messages: [] });
+  }
+
+  const messages = await prisma.chatMessage.findMany({
+    where: { createdAt: { gte: cutoffDate() } },
+    orderBy: { createdAt: "desc" },
+    take: 80,
+    include: {
+      user: { select: { id: true, email: true, name: true, avatarUrl: true } }
+    }
+  });
   const ordered = messages.reverse();
   const premiumIds = await premiumUserIds([...new Set(ordered.map((m) => m.userId))]);
 

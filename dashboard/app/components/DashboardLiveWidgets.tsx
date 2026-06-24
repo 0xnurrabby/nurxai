@@ -23,6 +23,9 @@ type ChatMessage = {
     hasBadge: boolean;
   };
 };
+const CHAT_CACHE_KEY = "nurxai_chat_cache_v1";
+const CHAT_UNREAD_CACHE_KEY = "nurxai_chat_unread_v1";
+const CHAT_CACHE_TTL_MS = 48 * 60 * 60 * 1000;
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -32,6 +35,14 @@ function formatTime(value: string) {
 
 function sortMessages(items: ChatMessage[]) {
   return [...items].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+function recentMessages(items: ChatMessage[]) {
+  const cutoff = Date.now() - CHAT_CACHE_TTL_MS;
+  return items.filter((item) => {
+    const time = new Date(item.createdAt).getTime();
+    return Number.isFinite(time) && time >= cutoff;
+  });
 }
 
 function isSamePendingMessage(pending: ChatMessage, message: ChatMessage) {
@@ -49,7 +60,7 @@ function mergeChatMessages(current: ChatMessage[], incoming: ChatMessage[]) {
     !incomingIds.has(item.id) &&
     !incoming.some((serverItem) => isSamePendingMessage(item, serverItem))
   );
-  return sortMessages([...incoming, ...pending]);
+  return recentMessages(sortMessages([...incoming, ...pending]));
 }
 
 function replaceOptimisticMessage(current: ChatMessage[], tempId: string, message: ChatMessage) {
@@ -64,7 +75,7 @@ function replaceOptimisticMessage(current: ChatMessage[], tempId: string, messag
   if (!replaced && !next.some((item) => item.id === message.id)) {
     next.push(message);
   }
-  return sortMessages(next.filter((item) => item.id === message.id || !isSamePendingMessage(item, message)));
+  return recentMessages(sortMessages(next.filter((item) => item.id === message.id || !isSamePendingMessage(item, message))));
 }
 
 export default function DashboardLiveWidgets({
@@ -82,6 +93,8 @@ export default function DashboardLiveWidgets({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState("");
   const [sending, setSending] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatLoaded, setChatLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const hasUnread = unreadCount > 0;
@@ -105,21 +118,57 @@ export default function DashboardLiveWidgets({
 
   async function fetchChat(markRead = false) {
     if (!token) return;
+    setChatLoading(markRead || messages.length === 0);
     const res = await authFetch(`/api/chat${markRead ? "?markRead=1" : ""}`);
+    setChatLoading(false);
     if (!res.ok) return;
     const data = await res.json();
-    setMessages((items) => mergeChatMessages(items, data.messages || []));
+    setChatLoaded(true);
+    setMessages((items) => {
+      const next = mergeChatMessages(items, data.messages || []);
+      try { localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
     setChatUnreadCount(data.unreadCount || 0);
+    try { localStorage.setItem(CHAT_UNREAD_CACHE_KEY, String(data.unreadCount || 0)); } catch {}
+  }
+
+  async function fetchChatSummary() {
+    if (!token || chatOpen) return;
+    const res = await authFetch("/api/chat?summary=1");
+    if (!res.ok) return;
+    const data = await res.json();
+    setChatUnreadCount(data.unreadCount || 0);
+    try { localStorage.setItem(CHAT_UNREAD_CACHE_KEY, String(data.unreadCount || 0)); } catch {}
   }
 
   useEffect(() => {
+    try {
+      const cachedMessages = JSON.parse(localStorage.getItem(CHAT_CACHE_KEY) || "[]");
+      if (Array.isArray(cachedMessages) && cachedMessages.length > 0) {
+        const recent = recentMessages(cachedMessages);
+        if (recent.length > 0) {
+          setMessages(recent);
+          setChatLoaded(true);
+        }
+      }
+      const cachedUnread = Number(localStorage.getItem(CHAT_UNREAD_CACHE_KEY) || "0");
+      if (Number.isFinite(cachedUnread) && cachedUnread > 0) setChatUnreadCount(cachedUnread);
+    } catch {}
     fetchAnnouncements();
-    fetchChat(chatOpen);
+    const kickoff = window.setTimeout(() => {
+      if (chatOpen) fetchChat(true);
+      else fetchChatSummary();
+    }, 800);
     const timer = window.setInterval(() => {
       fetchAnnouncements();
-      fetchChat(chatOpen);
+      if (chatOpen) fetchChat(true);
+      else fetchChatSummary();
     }, 6000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(kickoff);
+      window.clearInterval(timer);
+    };
   }, [token, chatOpen]);
 
   useEffect(() => {
@@ -163,7 +212,11 @@ export default function DashboardLiveWidgets({
         hasBadge: false
       }
     };
-    setMessages((items) => [...items, optimistic]);
+    setMessages((items) => {
+      const next = [...items, optimistic];
+      try { localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
     setChatText("");
     setSending(true);
     const res = await authFetch("/api/chat", {
@@ -174,12 +227,20 @@ export default function DashboardLiveWidgets({
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
       if (data.message) {
-        setMessages((items) => replaceOptimisticMessage(items, tempId, data.message));
+        setMessages((items) => {
+          const next = replaceOptimisticMessage(items, tempId, data.message);
+          try { localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(next)); } catch {}
+          return next;
+        });
       } else {
         await fetchChat();
       }
     } else {
-      setMessages((items) => items.filter((item) => item.id !== tempId));
+      setMessages((items) => {
+        const next = items.filter((item) => item.id !== tempId);
+        try { localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
       setChatText(body);
     }
   }
@@ -206,6 +267,8 @@ export default function DashboardLiveWidgets({
             setChatOpen(nextOpen);
             if (nextOpen) {
               setChatUnreadCount(0);
+              if (!chatLoaded) setChatLoading(true);
+              try { localStorage.setItem(CHAT_UNREAD_CACHE_KEY, "0"); } catch {}
               fetchChat(true);
             }
           }}
@@ -251,7 +314,9 @@ export default function DashboardLiveWidgets({
             <button className="nb-btn text-xs px-2 py-1" onClick={() => setChatOpen(false)}>Close</button>
           </div>
           <div ref={scrollRef} className="chat-list">
-            {messages.length === 0 ? (
+            {chatLoading && !chatLoaded ? (
+              <p className="chat-loading-text">Wait for load message...</p>
+            ) : messages.length === 0 ? (
               <p className="text-sm opacity-70">No messages yet. Start the room.</p>
             ) : (
               messages.map((message) => (

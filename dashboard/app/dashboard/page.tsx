@@ -24,6 +24,7 @@ const PLAN_RANK: Record<string, number> = {
   pro: 3,
   premium: 4
 };
+const DASHBOARD_CACHE_KEY = "nurxai_dashboard_cache_v1";
 
 export default function Dashboard() {
   const [data, setData] = useState<Me | null>(null);
@@ -38,6 +39,13 @@ export default function Dashboard() {
         return;
       }
       try {
+        const cached = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY) || "null");
+        if (cached?.user?.email) {
+          setData(cached);
+          setLoading(false);
+        }
+      } catch {}
+      try {
         const r = await fetch("/api/me", {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -48,6 +56,7 @@ export default function Dashboard() {
         }
         const d = await r.json();
         setData(d);
+        try { localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(d)); } catch {}
 
         fetch("/api/me?details=usage", {
           headers: { Authorization: `Bearer ${token}` }
@@ -55,7 +64,11 @@ export default function Dashboard() {
           .then((usageRes) => (usageRes.ok ? usageRes.json() : null))
           .then((usageData) => {
             if (usageData?.usageHistory) {
-              setData((current) => current ? { ...current, ...usageData } : usageData);
+              setData((current) => {
+                const next = current ? { ...current, ...usageData } : usageData;
+                try { localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(next)); } catch {}
+                return next;
+              });
             }
           })
           .catch(() => {});
@@ -68,6 +81,7 @@ export default function Dashboard() {
   function logout() {
     localStorage.removeItem("nurxai_jwt");
     localStorage.removeItem("nurxai_user");
+    localStorage.removeItem(DASHBOARD_CACHE_KEY);
     router.push("/");
   }
 

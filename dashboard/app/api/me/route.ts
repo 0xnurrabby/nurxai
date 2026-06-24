@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   await ensureRuntimeSchema();
 
   const day = new Date().toISOString().slice(0, 10);
-  const [sub, usage] = await Promise.all([
+  const [sub, usage, profile] = await Promise.all([
     prisma.subscription.findFirst({
       where: { userId: user.id, status: "active", endsAt: { gt: new Date() } },
       orderBy: { endsAt: "desc" }
@@ -23,6 +23,10 @@ export async function GET(req: NextRequest) {
     prisma.usageLog.findUnique({
       where: { userId_day: { userId: user.id, day } },
       select: { count: true }
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { avatarUrl: true, name: true }
     })
   ]);
 
@@ -30,11 +34,6 @@ export async function GET(req: NextRequest) {
   if (user.isAdmin !== isAdmin) {
     void prisma.user.update({ where: { id: user.id }, data: { isAdmin } }).catch(() => {});
   }
-  const profile = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { avatarUrl: true, name: true }
-  });
-
   const includeUsageDetails = details === "full" || details === "usage";
   const [usageHistory, totalUsage] = includeUsageDetails
     ? await Promise.all([

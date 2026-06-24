@@ -518,6 +518,18 @@ body {
   max-height: 430px;
 }
 
+.chat-loading-text {
+  align-self: center;
+  justify-self: center;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--accent3);
+  font-size: 13px;
+  font-weight: 900;
+  animation: chat-pop .22s cubic-bezier(.2, .8, .2, 1) both;
+}
+
 .chat-message {
   justify-self: start;
   max-width: 92%;
