@@ -408,6 +408,16 @@ body {
   background: var(--accent);
 }
 
+.live-chat-btn .chat-globe {
+  display: inline-block;
+  transform-origin: center;
+  animation: globe-spin 3.4s linear infinite;
+}
+
+.live-chat-alert {
+  animation: live-chat-pulse 1.25s ease-in-out infinite;
+}
+
 .live-panel {
   position: absolute;
   right: 0;
@@ -650,6 +660,26 @@ body {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes globe-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes live-chat-pulse {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 8px 0 rgba(15, 20, 25, .12), 0 0 0 0 rgba(40, 119, 255, .36);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 8px 0 rgba(15, 20, 25, .12), 0 0 0 9px rgba(40, 119, 255, 0);
   }
 }
 

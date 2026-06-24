@@ -39,6 +39,7 @@ export default function DashboardLiveWidgets({
 }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -65,20 +66,21 @@ export default function DashboardLiveWidgets({
     setUnreadCount(data.unreadCount || 0);
   }
 
-  async function fetchChat() {
+  async function fetchChat(markRead = false) {
     if (!token) return;
-    const res = await authFetch("/api/chat");
+    const res = await authFetch(`/api/chat${markRead ? "?markRead=1" : ""}`);
     if (!res.ok) return;
     const data = await res.json();
     setMessages(data.messages || []);
+    setChatUnreadCount(data.unreadCount || 0);
   }
 
   useEffect(() => {
     fetchAnnouncements();
-    fetchChat();
+    fetchChat(chatOpen);
     const timer = window.setInterval(() => {
       fetchAnnouncements();
-      if (chatOpen) fetchChat();
+      fetchChat(chatOpen);
     }, 6000);
     return () => window.clearInterval(timer);
   }, [token, chatOpen]);
@@ -161,14 +163,19 @@ export default function DashboardLiveWidgets({
         </button>
         <button
           type="button"
-          className="live-icon-btn live-chat-btn"
+          className={`live-icon-btn live-chat-btn ${chatUnreadCount > 0 ? "live-chat-alert" : ""}`}
           onClick={() => {
-            setChatOpen((open) => !open);
-            if (!chatOpen) fetchChat();
+            const nextOpen = !chatOpen;
+            setChatOpen(nextOpen);
+            if (nextOpen) {
+              setChatUnreadCount(0);
+              fetchChat(true);
+            }
           }}
           aria-label="Open global chat"
         >
-          <span>#</span>
+          <span className="chat-globe" aria-hidden="true">🌍</span>
+          {chatUnreadCount > 0 && <strong>{chatUnreadCount > 99 ? "99+" : chatUnreadCount}</strong>}
         </button>
       </div>
 

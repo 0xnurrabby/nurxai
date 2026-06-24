@@ -15,6 +15,7 @@ model User {
   authProvider    String         @default("password")
   name            String?
   avatarUrl       String?        @db.Text
+  chatReadAt      DateTime?
   isAdmin         Boolean        @default(false)
   // Personalization
   replyStyle      String         @default("default") // default, funny, short, productive, professional, witty

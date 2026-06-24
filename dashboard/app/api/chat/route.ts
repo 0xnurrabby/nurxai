@@ -41,19 +41,42 @@ export async function GET(req: NextRequest) {
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   await ensureRuntimeSchema();
   await deleteExpiredMessages();
+  const markRead = new URL(req.url).searchParams.get("markRead") === "1";
 
-  const messages = await prisma.chatMessage.findMany({
-    where: { createdAt: { gte: cutoffDate() } },
-    orderBy: { createdAt: "desc" },
-    take: 80,
-    include: {
-      user: { select: { id: true, email: true, name: true, avatarUrl: true } }
-    }
-  });
+  const [viewer, messages] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: auth.user.id },
+      select: { chatReadAt: true }
+    }),
+    prisma.chatMessage.findMany({
+      where: { createdAt: { gte: cutoffDate() } },
+      orderBy: { createdAt: "desc" },
+      take: 80,
+      include: {
+        user: { select: { id: true, email: true, name: true, avatarUrl: true } }
+      }
+    })
+  ]);
+  const lastReadAt = viewer?.chatReadAt || new Date(0);
+  const computedUnread = markRead
+    ? 0
+    : await prisma.chatMessage.count({
+        where: {
+          userId: { not: auth.user.id },
+          createdAt: { gt: lastReadAt, gte: cutoffDate() }
+        }
+      });
+  if (markRead) {
+    await prisma.user.update({
+      where: { id: auth.user.id },
+      data: { chatReadAt: new Date() }
+    });
+  }
   const ordered = messages.reverse();
   const premiumIds = await premiumUserIds([...new Set(ordered.map((m) => m.userId))]);
 
   return NextResponse.json({
+    unreadCount: computedUnread,
     messages: ordered.map((message) => ({
       id: message.id,
       body: message.body,
