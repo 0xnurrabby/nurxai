@@ -30,6 +30,10 @@ export async function GET(req: NextRequest) {
   if (user.isAdmin !== isAdmin) {
     void prisma.user.update({ where: { id: user.id }, data: { isAdmin } }).catch(() => {});
   }
+  const profile = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { avatarUrl: true, name: true }
+  });
 
   const includeUsageDetails = details === "full" || details === "usage";
   const [usageHistory, totalUsage] = includeUsageDetails
@@ -47,7 +51,7 @@ export async function GET(req: NextRequest) {
     : [[], null as Awaited<ReturnType<typeof prisma.usageLog.aggregate>> | null];
 
   return NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name, isAdmin },
+    user: { id: user.id, email: user.email, name: profile?.name ?? user.name, avatarUrl: profile?.avatarUrl || null, isAdmin },
     subscription: sub
       ? {
           plan: sub.plan,

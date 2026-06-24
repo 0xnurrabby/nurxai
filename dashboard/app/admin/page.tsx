@@ -96,6 +96,14 @@ type Stats = {
   profitMargin?: { revenue: number; cost: number; profit: number };
 };
 
+type AdminAnnouncement = {
+  id: string;
+  title?: string | null;
+  body: string;
+  createdAt: string;
+  _count?: { reads: number };
+};
+
 const PLAN_OPTIONS = ["trial", "starter", "pro", "premium"];
 
 function fmtDate(value?: string | null, withTime = false) {
@@ -139,6 +147,7 @@ export default function AdminPage() {
   const [busy, setBusy] = useState("");
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementBody, setAnnouncementBody] = useState("");
+  const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [announcementBusy, setAnnouncementBusy] = useState(false);
   const router = useRouter();
 
@@ -178,6 +187,14 @@ export default function AdminPage() {
     if (r.ok) setStats(await r.json());
   }
 
+  async function fetchAnnouncements() {
+    const r = await apiFetch("/api/admin/announcements");
+    if (r.ok) {
+      const d = await r.json();
+      setAnnouncements(d.announcements || []);
+    }
+  }
+
   async function fetchDetail(userId: string) {
     setSelectedId(userId);
     setDetail(null);
@@ -191,14 +208,14 @@ export default function AdminPage() {
   }
 
   async function refreshAll() {
-    await Promise.all([fetchUsers(search), fetchStats()]);
+    await Promise.all([fetchUsers(search), fetchStats(), fetchAnnouncements()]);
     if (selectedId) await fetchDetail(selectedId);
   }
 
   useEffect(() => {
     (async () => {
       try {
-        await Promise.all([fetchUsers(""), fetchStats()]);
+        await Promise.all([fetchUsers(""), fetchStats(), fetchAnnouncements()]);
       } finally {
         setLoading(false);
       }
@@ -271,9 +288,21 @@ export default function AdminPage() {
     if (r.ok) {
       setAnnouncementTitle("");
       setAnnouncementBody("");
+      await fetchAnnouncements();
       alert("Announcement sent.");
     } else {
       alert(d.message || d.error || "Announcement failed.");
+    }
+  }
+
+  async function deleteAnnouncement(id: string) {
+    if (!confirm("Delete this announcement for everyone?")) return;
+    const r = await apiFetch(`/api/admin/announcements?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      setAnnouncements((items) => items.filter((item) => item.id !== id));
+    } else {
+      alert(d.message || d.error || "Delete failed.");
     }
   }
 
@@ -396,6 +425,25 @@ export default function AdminPage() {
             <button className="nb-btn nb-btn-primary justify-self-start" onClick={sendAnnouncement} disabled={announcementBusy}>
               {announcementBusy ? "Sending..." : "Send to all users"}
             </button>
+          </div>
+          <div className="mt-5 grid gap-2">
+            <h3 className="font-bold">Recent announcements</h3>
+            {announcements.length === 0 ? (
+              <p className="text-sm opacity-60">No announcements yet.</p>
+            ) : announcements.map((item) => (
+              <div key={item.id} className="border-2 border-ink/20 dark:border-nightInk/20 rounded-lg p-3 flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-bold">{item.title || "Announcement"}</div>
+                  <div className="text-sm opacity-80 whitespace-pre-wrap">{item.body}</div>
+                  <div className="text-xs opacity-60 mt-1">
+                    {fmtDate(item.createdAt, true)} | {item._count?.reads || 0} reads
+                  </div>
+                </div>
+                <button className="nb-btn nb-btn-danger text-xs px-3 py-1" onClick={() => deleteAnnouncement(item.id)}>
+                  Delete
+                </button>
+              </div>
+            ))}
           </div>
         </div>
 

@@ -15,8 +15,10 @@ type ChatMessage = {
   body: string;
   createdAt: string;
   mine: boolean;
+  pending?: boolean;
   author: {
     name: string;
+    avatarUrl?: string | null;
     isAdmin: boolean;
     hasBadge: boolean;
   };
@@ -28,7 +30,13 @@ function formatTime(value: string) {
   return date.toLocaleString();
 }
 
-export default function DashboardLiveWidgets({ isAdmin }: { isAdmin?: boolean }) {
+export default function DashboardLiveWidgets({
+  isAdmin,
+  profile
+}: {
+  isAdmin?: boolean;
+  profile?: { name?: string | null; avatarUrl?: string | null };
+}) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -102,6 +110,22 @@ export default function DashboardLiveWidgets({ isAdmin }: { isAdmin?: boolean })
   async function sendMessage() {
     const body = chatText.trim();
     if (!body || sending) return;
+    const tempId = `pending-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: tempId,
+      body,
+      createdAt: new Date().toISOString(),
+      mine: true,
+      pending: true,
+      author: {
+        name: profile?.name || "You",
+        avatarUrl: profile?.avatarUrl || null,
+        isAdmin: !!isAdmin,
+        hasBadge: false
+      }
+    };
+    setMessages((items) => [...items, optimistic]);
+    setChatText("");
     setSending(true);
     const res = await authFetch("/api/chat", {
       method: "POST",
@@ -109,8 +133,15 @@ export default function DashboardLiveWidgets({ isAdmin }: { isAdmin?: boolean })
     });
     setSending(false);
     if (res.ok) {
-      setChatText("");
-      await fetchChat();
+      const data = await res.json().catch(() => ({}));
+      if (data.message) {
+        setMessages((items) => items.map((item) => item.id === tempId ? data.message : item));
+      } else {
+        await fetchChat();
+      }
+    } else {
+      setMessages((items) => items.filter((item) => item.id !== tempId));
+      setChatText(body);
     }
   }
 
@@ -184,13 +215,24 @@ export default function DashboardLiveWidgets({ isAdmin }: { isAdmin?: boolean })
                   key={message.id}
                   className={`chat-message ${message.mine ? "mine" : ""} ${message.author.isAdmin ? "admin" : ""}`}
                 >
-                  <div className="chat-author">
-                    <span>{message.author.name}</span>
-                    {message.author.isAdmin && <strong className="admin-badge">ADMIN</strong>}
-                    {!message.author.isAdmin && message.author.hasBadge && <strong className="spark-badge">+</strong>}
+                  <div className="chat-message-row">
+                    <div className="chat-avatar">
+                      {message.author.avatarUrl ? (
+                        <img src={message.author.avatarUrl} alt="" />
+                      ) : (
+                        <span>{message.author.name.slice(0, 1).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="chat-bubble">
+                      <div className="chat-author">
+                        <span>{message.author.name}</span>
+                        {message.author.isAdmin && <strong className="admin-badge">ADMIN</strong>}
+                        {!message.author.isAdmin && message.author.hasBadge && <strong className="spark-badge">+</strong>}
+                        {message.pending && <em>sending</em>}
+                      </div>
+                      <p>{message.body}</p>
+                    </div>
                   </div>
-                  <p>{message.body}</p>
-                  <small>{formatTime(message.createdAt)}</small>
                 </article>
               ))
             )}

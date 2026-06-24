@@ -18,7 +18,10 @@ export async function requireAdmin(req: NextRequest) {
   const session = await getSessionFromAuthHeader(req);
   if (!session?.sub) return null;
 
-  const user = await prisma.user.findUnique({ where: { id: session.sub } });
+  const user = await prisma.user.findUnique({
+    where: { id: session.sub },
+    select: { id: true, email: true, name: true, isAdmin: true }
+  });
   if (!user) return null;
   if (!isAdminEmail(user.email)) {
     if (user.isAdmin) {

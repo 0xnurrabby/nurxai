@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     }
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
-      select: { id: true, email: true, passwordHash: true, name: true, isAdmin: true }
+      select: { id: true, email: true, passwordHash: true, name: true, avatarUrl: true, isAdmin: true }
     });
     if (!user) return NextResponse.json({ error: "INVALID" }, { status: 401 });
     if (!user.passwordHash) {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     const token = await signToken({ sub: user.id, email: user.email });
     return NextResponse.json({
       token,
-      user: { id: user.id, email: user.email, name: user.name, isAdmin }
+      user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, isAdmin }
     });
   } catch (error) {
     console.error("Login failed:", error);

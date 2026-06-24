@@ -5,6 +5,20 @@ import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
+export async function GET(req: NextRequest) {
+  const admin = await requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  await ensureRuntimeSchema();
+
+  const announcements = await prisma.announcement.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 30,
+    include: { _count: { select: { reads: true } } }
+  });
+
+  return NextResponse.json({ announcements });
+}
+
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
@@ -32,4 +46,24 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ announcement });
+}
+
+export async function DELETE(req: NextRequest) {
+  const admin = await requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  await ensureRuntimeSchema();
+
+  const id = new URL(req.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "MISSING_ID" }, { status: 400 });
+
+  await prisma.announcement.deleteMany({ where: { id } });
+  await prisma.auditLog.create({
+    data: {
+      userId: admin.id,
+      event: "admin_delete_announcement",
+      meta: { announcementId: id } as any
+    }
+  });
+
+  return NextResponse.json({ ok: true });
 }

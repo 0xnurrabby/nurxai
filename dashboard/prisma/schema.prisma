@@ -14,6 +14,7 @@ model User {
   googleId        String?        @unique
   authProvider    String         @default("password")
   name            String?
+  avatarUrl       String?        @db.Text
   isAdmin         Boolean        @default(false)
   // Personalization
   replyStyle      String         @default("default") // default, funny, short, productive, professional, witty

@@ -127,6 +127,8 @@ export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) 
     });
     await tx.projectContext.deleteMany({ where: { project: { userId: ctx.params.id } } });
     await tx.project.deleteMany({ where: { userId: ctx.params.id } });
+    await tx.announcementRead.deleteMany({ where: { userId: ctx.params.id } });
+    await tx.chatMessage.deleteMany({ where: { userId: ctx.params.id } });
     await tx.generation.deleteMany({ where: { userId: ctx.params.id } });
     await tx.usageLog.deleteMany({ where: { userId: ctx.params.id } });
     await tx.subscription.deleteMany({ where: { userId: ctx.params.id } });

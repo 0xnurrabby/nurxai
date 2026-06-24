@@ -20,16 +20,17 @@ export async function getSessionFromAuthHeader(req: NextRequest) {
 export async function getAuthUserFromHeader(req: NextRequest) {
   const session = await getSessionFromAuthHeader(req);
   if (!session?.sub && !session?.email) return null;
+  const select = { id: true, email: true, name: true, isAdmin: true };
 
   if (session.sub) {
-    const user = await prisma.user.findUnique({ where: { id: session.sub } });
+    const user = await prisma.user.findUnique({ where: { id: session.sub }, select });
     if (user) return { session, user };
   }
 
   const email = session.email?.toLowerCase().trim();
   if (!email) return null;
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({ where: { email }, select });
   if (!user) return null;
 
   return { session, user };

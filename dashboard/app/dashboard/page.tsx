@@ -6,7 +6,7 @@ import Navbar from "../components/Navbar";
 import DashboardLiveWidgets from "../components/DashboardLiveWidgets";
 
 type Me = {
-  user: { id: string; email: string; name: string | null; isAdmin?: boolean };
+  user: { id: string; email: string; name: string | null; avatarUrl?: string | null; isAdmin?: boolean };
   subscription: {
     plan: string;
     endsAt: string;
@@ -287,7 +287,10 @@ export default function Dashboard() {
             </p>
           </div>
         )}
-        <DashboardLiveWidgets isAdmin={data.user.isAdmin} />
+        <DashboardLiveWidgets
+          isAdmin={data.user.isAdmin}
+          profile={{ name: data.user.name, avatarUrl: data.user.avatarUrl || null }}
+        />
       </main>
     </>
   );

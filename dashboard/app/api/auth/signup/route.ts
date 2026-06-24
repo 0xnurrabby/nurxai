@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const token = await signToken({ sub: user.id, email: user.email });
     return NextResponse.json({
       token,
-      user: { id: user.id, email: user.email, name: user.name, isAdmin }
+      user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl || null, isAdmin }
     });
   } catch (error) {
     console.error("Signup failed:", error);

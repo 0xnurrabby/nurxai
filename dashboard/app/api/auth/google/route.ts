@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
 
     const isAdmin = isAdminEmail(email);
     const displayName = payload.name || payload.given_name || null;
+    const avatarUrl = payload.picture || null;
     const existing = await prisma.user.findUnique({ where: { email } });
     const user = existing
       ? await prisma.user.update({
@@ -47,7 +48,8 @@ export async function POST(req: NextRequest) {
             googleId,
             authProvider: "google",
             isAdmin,
-            name: displayName || undefined
+            name: existing.name ? undefined : displayName || undefined,
+            avatarUrl: existing.avatarUrl ? undefined : avatarUrl || undefined
           }
         })
       : await prisma.$transaction(async (tx) => {
@@ -57,7 +59,8 @@ export async function POST(req: NextRequest) {
               googleId,
               authProvider: "google",
               isAdmin,
-              name: displayName
+              name: displayName,
+              avatarUrl
             }
           });
           await createTrialSubscription(tx, created.id);
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest) {
     const token = await signToken({ sub: user.id, email: user.email });
     return NextResponse.json({
       token,
-      user: { id: user.id, email: user.email, name: user.name, isAdmin }
+      user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl || null, isAdmin }
     });
   } catch (error) {
     console.error("Google auth failed:", error);

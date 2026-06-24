@@ -5,13 +5,21 @@ import { isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
+const CHAT_TTL_MS = 48 * 60 * 60 * 1000;
 
-function maskEmail(email: string) {
-  const [rawName] = email.split("@");
-  const name = rawName || "user";
-  const visible = Math.max(2, Math.ceil(name.length * 0.7));
-  const hidden = Math.max(1, name.length - visible);
-  return `${name.slice(0, visible)}${"*".repeat(hidden)}`;
+function cleanDisplayName(name?: string | null) {
+  const clean = String(name || "").replace(/[\x00-\x1F\x7F]/g, "").trim();
+  return clean.slice(0, 32) || "NurAi user";
+}
+
+function cutoffDate() {
+  return new Date(Date.now() - CHAT_TTL_MS);
+}
+
+async function deleteExpiredMessages() {
+  await prisma.chatMessage.deleteMany({
+    where: { createdAt: { lt: cutoffDate() } }
+  });
 }
 
 async function premiumUserIds(userIds: string[]) {
@@ -32,12 +40,14 @@ export async function GET(req: NextRequest) {
   const auth = await getAuthUserFromHeader(req);
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   await ensureRuntimeSchema();
+  await deleteExpiredMessages();
 
   const messages = await prisma.chatMessage.findMany({
+    where: { createdAt: { gte: cutoffDate() } },
     orderBy: { createdAt: "desc" },
     take: 80,
     include: {
-      user: { select: { id: true, email: true, name: true } }
+      user: { select: { id: true, email: true, name: true, avatarUrl: true } }
     }
   });
   const ordered = messages.reverse();
@@ -50,7 +60,8 @@ export async function GET(req: NextRequest) {
       createdAt: message.createdAt,
       mine: message.userId === auth.user.id,
       author: {
-        name: maskEmail(message.user.email),
+        name: cleanDisplayName(message.user.name),
+        avatarUrl: message.user.avatarUrl,
         isAdmin: isAdminEmail(message.user.email),
         hasBadge: premiumIds.has(message.userId)
       }
@@ -62,6 +73,7 @@ export async function POST(req: NextRequest) {
   const auth = await getAuthUserFromHeader(req);
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   await ensureRuntimeSchema();
+  await deleteExpiredMessages();
 
   const body = await req.json().catch(() => ({}));
   const text = typeof body?.body === "string"
@@ -74,7 +86,7 @@ export async function POST(req: NextRequest) {
       userId: auth.user.id,
       body: text
     },
-    include: { user: { select: { id: true, email: true, name: true } } }
+    include: { user: { select: { id: true, email: true, name: true, avatarUrl: true } } }
   });
 
   const premiumIds = await premiumUserIds([message.userId]);
@@ -85,7 +97,8 @@ export async function POST(req: NextRequest) {
       createdAt: message.createdAt,
       mine: true,
       author: {
-        name: maskEmail(message.user.email),
+        name: cleanDisplayName(message.user.name),
+        avatarUrl: message.user.avatarUrl,
         isAdmin: isAdminEmail(message.user.email),
         hasBadge: premiumIds.has(message.userId)
       }

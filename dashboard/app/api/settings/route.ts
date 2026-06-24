@@ -6,6 +6,26 @@ import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
 
+function cleanName(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  return value.replace(/[\x00-\x1F\x7F]/g, "").trim().slice(0, 60) || null;
+}
+
+function cleanAvatarUrl(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const raw = value.trim();
+  if (!raw) return null;
+  if (raw.length > 120_000) return undefined;
+  if (/^data:image\/(png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(raw)) return raw;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:") return undefined;
+    return url.toString().slice(0, 2000);
+  } catch {
+    return undefined;
+  }
+}
+
 async function getActivePlan(userId: string) {
   const sub = await prisma.subscription.findFirst({
     where: { userId, status: "active", endsAt: { gt: new Date() } },
@@ -22,7 +42,7 @@ export async function GET(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { id: session.sub },
-    select: { replyStyle: true, customStyleNote: true }
+    select: { replyStyle: true, customStyleNote: true, name: true, avatarUrl: true }
   });
   // Also return the user's plan flags so the settings UI can lock features it
   // doesn't have access to (instead of letting the user submit and 403).
@@ -47,15 +67,30 @@ export async function PATCH(req: NextRequest) {
   if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   await ensureRuntimeSchema();
 
-  const plan = await getActivePlan(session.sub);
-  if (!plan) return NextResponse.json({ error: "NO_SUBSCRIPTION" }, { status: 402 });
-
-  const { replyStyle, customStyleNote } = await req.json().catch(() => ({}));
+  const { replyStyle, customStyleNote, name, avatarUrl } = await req.json().catch(() => ({}));
   const data: any = {};
+  const wantsStyleChange = replyStyle !== undefined || customStyleNote !== undefined;
+  const plan = wantsStyleChange ? await getActivePlan(session.sub) : null;
+  if (wantsStyleChange && !plan) return NextResponse.json({ error: "NO_SUBSCRIPTION" }, { status: 402 });
+
+  if (name !== undefined) {
+    data.name = cleanName(name);
+  }
+
+  if (avatarUrl !== undefined) {
+    const cleanAvatar = cleanAvatarUrl(avatarUrl);
+    if (cleanAvatar === undefined) {
+      return NextResponse.json(
+        { error: "BAD_AVATAR", message: "Use a valid image URL or a small PNG/JPG/WebP upload." },
+        { status: 400 }
+      );
+    }
+    data.avatarUrl = cleanAvatar;
+  }
 
   // PLAN GATE: only allowStyles plans can change style or set custom note.
   if (replyStyle && Object.keys(REPLY_STYLES).includes(replyStyle)) {
-    if (!plan.allowStyles && replyStyle !== "default") {
+    if (!plan?.allowStyles && replyStyle !== "default") {
       return NextResponse.json(
         {
           error: "PLAN_LOCKED",
@@ -70,7 +105,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (typeof customStyleNote === "string") {
-    if (!plan.allowStyles && customStyleNote.trim() !== "") {
+    if (!plan?.allowStyles && customStyleNote.trim() !== "") {
       return NextResponse.json(
         {
           error: "PLAN_LOCKED",
@@ -87,7 +122,7 @@ export async function PATCH(req: NextRequest) {
   if (Object.keys(data).length === 0) {
     const cur = await prisma.user.findUnique({
       where: { id: session.sub },
-      select: { replyStyle: true, customStyleNote: true }
+      select: { replyStyle: true, customStyleNote: true, name: true, avatarUrl: true }
     });
     return NextResponse.json({ settings: cur });
   }
@@ -95,7 +130,7 @@ export async function PATCH(req: NextRequest) {
   const user = await prisma.user.update({
     where: { id: session.sub },
     data,
-    select: { replyStyle: true, customStyleNote: true }
+    select: { replyStyle: true, customStyleNote: true, name: true, avatarUrl: true }
   });
   return NextResponse.json({ settings: user });
 }

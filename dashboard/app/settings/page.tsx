@@ -34,6 +34,8 @@ export default function Settings() {
   const router = useRouter();
   const [style, setStyle] = useState("default");
   const [customNote, setCustomNote] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [plan, setPlan] = useState<PlanInfo | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
@@ -42,6 +44,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [profileMsg, setProfileMsg] = useState("");
 
   function getToken() {
     return typeof window !== "undefined" ? localStorage.getItem("nurxai_jwt") : null;
@@ -58,6 +61,8 @@ export default function Settings() {
       if (s?.settings) {
         setStyle(s.settings.replyStyle || "default");
         setCustomNote(s.settings.customStyleNote || "");
+        setProfileName(s.settings.name || "");
+        setAvatarUrl(s.settings.avatarUrl || "");
       }
       if (s?.plan) setPlan(s.plan);
       if (p?.projects) setProjects(p.projects);
@@ -92,6 +97,55 @@ export default function Settings() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveProfile() {
+    setSaving(true);
+    setProfileMsg("");
+    const token = getToken();
+    try {
+      const r = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: profileName, avatarUrl })
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) {
+        setProfileMsg("Profile saved.");
+        setProfileName(d.settings?.name || "");
+        setAvatarUrl(d.settings?.avatarUrl || "");
+        try {
+          const current = JSON.parse(localStorage.getItem("nurxai_user") || "{}");
+          localStorage.setItem("nurxai_user", JSON.stringify({
+            ...current,
+            name: d.settings?.name || null,
+            avatarUrl: d.settings?.avatarUrl || null
+          }));
+        } catch {}
+        setTimeout(() => setProfileMsg(""), 2000);
+      } else {
+        setProfileMsg(d.message || d.error || "Could not save profile.");
+      }
+    } catch {
+      setProfileMsg("Network error.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function pickAvatar(file?: File) {
+    if (!file) return;
+    if (!/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
+      setProfileMsg("Use PNG, JPG, or WebP.");
+      return;
+    }
+    if (file.size > 90_000) {
+      setProfileMsg("Profile image must be under 90KB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAvatarUrl(String(reader.result || ""));
+    reader.readAsDataURL(file);
   }
 
   async function createProject() {
@@ -187,6 +241,56 @@ export default function Settings() {
             </Link>
           </div>
         )}
+
+        <section className="nb-card p-6 mt-8">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="chat-avatar chat-avatar-large">
+              {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{(profileName || "N").slice(0, 1).toUpperCase()}</span>}
+            </div>
+            <div>
+              <h2 className="font-display font-black text-2xl">Profile</h2>
+              <p className="text-sm opacity-70 mt-1">This name and photo appear in the global chat.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 mt-5">
+            <label className="font-semibold text-sm">
+              Display name
+              <input
+                className="nb-input mt-1"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                maxLength={60}
+                placeholder="Your chat name"
+              />
+            </label>
+            <label className="font-semibold text-sm">
+              Profile image URL
+              <input
+                className="nb-input mt-1"
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                placeholder="https://..."
+              />
+            </label>
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="nb-btn cursor-pointer">
+                Upload image
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => pickAvatar(e.target.files?.[0])}
+                />
+              </label>
+              <button className="nb-btn" onClick={() => setAvatarUrl("")}>Remove photo</button>
+              <button className="nb-btn nb-btn-primary" onClick={saveProfile} disabled={saving}>
+                {saving ? "Saving..." : "Save profile"}
+              </button>
+              {profileMsg && <span className="text-sm font-semibold opacity-80">{profileMsg}</span>}
+            </div>
+          </div>
+        </section>
 
         {/* STYLE */}
         <section className={`nb-card p-6 mt-8 ${stylesLocked ? "opacity-90" : ""}`}>
