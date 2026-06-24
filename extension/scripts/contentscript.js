@@ -510,25 +510,40 @@
   }
 
   function replaceComposerText(target, text, pasteKey) {
-    forceComposerText(target, text);
+    forceComposerText(target, text, "initial");
     requestAnimationFrame(() => {
       verifyComposerText(text, pasteKey);
     });
-    [120, 350, 900].forEach(delay => setTimeout(() => verifyComposerText(text, pasteKey), delay));
+    [80, 180, 420, 900, 1400].forEach(delay => setTimeout(() => verifyComposerText(text, pasteKey), delay));
   }
 
-  function forceComposerText(target, text) {
+  function forceComposerText(target, text, reason = "retry") {
     const composer = target || findComposer();
     if (!composer || !isActiveRun()) return;
-    composer.focus();
+    activateComposer(composer);
     selectComposerContents(composer);
     document.execCommand("delete");
+    dispatchInputLifecycle(composer, "", "deleteContentBackward");
     selectComposerContents(composer);
-    document.execCommand("insertText", false, text);
+    insertTextFallback(composer, text);
+    placeCaretAtEnd(composer);
+    nudgeComposerState(composer, text, reason);
   }
 
   function normalizeComposerText(text) {
-    return String(text || "").replace(/\u200B/g, "").replace(/\r\n?/g, "\n").trim();
+    return String(text || "")
+      .replace(/\u200B/g, "")
+      .replace(/\r\n?/g, "\n")
+      .replace(/^\s*Post your reply\s*/i, "")
+      .trim();
+  }
+
+  function getComposerText(composer) {
+    const textSpans = Array.from(composer?.querySelectorAll?.('span[data-text="true"]') || [])
+      .map(span => span.textContent || "")
+      .join("\n")
+      .trim();
+    return normalizeComposerText(textSpans || composer?.innerText || composer?.textContent || "");
   }
 
   function verifyComposerText(expected, pasteKey) {
@@ -538,11 +553,146 @@
     const composer = findComposer();
     if (!composer) return;
 
-    const current = normalizeComposerText(composer.innerText);
+    const current = getComposerText(composer);
     const wanted = normalizeComposerText(expected);
-    if (current === wanted) return;
+    if (current === wanted) {
+      if (!isReplyButtonReady()) {
+        const retryKey = `${pasteKey || ""}|ready-retype`;
+        if (window.__NURAI_READY_RETYPE_KEY !== retryKey) {
+          window.__NURAI_READY_RETYPE_KEY = retryKey;
+          forceComposerText(composer, expected, "button-disabled-retype");
+        } else {
+          nudgeComposerState(composer, wanted, "button-disabled");
+        }
+      }
+      return;
+    }
 
-    forceComposerText(composer, expected);
+    forceComposerText(composer, expected, "text-mismatch");
+  }
+
+  function activateComposer(composer) {
+    try {
+      composer.scrollIntoView({ block: "center", inline: "nearest" });
+    } catch {}
+
+    for (const type of ["pointerdown", "mousedown", "mouseup", "click"]) {
+      const EventCtor = type === "pointerdown" && window.PointerEvent ? PointerEvent : MouseEvent;
+      composer.dispatchEvent(new EventCtor(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: window
+      }));
+    }
+
+    try {
+      composer.focus({ preventScroll: true });
+    } catch {
+      composer.focus();
+    }
+  }
+
+  function insertTextFallback(composer, text) {
+    dispatchBeforeInput(composer, text, "insertText");
+    dispatchTextInput(composer, text);
+    const inserted = document.execCommand("insertText", false, text);
+    if (!inserted || getComposerText(composer) !== normalizeComposerText(text)) {
+      writeComposerDomFallback(composer, text);
+    }
+    dispatchInputLifecycle(composer, text, "insertText");
+  }
+
+  function nudgeComposerState(composer, text, reason) {
+    activateComposer(composer);
+    dispatchInputLifecycle(composer, text, "insertText");
+    composer.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    composer.dispatchEvent(new KeyboardEvent("keyup", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      key: " ",
+      code: "Space"
+    }));
+    console.debug?.("[NurAi] composer state nudged", reason);
+  }
+
+  function dispatchBeforeInput(composer, text, inputType) {
+    try {
+      composer.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        inputType,
+        data: text
+      }));
+    } catch {
+      composer.dispatchEvent(new Event("beforeinput", { bubbles: true, cancelable: true, composed: true }));
+    }
+  }
+
+  function dispatchInputLifecycle(composer, text, inputType) {
+    try {
+      composer.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        cancelable: false,
+        composed: true,
+        inputType,
+        data: text
+      }));
+    } catch {
+      composer.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    }
+  }
+
+  function dispatchTextInput(composer, text) {
+    try {
+      composer.dispatchEvent(new InputEvent("textInput", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: text,
+        inputType: "insertText"
+      }));
+    } catch {
+      try {
+        const evt = document.createEvent("TextEvent");
+        evt.initTextEvent("textInput", true, true, window, text);
+        composer.dispatchEvent(evt);
+      } catch {}
+    }
+  }
+
+  function writeComposerDomFallback(composer, text) {
+    composer.textContent = "";
+    const lines = normalizeComposerText(text).split("\n");
+    lines.forEach((line, index) => {
+      if (index > 0) composer.appendChild(document.createElement("br"));
+      composer.appendChild(document.createTextNode(line));
+    });
+  }
+
+  function placeCaretAtEnd(composer) {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(composer);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    } catch {}
+  }
+
+  function isReplyButtonReady() {
+    const dlg = findDialog();
+    const buttons = Array.from(dlg?.querySelectorAll?.('button[data-testid="tweetButton"], button[data-testid="tweetButtonInline"]') || [])
+      .filter(isVisible);
+    const replyButton = buttons.find(btn => /reply/i.test(btn.textContent || btn.getAttribute("aria-label") || ""))
+      || buttons[buttons.length - 1];
+    if (!replyButton) return false;
+    return !replyButton.disabled && replyButton.getAttribute("aria-disabled") !== "true";
   }
 
   function selectComposerContents(target) {
