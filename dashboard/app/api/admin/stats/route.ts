@@ -65,7 +65,6 @@ export async function GET(req: NextRequest) {
 
   const [
     totalUsers,
-    totalXAccounts,
     activeSubs,
     totalPayments,
     todayUsage,
@@ -80,7 +79,6 @@ export async function GET(req: NextRequest) {
     gatewaySpend30d
   ] = await Promise.all([
     prisma.user.count(),
-    prisma.xAccount.count(),
     prisma.subscription.count({ where: { status: "active", endsAt: { gt: new Date() } } }),
     prisma.payment.count({ where: { status: "confirmed" } }),
     prisma.usageLog.aggregate({ _sum: { count: true }, where: { day: today } }),
@@ -109,7 +107,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     totalUsers,
-    totalXAccounts,
     activeSubs,
     totalPayments,
     todayUsage: todayUsage._sum.count || 0,

@@ -14,10 +14,9 @@ export default function Privacy() {
             <li>Email address for account login and billing notifications</li>
             <li>Encrypted password, never stored as plain text</li>
             <li>Tweet text you are actively replying to, only when you use NurAi</li>
-            <li>Your current public X username when you generate replies</li>
             <li>Daily usage count for billing and quota enforcement</li>
-            <li>Per-X-username generation counts for quota, abuse prevention, and support</li>
             <li>Crypto payment metadata such as transaction ID and plan purchased</li>
+            <li>Dashboard announcements and global chat messages you send or read</li>
           </ul>
 
           <h2 className="font-bold text-xl mt-6">What we do not collect</h2>
@@ -36,8 +35,8 @@ export default function Privacy() {
             Tweet text is sent through our AI gateway to generate reply suggestions.
             We do not store the tweet text or generated reply text. Email is used
             for login, account recovery, and important service announcements.
-            Public X usernames are used to show account-level usage, prevent quota
-            abuse, and help support subscription issues.
+            Announcements and global chat are stored so users can read updates
+            and community messages inside the dashboard.
           </p>
 
           <h2 className="font-bold text-xl mt-6">Third-party services</h2>

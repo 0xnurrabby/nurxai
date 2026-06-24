@@ -51,7 +51,7 @@ function cleanSuggestion(s) {
 }
 
 /* ---------- Backend call ---------- */
-async function callGenerate(context, imageUrls, xAccount, regenerate, previousSuggestions) {
+async function callGenerate(context, imageUrls, regenerate, previousSuggestions) {
   const token = await getToken();
   if (!token) return { ok: false, error: "NOT_LOGGED_IN" };
 
@@ -66,7 +66,7 @@ async function callGenerate(context, imageUrls, xAccount, regenerate, previousSu
         "X-Install-Id": installId,
         "X-Client-Version": chrome.runtime.getManifest().version
       },
-      body: JSON.stringify({ context, imageUrls, xAccount, regenerate, previousSuggestions })
+      body: JSON.stringify({ context, imageUrls, regenerate, previousSuggestions })
     });
   } catch (e) {
     log.error("network", e);
@@ -99,14 +99,14 @@ async function callGenerate(context, imageUrls, xAccount, regenerate, previousSu
   };
 }
 
-async function handleGenerate(rawCtx, imageUrls, xAccount, regenerate, previousSuggestions) {
+async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions) {
   const ctx = sanitizeContext(rawCtx);
   if (!ctx) return { ok: false, error: "EMPTY_CONTEXT" };
   if (!tryAcquire()) return { ok: false, error: "RATE_LIMIT_LOCAL" };
 
   // Grounding must run on every generation. Do not serve cached suggestions,
   // because stale cache skips Grok search/image checks and can mix old context.
-  const result = await callGenerate(ctx, imageUrls || [], xAccount || null, !!regenerate, previousSuggestions || []);
+  const result = await callGenerate(ctx, imageUrls || [], !!regenerate, previousSuggestions || []);
   if (result.ok) await audit("generate_ok", { count: result.suggestions.length, regen: regenerate });
   else await audit("generate_fail", { error: result.error });
   return result;
@@ -129,7 +129,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       handleGenerate(
         msg.context || "",
         msg.imageUrls || [],
-        msg.xAccount || null,
         !!msg.regenerate,
         msg.previousSuggestions || []
       ).then(sendResponse);

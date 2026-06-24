@@ -60,10 +60,6 @@ type ImagePreparationResult = {
   imagesInlined: number;
   imagesUrlFallback: number;
 };
-type ClientXAccount = {
-  username: string;
-  displayName: string | null;
-};
 type PersonalizationResult = {
   style: string;
   customNote: string | null;
@@ -81,26 +77,6 @@ function getEnvInt(name: string, fallback: number, min: number, max: number) {
   const raw = Number(process.env[name]);
   if (!Number.isFinite(raw)) return fallback;
   return Math.max(min, Math.min(max, Math.round(raw)));
-}
-
-const RESERVED_X_USERNAMES = new Set([
-  "home", "explore", "notifications", "messages", "i", "settings", "search",
-  "compose", "jobs", "premium", "verified-orgs", "bookmarks", "lists",
-  "topics", "communities", "help", "privacy", "tos"
-]);
-
-function normalizeClientXAccount(raw: any): ClientXAccount | null {
-  const username = String(raw?.username || raw?.handle || "")
-    .replace(/^@/, "")
-    .trim()
-    .toLowerCase();
-  if (!/^[a-z0-9_]{1,15}$/.test(username)) return null;
-  if (RESERVED_X_USERNAMES.has(username)) return null;
-
-  const displayName = typeof raw?.displayName === "string"
-    ? raw.displayName.replace(/[\x00-\x1F\x7F]/g, "").trim().slice(0, 80) || null
-    : null;
-  return { username, displayName };
 }
 
 function nowMs() {
@@ -774,7 +750,6 @@ export async function POST(req: NextRequest) {
   const rawImageUrls: string[] = Array.isArray(body?.imageUrls)
     ? body.imageUrls.filter((u: any) => typeof u === "string").slice(0, 4)
     : [];
-  const xAccount = normalizeClientXAccount(body?.xAccount);
 
   const day = new Date().toISOString().slice(0, 10);
   const dbStarted = nowMs();
@@ -949,29 +924,6 @@ export async function POST(req: NextRequest) {
       update: { count: { increment: 1 } }
     });
 
-    if (xAccount) {
-      const account = await tx.xAccount.upsert({
-        where: { userId_username: { userId, username: xAccount.username } },
-        create: {
-          userId,
-          username: xAccount.username,
-          displayName: xAccount.displayName,
-          generationCount: 1,
-          lastSeenAt: new Date()
-        },
-        update: {
-          displayName: xAccount.displayName || undefined,
-          lastSeenAt: new Date(),
-          generationCount: { increment: 1 }
-        }
-      });
-
-      await tx.xAccountUsageLog.upsert({
-        where: { xAccountId_day: { xAccountId: account.id, day } },
-        create: { xAccountId: account.id, day, count: 1 },
-        update: { count: { increment: 1 } }
-      });
-    }
   });
   const writeMs = nowMs() - writeStarted;
 

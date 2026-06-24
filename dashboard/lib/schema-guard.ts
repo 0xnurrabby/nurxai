@@ -13,30 +13,38 @@ export function ensureRuntimeSchema() {
     prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "Payment_providerPaymentId_idx" ON "Payment"("providerPaymentId")'),
     prisma.$executeRawUnsafe('ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "dailyLimit" INTEGER'),
     prisma.$executeRawUnsafe('ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "usageDetails" JSONB'),
+    prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "XAccountUsageLog"'),
+    prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "XAccount"'),
     prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "XAccount" (
+      CREATE TABLE IF NOT EXISTS "Announcement" (
+        "id" TEXT PRIMARY KEY,
+        "title" TEXT,
+        "body" TEXT NOT NULL,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "createdBy" TEXT
+      )
+    `),
+    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "Announcement_createdAt_idx" ON "Announcement"("createdAt")'),
+    prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "AnnouncementRead" (
+        "id" TEXT PRIMARY KEY,
+        "announcementId" TEXT NOT NULL REFERENCES "Announcement"("id") ON DELETE CASCADE,
+        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+        "readAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `),
+    prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS "AnnouncementRead_announcementId_userId_key" ON "AnnouncementRead"("announcementId", "userId")'),
+    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "AnnouncementRead_userId_readAt_idx" ON "AnnouncementRead"("userId", "readAt")'),
+    prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ChatMessage" (
         "id" TEXT PRIMARY KEY,
         "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-        "username" TEXT NOT NULL,
-        "displayName" TEXT,
-        "firstSeenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "lastSeenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "generationCount" INTEGER NOT NULL DEFAULT 0
+        "body" TEXT NOT NULL,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `),
-    prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS "XAccount_userId_username_key" ON "XAccount"("userId", "username")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "XAccount_username_idx" ON "XAccount"("username")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "XAccount_lastSeenAt_idx" ON "XAccount"("lastSeenAt")'),
-    prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "XAccountUsageLog" (
-        "id" TEXT PRIMARY KEY,
-        "xAccountId" TEXT NOT NULL REFERENCES "XAccount"("id") ON DELETE CASCADE,
-        "day" TEXT NOT NULL,
-        "count" INTEGER NOT NULL DEFAULT 0
-      )
-    `),
-    prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS "XAccountUsageLog_xAccountId_day_key" ON "XAccountUsageLog"("xAccountId", "day")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "XAccountUsageLog_day_idx" ON "XAccountUsageLog"("day")'),
+    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ChatMessage_createdAt_idx" ON "ChatMessage"("createdAt")'),
+    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ChatMessage_userId_createdAt_idx" ON "ChatMessage"("userId", "createdAt")'),
     prisma.$executeRawUnsafe('UPDATE "Generation" SET "suggestions" = \'[]\'::jsonb WHERE "suggestions" <> \'[]\'::jsonb')
   ]).then(() => undefined);
 

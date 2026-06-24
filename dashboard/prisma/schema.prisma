@@ -24,7 +24,8 @@ model User {
   payments        Payment[]
   projects        Project[]
   generations     Generation[]
-  xAccounts       XAccount[]
+  announcementReads AnnouncementRead[]
+  chatMessages    ChatMessage[]
 }
 
 model Subscription {
@@ -111,33 +112,6 @@ model Generation {
   @@index([createdAt])
 }
 
-model XAccount {
-  id              String             @id @default(cuid())
-  userId          String
-  username        String
-  displayName     String?
-  firstSeenAt     DateTime           @default(now())
-  lastSeenAt      DateTime           @default(now())
-  generationCount Int                @default(0)
-  user            User               @relation(fields: [userId], references: [id])
-  usage           XAccountUsageLog[]
-
-  @@unique([userId, username])
-  @@index([username])
-  @@index([lastSeenAt])
-}
-
-model XAccountUsageLog {
-  id         String   @id @default(cuid())
-  xAccountId String
-  day        String
-  count      Int      @default(0)
-  xAccount   XAccount @relation(fields: [xAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([xAccountId, day])
-  @@index([day])
-}
-
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
@@ -145,4 +119,38 @@ model AuditLog {
   meta      Json?
   ip        String?
   createdAt DateTime @default(now())
+}
+
+model Announcement {
+  id        String             @id @default(cuid())
+  title     String?
+  body      String             @db.Text
+  createdAt DateTime           @default(now())
+  createdBy String?
+  reads     AnnouncementRead[]
+
+  @@index([createdAt])
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime     @default(now())
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([userId, readAt])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }

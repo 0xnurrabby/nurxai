@@ -345,6 +345,248 @@ body {
   display: none;
 }
 
+.dashboard-live-widgets {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+}
+
+.live-actions {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.live-icon-btn {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  font: 900 24px/1 var(--font-display, system-ui);
+  cursor: pointer;
+  box-shadow: 0 8px 0 rgba(15, 20, 25, .12);
+  transition: transform .16s ease, filter .16s ease;
+}
+
+.live-icon-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(.97);
+}
+
+.live-icon-btn strong {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  background: #ff3b3b;
+  color: #fff;
+  font-size: 12px;
+}
+
+.live-icon-alert {
+  background: #ffb4b4;
+  animation: live-pulse 1.1s ease-in-out infinite;
+}
+
+.live-icon-ok {
+  background: #b7f3ba;
+}
+
+.live-chat-btn {
+  background: var(--accent);
+}
+
+.live-panel {
+  position: absolute;
+  right: 0;
+  bottom: 138px;
+  width: min(420px, calc(100vw - 28px));
+  max-height: min(640px, calc(100vh - 120px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: live-panel-in .18s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.chat-panel {
+  bottom: 72px;
+  width: min(480px, calc(100vw - 28px));
+}
+
+.live-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 2px solid var(--border);
+  background: var(--accent3);
+}
+
+.live-panel-head h2 {
+  font-weight: 950;
+  font-size: 20px;
+}
+
+.live-panel-head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.live-panel-list,
+.chat-list {
+  padding: 14px;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  background: color-mix(in srgb, var(--paper) 72%, var(--card));
+}
+
+.announcement-item,
+.chat-message {
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--card);
+}
+
+.announcement-item.unread {
+  background: #fff5b5;
+}
+
+.announcement-item.read {
+  border-color: color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+.announcement-item h3 {
+  font-weight: 950;
+}
+
+.announcement-item span {
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 900;
+  background: var(--accent2);
+}
+
+.announcement-item.unread span {
+  background: #ffb4b4;
+}
+
+.announcement-item p,
+.chat-message p {
+  margin-top: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.announcement-item small,
+.chat-message small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.chat-list {
+  min-height: 300px;
+  max-height: 430px;
+}
+
+.chat-message {
+  justify-self: start;
+  max-width: 92%;
+  background: #ffffff;
+}
+
+.chat-message.mine {
+  justify-self: end;
+  background: var(--accent);
+}
+
+.chat-message.admin {
+  background: #111827;
+  color: #fff;
+}
+
+.chat-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-weight: 950;
+}
+
+.admin-badge,
+.spark-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.admin-badge {
+  background: var(--accent3);
+  color: var(--ink);
+}
+
+.spark-badge {
+  background: var(--accent2);
+  color: var(--ink);
+}
+
+.chat-compose {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 12px;
+  border-top: 2px solid var(--border);
+  background: var(--card);
+}
+
+@keyframes live-pulse {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 8px 0 rgba(15, 20, 25, .12), 0 0 0 0 rgba(255, 59, 59, .45);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 8px 0 rgba(15, 20, 25, .12), 0 0 0 9px rgba(255, 59, 59, 0);
+  }
+}
+
+@keyframes live-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .section-reveal {
   animation: rise-in .52s cubic-bezier(.2, .8, .2, 1) both;
 }

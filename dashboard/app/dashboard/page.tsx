@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
+import DashboardLiveWidgets from "../components/DashboardLiveWidgets";
 
 type Me = {
   user: { id: string; email: string; name: string | null; isAdmin?: boolean };
@@ -286,6 +287,7 @@ export default function Dashboard() {
             </p>
           </div>
         )}
+        <DashboardLiveWidgets isAdmin={data.user.isAdmin} />
       </main>
     </>
   );
