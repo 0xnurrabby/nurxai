@@ -5,7 +5,8 @@ import { isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 
 export const runtime = "nodejs";
-const CHAT_TTL_MS = 48 * 60 * 60 * 1000;
+const CHAT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const CHAT_HISTORY_LIMIT = 300;
 let lastCleanupAt = 0;
 
 function cleanDisplayName(name?: string | null) {
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
   const messages = await prisma.chatMessage.findMany({
     where: { createdAt: { gte: cutoffDate() } },
     orderBy: { createdAt: "desc" },
-    take: 80,
+    take: CHAT_HISTORY_LIMIT,
     include: {
       user: { select: { id: true, email: true, name: true, avatarUrl: true } }
     }

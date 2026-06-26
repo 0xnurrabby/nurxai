@@ -25,7 +25,7 @@ type ChatMessage = {
 };
 const CHAT_CACHE_KEY = "nurxai_chat_cache_v1";
 const CHAT_UNREAD_CACHE_KEY = "nurxai_chat_unread_v1";
-const CHAT_CACHE_TTL_MS = 48 * 60 * 60 * 1000;
+const CHAT_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function formatTime(value: string) {
   const date = new Date(value);
