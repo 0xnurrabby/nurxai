@@ -691,16 +691,18 @@
   }
 
   async function insertNativeText(composer, text) {
-    let clipboardReady = copyTextWithHiddenTextarea(text);
-    if (!clipboardReady) {
-      clipboardReady = await writeTextToClipboard(text);
-    }
-    if (!clipboardReady) return false;
+    if (!await setVerifiedClipboardText(text)) return false;
 
     activateComposer(composer);
     selectComposerContents(composer);
     document.execCommand("paste");
     return waitForComposerText(composer, text);
+  }
+
+  async function setVerifiedClipboardText(text) {
+    if (await writeTextToClipboard(text) && await clipboardTextMatches(text)) return true;
+    if (copyTextWithHiddenTextarea(text) && await clipboardTextMatches(text)) return true;
+    return false;
   }
 
   async function writeTextToClipboard(text) {
@@ -726,6 +728,20 @@
     } catch {}
     textarea.remove();
     return ok;
+  }
+
+  async function clipboardTextMatches(text) {
+    const wanted = normalizeComposerText(text);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const current = await navigator.clipboard.readText();
+        if (normalizeComposerText(current) === wanted) return true;
+      } catch {
+        return false;
+      }
+      await new Promise(resolve => setTimeout(resolve, 30));
+    }
+    return false;
   }
 
   async function waitForComposerText(composer, expected) {
