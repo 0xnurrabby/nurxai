@@ -35,6 +35,11 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
           createdAt: true
         }
       },
+      subscriptionGifts: {
+        where: { active: true },
+        orderBy: { createdAt: "desc" },
+        take: 30
+      },
       _count: { select: { payments: true, generations: true, projects: true } }
     }
   });
@@ -71,6 +76,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
 export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  await ensureRuntimeSchema();
 
   const body = await req.json().catch(() => ({}));
   const data: any = {};
@@ -107,6 +113,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  await ensureRuntimeSchema();
 
   if (admin.id === ctx.params.id) {
     return NextResponse.json({ error: "CANT_DELETE_SELF" }, { status: 400 });
@@ -129,6 +136,7 @@ export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) 
     await tx.project.deleteMany({ where: { userId: ctx.params.id } });
     await tx.announcementRead.deleteMany({ where: { userId: ctx.params.id } });
     await tx.chatMessage.deleteMany({ where: { userId: ctx.params.id } });
+    await tx.subscriptionGift.deleteMany({ where: { userId: ctx.params.id } });
     await tx.generation.deleteMany({ where: { userId: ctx.params.id } });
     await tx.usageLog.deleteMany({ where: { userId: ctx.params.id } });
     await tx.subscription.deleteMany({ where: { userId: ctx.params.id } });

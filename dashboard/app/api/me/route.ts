@@ -29,6 +29,14 @@ export async function GET(req: NextRequest) {
       select: { avatarUrl: true, name: true }
     })
   ]);
+  const giftsPromise = sub
+    ? prisma.subscriptionGift.findMany({
+        where: { userId: user.id, subscriptionId: sub.id, active: true },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: { id: true, days: true, note: true, createdAt: true, updatedAt: true }
+      })
+    : Promise.resolve([]);
 
   const isAdmin = isAdminEmail(user.email);
   if (user.isAdmin !== isAdmin) {
@@ -48,6 +56,7 @@ export async function GET(req: NextRequest) {
         })
       ])
     : [[], null as Awaited<ReturnType<typeof prisma.usageLog.aggregate>> | null];
+  const gifts = await giftsPromise;
 
   return NextResponse.json({
     user: { id: user.id, email: user.email, name: profile?.name ?? user.name, avatarUrl: profile?.avatarUrl || null, isAdmin },
@@ -60,6 +69,11 @@ export async function GET(req: NextRequest) {
         }
       : null,
     usageToday: usage?.count ?? 0,
+    subscriptionGifts: gifts.map((gift) => ({
+      ...gift,
+      createdAt: gift.createdAt.toISOString(),
+      updatedAt: gift.updatedAt.toISOString()
+    })),
     ...(includeUsageDetails
       ? {
           usageHistory,

@@ -14,6 +14,12 @@ function parsePositiveDays(value: unknown) {
   return Math.floor(days);
 }
 
+function cleanNote(value: unknown) {
+  if (typeof value !== "string") return null;
+  const note = value.trim().slice(0, 500);
+  return note || null;
+}
+
 async function getActiveSubscription(userId: string) {
   return prisma.subscription.findFirst({
     where: { userId, status: "active", endsAt: { gt: new Date() } },
@@ -26,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   await ensureRuntimeSchema();
 
-  const { userId, plan, days, action, endsAt } = await req.json().catch(() => ({}));
+  const { userId, plan, days, action, endsAt, note } = await req.json().catch(() => ({}));
   if (!userId || typeof userId !== "string") {
     return NextResponse.json({ error: "MISSING_USER" }, { status: 400 });
   }
@@ -52,19 +58,40 @@ export async function POST(req: NextRequest) {
     const active = await getActiveSubscription(userId);
     if (!active) return NextResponse.json({ error: "NO_ACTIVE_SUBSCRIPTION" }, { status: 400 });
 
-    const updated = await prisma.subscription.update({
-      where: { id: active.id },
-      data: { endsAt: new Date(active.endsAt.getTime() + extraDays * DAY_MS) }
+    const cleanedNote = cleanNote(note);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.subscription.update({
+        where: { id: active.id },
+        data: { endsAt: new Date(active.endsAt.getTime() + extraDays * DAY_MS) }
+      });
+      const gift = await tx.subscriptionGift.create({
+        data: {
+          userId,
+          subscriptionId: active.id,
+          adminId: admin.id,
+          days: extraDays,
+          note: cleanedNote
+        }
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: admin.id,
+          event: "admin_extend_subscription",
+          meta: {
+            targetId: userId,
+            subscriptionId: active.id,
+            giftId: gift.id,
+            days: extraDays,
+            note: cleanedNote,
+            endsAt: updated.endsAt
+          } as any
+        }
+      });
+      return { updated, gift };
     });
 
-    await prisma.auditLog.create({
-      data: {
-        userId: admin.id,
-        event: "admin_extend_subscription",
-        meta: { targetId: userId, subscriptionId: active.id, days: extraDays, endsAt: updated.endsAt } as any
-      }
-    });
-    return NextResponse.json({ ok: true, action: "extended", subscription: updated });
+    return NextResponse.json({ ok: true, action: "extended", subscription: result.updated, gift: result.gift });
   }
 
   if (action === "setExpiry") {

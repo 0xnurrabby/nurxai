@@ -6,7 +6,8 @@ async function verifyRuntimeSchema() {
   await Promise.all([
     prisma.$queryRawUnsafe('SELECT "chatReadAt" FROM "User" LIMIT 0'),
     prisma.$queryRawUnsafe('SELECT "id" FROM "ChatMessage" LIMIT 0'),
-    prisma.$queryRawUnsafe('SELECT "id" FROM "AnnouncementRead" LIMIT 0')
+    prisma.$queryRawUnsafe('SELECT "id" FROM "AnnouncementRead" LIMIT 0'),
+    prisma.$queryRawUnsafe('SELECT "id" FROM "SubscriptionGift" LIMIT 0')
   ]);
 }
 
@@ -61,6 +62,22 @@ function runRuntimeMigration() {
     `),
     prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ChatMessage_createdAt_idx" ON "ChatMessage"("createdAt")'),
     prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ChatMessage_userId_createdAt_idx" ON "ChatMessage"("userId", "createdAt")'),
+    prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "SubscriptionGift" (
+        "id" TEXT PRIMARY KEY,
+        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+        "subscriptionId" TEXT NOT NULL REFERENCES "Subscription"("id") ON DELETE CASCADE,
+        "adminId" TEXT,
+        "days" INTEGER NOT NULL,
+        "note" TEXT,
+        "active" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `),
+    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "SubscriptionGift_userId_createdAt_idx" ON "SubscriptionGift"("userId", "createdAt")'),
+    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "SubscriptionGift_subscriptionId_idx" ON "SubscriptionGift"("subscriptionId")'),
+    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "SubscriptionGift_active_createdAt_idx" ON "SubscriptionGift"("active", "createdAt")'),
     ...legacyCleanup
   ]).then(() => undefined);
 }

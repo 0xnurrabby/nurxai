@@ -25,6 +25,18 @@ type Payment = {
   createdAt: string;
 };
 
+type SubscriptionGift = {
+  id: string;
+  userId: string;
+  subscriptionId: string;
+  adminId?: string | null;
+  days: number;
+  note?: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type AdminUser = {
   id: string;
   email: string;
@@ -60,6 +72,7 @@ type UserDetail = AdminUser & {
   }>;
   totals: { inputTokens: number; outputTokens: number; costUSD: string };
   auditLogs: Array<{ id: string; event: string; meta: any; createdAt: string }>;
+  subscriptionGifts: SubscriptionGift[];
 };
 
 type Stats = {
@@ -242,8 +255,8 @@ export default function AdminPage() {
     await subscriptionAction(userId, { plan, days, action: "grant" }, `Granted ${plan}`);
   }
 
-  async function extendPlan(userId: string, days: number) {
-    await subscriptionAction(userId, { action: "extend", days }, `Added ${days} days`);
+  async function extendPlan(userId: string, days: number, note?: string) {
+    await subscriptionAction(userId, { action: "extend", days, note }, `Added ${days} days`);
   }
 
   async function setExpiry(userId: string, endsAt: string) {
@@ -266,6 +279,34 @@ export default function AdminPage() {
       await refreshAll();
     } else {
       alert(d.message || d.error || "Update failed.");
+    }
+  }
+
+  async function updateSubscriptionGift(id: string, days: number, note: string) {
+    setBusy(`gift:${id}`);
+    const r = await apiFetch("/api/admin/subscription-gifts", {
+      method: "PATCH",
+      body: JSON.stringify({ id, days, note })
+    });
+    const d = await r.json().catch(() => ({}));
+    setBusy("");
+    if (r.ok) {
+      await refreshAll();
+    } else {
+      alert(d.message || d.error || "Gift update failed.");
+    }
+  }
+
+  async function removeSubscriptionGift(id: string) {
+    if (!confirm("Remove this gifted day record and subtract its days from the subscription?")) return;
+    setBusy(`gift:${id}`);
+    const r = await apiFetch(`/api/admin/subscription-gifts?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const d = await r.json().catch(() => ({}));
+    setBusy("");
+    if (r.ok) {
+      await refreshAll();
+    } else {
+      alert(d.message || d.error || "Gift remove failed.");
     }
   }
 
@@ -480,6 +521,8 @@ export default function AdminPage() {
             }}
             onGrant={grantPlan}
             onExtend={extendPlan}
+            onUpdateGift={updateSubscriptionGift}
+            onRemoveGift={removeSubscriptionGift}
             onSetExpiry={setExpiry}
             onRevoke={revokePlan}
             onUpdate={updateUser}
@@ -608,6 +651,8 @@ function DetailPanel({
   onClose,
   onGrant,
   onExtend,
+  onUpdateGift,
+  onRemoveGift,
   onSetExpiry,
   onRevoke,
   onUpdate,
@@ -619,7 +664,9 @@ function DetailPanel({
   busy: string;
   onClose: () => void;
   onGrant: (userId: string, plan: string, days?: number) => void;
-  onExtend: (userId: string, days: number) => void;
+  onExtend: (userId: string, days: number, note?: string) => void;
+  onUpdateGift: (id: string, days: number, note: string) => void;
+  onRemoveGift: (id: string) => void;
   onSetExpiry: (userId: string, endsAt: string) => void;
   onRevoke: (userId: string) => void;
   onUpdate: (userId: string, data: any) => void;
@@ -629,6 +676,10 @@ function DetailPanel({
   const [grantPlan, setGrantPlan] = useState("premium");
   const [grantDays, setGrantDays] = useState("30");
   const [extraDays, setExtraDays] = useState("7");
+  const [extraDaysNote, setExtraDaysNote] = useState("Admin gifted extra premium days for your account.");
+  const [editingGiftId, setEditingGiftId] = useState("");
+  const [editingGiftDays, setEditingGiftDays] = useState("7");
+  const [editingGiftNote, setEditingGiftNote] = useState("");
   const [expiry, setExpiry] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -638,6 +689,10 @@ function DetailPanel({
     setEmail(user?.email || "");
     const active = user?.activeSubscription || user?.subscriptions?.find((s) => s.status === "active");
     setExpiry(active ? active.endsAt.slice(0, 10) : "");
+    setExtraDaysNote("Admin gifted extra premium days for your account.");
+    setEditingGiftId("");
+    setEditingGiftDays("7");
+    setEditingGiftNote("");
   }, [user?.id]);
 
   if (!user) {
@@ -652,6 +707,7 @@ function DetailPanel({
   const detail = user as Partial<UserDetail>;
   const active = user.activeSubscription || user.subscriptions?.find((s) => s.status === "active" && new Date(s.endsAt) > new Date());
   const allSubs = detail.subscriptions || user.subscriptions || [];
+  const gifts = detail.subscriptionGifts || [];
   const isBusy = !!busy;
 
   return (
@@ -705,10 +761,24 @@ function DetailPanel({
         </div>
 
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <input className="nb-input text-sm" type="number" min="1" value={extraDays} onChange={(e) => setExtraDays(e.target.value)} />
-          <button className="nb-btn nb-btn-success" disabled={!active || isBusy} onClick={() => onExtend(user.id, Number(extraDays))}>
+          <input
+            className="nb-input text-sm"
+            type="number"
+            min="1"
+            value={extraDays}
+            onChange={(e) => setExtraDays(e.target.value)}
+            aria-label="Extra days"
+          />
+          <button className="nb-btn nb-btn-success" disabled={!active || isBusy} onClick={() => onExtend(user.id, Number(extraDays), extraDaysNote)}>
             Add days
           </button>
+          <textarea
+            className="nb-input text-sm col-span-2 min-h-[74px]"
+            value={extraDaysNote}
+            onChange={(e) => setExtraDaysNote(e.target.value)}
+            placeholder="Gift note shown on the user's dashboard..."
+            maxLength={500}
+          />
           <input className="nb-input text-sm" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
           <button className="nb-btn nb-btn-warn" disabled={!active || !expiry || isBusy} onClick={() => onSetExpiry(user.id, `${expiry}T23:59:59.999Z`)}>
             Set expiry
@@ -717,6 +787,72 @@ function DetailPanel({
 
         {active && <button className="nb-btn nb-btn-danger w-full mt-3" disabled={isBusy} onClick={() => onRevoke(user.id)}>Revoke now</button>}
       </section>
+
+      <MiniList title="Gifted extra days">
+        {gifts.length === 0 ? (
+          <p className="text-sm opacity-60">No active gift notes.</p>
+        ) : gifts.map((gift) => {
+          const editing = editingGiftId === gift.id;
+          return (
+            <div key={gift.id} className="py-3 border-b border-ink/20 dark:border-nightInk/20 text-sm">
+              {editing ? (
+                <div className="grid gap-2">
+                  <input
+                    className="nb-input text-sm"
+                    type="number"
+                    min="1"
+                    value={editingGiftDays}
+                    onChange={(e) => setEditingGiftDays(e.target.value)}
+                  />
+                  <textarea
+                    className="nb-input text-sm min-h-[74px]"
+                    value={editingGiftNote}
+                    onChange={(e) => setEditingGiftNote(e.target.value)}
+                    maxLength={500}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      className="nb-btn nb-btn-primary text-xs px-3 py-1"
+                      disabled={isBusy}
+                      onClick={() => onUpdateGift(gift.id, Number(editingGiftDays), editingGiftNote)}
+                    >
+                      Save
+                    </button>
+                    <button className="nb-btn text-xs px-3 py-1" onClick={() => setEditingGiftId("")}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="font-bold">+{gift.days} days <span className="opacity-60">({fmtDate(gift.createdAt, true)})</span></div>
+                  <div className="text-xs opacity-80 whitespace-pre-wrap mt-1">{gift.note || "No note"}</div>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      className="nb-btn nb-btn-warn text-xs px-3 py-1"
+                      disabled={isBusy}
+                      onClick={() => {
+                        setEditingGiftId(gift.id);
+                        setEditingGiftDays(String(gift.days));
+                        setEditingGiftNote(gift.note || "");
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="nb-btn nb-btn-danger text-xs px-3 py-1"
+                      disabled={isBusy}
+                      onClick={() => onRemoveGift(gift.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </MiniList>
 
       <MiniList title="Subscription history">
         {allSubs.slice(0, 8).map((s) => (

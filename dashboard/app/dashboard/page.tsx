@@ -16,6 +16,13 @@ type Me = {
   usageToday: number;
   usageHistory?: Array<{ day: string; count: number }>;
   totalUsage?: number;
+  subscriptionGifts?: Array<{
+    id: string;
+    days: number;
+    note?: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
 };
 
 const PLAN_RANK: Record<string, number> = {
@@ -25,6 +32,27 @@ const PLAN_RANK: Record<string, number> = {
   premium: 4
 };
 const DASHBOARD_CACHE_KEY = "nurxai_dashboard_cache_v1";
+
+function GiftHeadline({ gifts }: { gifts: NonNullable<Me["subscriptionGifts"]> }) {
+  if (!gifts.length) return null;
+  const headlines = gifts.slice(0, 3).map((gift) => {
+    const note = gift.note?.trim() || "Admin gifted extra premium days to your account.";
+    return `Admin gift: +${gift.days} days - ${note}`;
+  });
+  const headlineText = headlines.join("   |   ");
+
+  return (
+    <section className="gift-news-banner" aria-label="Subscription gift">
+      <div className="gift-news-label">Premium gift</div>
+      <div className="gift-news-window">
+        <div className="gift-news-track">
+          <span>{headlineText}</span>
+          <span aria-hidden="true">{headlineText}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function Dashboard() {
   const [data, setData] = useState<Me | null>(null);
@@ -149,6 +177,8 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+
+        <GiftHeadline gifts={data.subscriptionGifts || []} />
 
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-5 mt-8">

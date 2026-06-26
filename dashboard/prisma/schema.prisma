@@ -28,6 +28,7 @@ model User {
   generations     Generation[]
   announcementReads AnnouncementRead[]
   chatMessages    ChatMessage[]
+  subscriptionGifts SubscriptionGift[]
 }
 
 model Subscription {
@@ -39,8 +40,27 @@ model Subscription {
   startsAt  DateTime @default(now())
   endsAt    DateTime
   user      User     @relation(fields: [userId], references: [id])
+  gifts     SubscriptionGift[]
 
   @@index([userId, status])
+}
+
+model SubscriptionGift {
+  id             String       @id @default(cuid())
+  userId         String
+  subscriptionId String
+  adminId        String?
+  days           Int
+  note           String?      @db.Text
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([subscriptionId])
+  @@index([active, createdAt])
 }
 
 model UsageLog {
