@@ -17,6 +17,7 @@ export const CONFIG = Object.freeze({
     INSTALL_ID: "nurai_install_id",
     PANEL_POS: "nurai_panel_pos",
     SUGGESTION_CACHE: "nurai_suggestion_cache",
+    LIVE_SUMMARY_CACHE: "nurai_live_summary_cache",
     AUDIT_LOG: "nurai_audit_log"
   },
 

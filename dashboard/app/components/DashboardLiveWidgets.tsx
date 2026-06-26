@@ -142,6 +142,18 @@ export default function DashboardLiveWidgets({
     try { localStorage.setItem(CHAT_UNREAD_CACHE_KEY, String(data.unreadCount || 0)); } catch {}
   }
 
+  async function markAnnouncementsRead() {
+    if (!token || announcements.length === 0) return;
+    const unreadIds = announcements.filter((item) => !item.readAt).map((item) => item.id);
+    if (unreadIds.length === 0) return;
+    setUnreadCount(0);
+    await authFetch("/api/announcements", {
+      method: "POST",
+      body: JSON.stringify({ ids: unreadIds })
+    });
+    fetchAnnouncements();
+  }
+
   useEffect(() => {
     try {
       const cachedMessages = JSON.parse(localStorage.getItem(CHAT_CACHE_KEY) || "[]");
@@ -172,6 +184,26 @@ export default function DashboardLiveWidgets({
   }, [token, chatOpen]);
 
   useEffect(() => {
+    if (!token) return;
+    const panel = new URLSearchParams(window.location.search).get("panel");
+    if (panel === "notifications") {
+      setNotifOpen(true);
+      fetchAnnouncements();
+    }
+    if (panel === "chat") {
+      setChatOpen(true);
+      setChatUnreadCount(0);
+      if (!chatLoaded) setChatLoading(true);
+      try { localStorage.setItem(CHAT_UNREAD_CACHE_KEY, "0"); } catch {}
+      fetchChat(true);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (notifOpen) markAnnouncementsRead();
+  }, [notifOpen, announcements.length]);
+
+  useEffect(() => {
     if (chatOpen) {
       window.setTimeout(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -182,17 +214,7 @@ export default function DashboardLiveWidgets({
   async function openNotifications() {
     const nextOpen = !notifOpen;
     setNotifOpen(nextOpen);
-    if (nextOpen && announcements.length > 0) {
-      const unreadIds = announcements.filter((item) => !item.readAt).map((item) => item.id);
-      if (unreadIds.length > 0) {
-        setUnreadCount(0);
-        await authFetch("/api/announcements", {
-          method: "POST",
-          body: JSON.stringify({ ids: unreadIds })
-        });
-        fetchAnnouncements();
-      }
-    }
+    if (nextOpen) await markAnnouncementsRead();
   }
 
   async function sendMessage() {

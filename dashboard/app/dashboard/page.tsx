@@ -43,7 +43,9 @@ function GiftHeadline({ gifts }: { gifts: NonNullable<Me["subscriptionGifts"]> }
 
   return (
     <section className="gift-news-banner" aria-label="Subscription gift">
-      <div className="gift-news-label">Premium gift</div>
+      <div className="gift-news-label" aria-hidden="true">
+        <span className="gift-news-emoji">🎁</span>
+      </div>
       <div className="gift-news-window">
         <div className="gift-news-track">
           <span>{headlineText}</span>

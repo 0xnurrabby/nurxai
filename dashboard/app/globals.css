@@ -944,12 +944,13 @@ body {
   overflow: hidden;
   border: 2px solid var(--border);
   border-radius: 12px;
-  background:
-    linear-gradient(120deg, rgba(255, 248, 156, .96), rgba(196, 240, 194, .92), rgba(184, 225, 255, .9)),
-    var(--accent3);
+  background: var(--accent3);
   color: #0f1419;
   box-shadow: 0 8px 0 rgba(15, 20, 25, .1);
-  animation: gift-banner-pop .38s cubic-bezier(.2, .8, .2, 1) both, gift-banner-glow 2.6s ease-in-out infinite;
+  animation:
+    gift-banner-pop .38s cubic-bezier(.2, .8, .2, 1) both,
+    gift-banner-glow 2.6s ease-in-out infinite,
+    gift-banner-color 5.5s steps(1, end) infinite;
 }
 
 .gift-news-banner::after {
@@ -967,15 +968,22 @@ body {
   align-self: stretch;
   display: grid;
   place-items: center;
-  min-width: 142px;
-  padding: 0 16px;
+  min-width: 72px;
+  padding: 0 12px;
   border-right: 2px solid #0f1419;
-  background: rgba(15, 20, 25, .92);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  background: var(--accent2);
+}
+
+.gift-news-emoji {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 2px solid #0f1419;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 23px;
+  animation: gift-emoji-dance 1.25s cubic-bezier(.2, .8, .2, 1) infinite;
 }
 
 .gift-news-window {
@@ -1017,6 +1025,18 @@ body {
 @keyframes gift-banner-shine {
   0%, 45% { transform: translateX(-70%); }
   72%, 100% { transform: translateX(70%); }
+}
+
+@keyframes gift-banner-color {
+  0%, 100% { background: var(--accent3); }
+  33% { background: var(--accent2); }
+  66% { background: var(--accent); }
+}
+
+@keyframes gift-emoji-dance {
+  0%, 100% { transform: translateY(0) rotate(-6deg) scale(1); }
+  35% { transform: translateY(-3px) rotate(7deg) scale(1.08); }
+  65% { transform: translateY(1px) rotate(-3deg) scale(.98); }
 }
 
 @media (max-width: 640px) {

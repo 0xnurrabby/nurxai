@@ -99,6 +99,60 @@ async function callGenerate(context, imageUrls, regenerate, previousSuggestions)
   };
 }
 
+async function fetchJsonWithAuth(path) {
+  const token = await getToken();
+  if (!token) return { ok: false, error: "NOT_LOGGED_IN" };
+  let resp;
+  try {
+    resp = await fetch(`${CONFIG.API_BASE}${path}`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "X-Client-Version": chrome.runtime.getManifest().version
+      }
+    });
+  } catch (e) {
+    log.error("live_summary_network", e);
+    return { ok: false, error: "NETWORK" };
+  }
+  if (resp.status === 401) {
+    await del([CONFIG.STORAGE_KEYS.TOKEN, CONFIG.STORAGE_KEYS.USER]);
+    return { ok: false, error: "SESSION_EXPIRED" };
+  }
+  let data;
+  try { data = await resp.json(); } catch { data = {}; }
+  if (!resp.ok) return { ok: false, error: data?.error || "SERVER_ERROR" };
+  return { ok: true, data };
+}
+
+async function getLiveSummary() {
+  const cached = await get(CONFIG.STORAGE_KEYS.LIVE_SUMMARY_CACHE);
+  const cache = cached[CONFIG.STORAGE_KEYS.LIVE_SUMMARY_CACHE];
+  if (cache?.ts && Date.now() - cache.ts < 3500) {
+    return { ok: true, ...cache.data };
+  }
+
+  const [announcements, chat] = await Promise.all([
+    fetchJsonWithAuth("/announcements"),
+    fetchJsonWithAuth("/chat?summary=1")
+  ]);
+
+  if (!announcements.ok && !chat.ok) {
+    return {
+      ok: false,
+      error: announcements.error || chat.error || "LIVE_SUMMARY_FAILED",
+      notificationUnread: cache?.data?.notificationUnread || 0,
+      chatUnread: cache?.data?.chatUnread || 0
+    };
+  }
+
+  const summary = {
+    notificationUnread: announcements.ok ? Number(announcements.data?.unreadCount || 0) : Number(cache?.data?.notificationUnread || 0),
+    chatUnread: chat.ok ? Number(chat.data?.unreadCount || 0) : Number(cache?.data?.chatUnread || 0)
+  };
+  await set({ [CONFIG.STORAGE_KEYS.LIVE_SUMMARY_CACHE]: { ts: Date.now(), data: summary } });
+  return { ok: true, ...summary };
+}
+
 async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions) {
   const ctx = sanitizeContext(rawCtx);
   if (!ctx) return { ok: false, error: "EMPTY_CONTEXT" };
@@ -163,6 +217,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       chrome.tabs.create({ url: `${CONFIG.WEB_BASE}/pricing` });
       sendResponse({ ok: true });
       return false;
+
+    case "NURAI_OPEN_DASHBOARD": {
+      const panel = msg.section === "chat" ? "chat" : msg.section === "notifications" ? "notifications" : "";
+      const suffix = panel ? `/dashboard?panel=${encodeURIComponent(panel)}` : "/dashboard";
+      chrome.tabs.create({ url: `${CONFIG.WEB_BASE}${suffix}` });
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case "NURAI_LIVE_SUMMARY":
+      getLiveSummary().then(sendResponse);
+      return true;
 
     default:
       sendResponse({ ok: false, error: "UNKNOWN_TYPE" });

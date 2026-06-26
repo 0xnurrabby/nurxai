@@ -236,6 +236,16 @@
 
 
   let host, shadow, panel, listEl, statusBar;
+  let liveSummaryTimer = 0;
+  let liveSummaryInFlight = false;
+  let statusState = {
+    hasImage: false,
+    imageUsed: false,
+    searchUsed: false,
+    notificationUnread: 0,
+    chatUnread: 0,
+    liveLoading: true
+  };
 
   function ensureHost() {
     if (host && document.documentElement.contains(host)) return;
@@ -261,6 +271,10 @@
     if (generationTimer) {
       clearTimeout(generationTimer);
       generationTimer = 0;
+    }
+    if (liveSummaryTimer) {
+      clearInterval(liveSummaryTimer);
+      liveSummaryTimer = 0;
     }
     if (panel) { panel.remove(); panel = null; listEl = null; statusBar = null; }
   }
@@ -322,7 +336,7 @@
    * state = { hasImage: bool, imageUsed: bool|null, searchUsed: bool|null }
    * null = pending/not applicable, true = used/active, false = not used/failed
    */
-  function renderStatusBar(state) {
+  function renderGenerationStatusBarLegacy(state) {
     if (!statusBar) return;
     statusBar.replaceChildren();
 
@@ -351,6 +365,104 @@
     statusBar.appendChild(searchIcon);
   }
 
+  function mergeStatusState(next = {}) {
+    statusState = { ...statusState, ...next };
+    renderStatusBar();
+  }
+
+  function renderStatusBar(nextState = null) {
+    if (nextState) statusState = { ...statusState, ...nextState };
+    if (!statusBar) return;
+    statusBar.replaceChildren();
+
+    const state = statusState;
+    const unreadLabel = (count) => count > 99 ? "99+" : String(count);
+    const statusButton = (label, className, title) => {
+      const button = el("button", {
+        class: `status-icon ${className}`,
+        title,
+        type: "button"
+      }, label);
+      button.addEventListener("mousedown", (event) => event.stopPropagation());
+      button.addEventListener("touchstart", (event) => event.stopPropagation(), { passive: true });
+      return button;
+    };
+
+    statusBar.appendChild(statusButton(
+      "▣",
+      state.hasImage === false ? "status-na" :
+      state.imageUsed === true ? "status-on" :
+      state.imageUsed === false ? "status-off" : "status-pending",
+      state.hasImage === false ? "No image in post" :
+      state.imageUsed === true ? "Image scanned" :
+      state.imageUsed === false ? "Image scan failed" : "Scanning image..."
+    ));
+
+    statusBar.appendChild(statusButton(
+      "🔍",
+      state.searchUsed === true ? "status-on" :
+      state.searchUsed === false ? "status-off" : "status-pending",
+      state.searchUsed === true ? "Web search used" :
+      state.searchUsed === false ? "Web search not used" : "Searching web..."
+    ));
+
+    const notificationIcon = statusButton(
+      "🔔",
+      `live-status-icon ${state.notificationUnread > 0 ? "status-alert" : "status-idle"}`,
+      state.notificationUnread > 0 ? `${state.notificationUnread} unread dashboard notifications` : "No unread dashboard notifications"
+    );
+    notificationIcon.setAttribute("aria-label", "Open dashboard notifications");
+    if (state.notificationUnread > 0) notificationIcon.appendChild(el("strong", { class: "badge" }, unreadLabel(state.notificationUnread)));
+    notificationIcon.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      chrome.runtime.sendMessage({ type: "NURAI_OPEN_DASHBOARD", section: "notifications" });
+    });
+    statusBar.appendChild(notificationIcon);
+
+    const chatIcon = statusButton(
+      "🌐",
+      `live-status-icon ${state.chatUnread > 0 ? "status-alert" : "status-idle"}`,
+      state.chatUnread > 0 ? `${state.chatUnread} unread global chat messages` : "No unread global chat messages"
+    );
+    chatIcon.setAttribute("aria-label", "Open global chat");
+    if (state.chatUnread > 0) chatIcon.appendChild(el("strong", { class: "badge" }, unreadLabel(state.chatUnread)));
+    chatIcon.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      chrome.runtime.sendMessage({ type: "NURAI_OPEN_DASHBOARD", section: "chat" });
+    });
+    statusBar.appendChild(chatIcon);
+  }
+
+  async function fetchLiveSummary() {
+    if (!isActiveRun() || liveSummaryInFlight) return;
+    liveSummaryInFlight = true;
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "NURAI_LIVE_SUMMARY" });
+      if (!isActiveRun()) return;
+      if (resp?.ok) {
+        mergeStatusState({
+          notificationUnread: Number(resp.notificationUnread || 0),
+          chatUnread: Number(resp.chatUnread || 0),
+          liveLoading: false
+        });
+      } else {
+        mergeStatusState({ liveLoading: false });
+      }
+    } catch {
+      mergeStatusState({ liveLoading: false });
+    } finally {
+      liveSummaryInFlight = false;
+    }
+  }
+
+  function startLiveSummaryPolling() {
+    if (liveSummaryTimer) return;
+    fetchLiveSummary();
+    liveSummaryTimer = setInterval(fetchLiveSummary, 5000);
+  }
+
   async function buildPanelShell() {
     ensureHost();
     if (panel && shadow.contains(panel)) return panel;
@@ -373,6 +485,8 @@
     // Center: status bar
     statusBar = el("div", { class: "status-bar" });
     head.appendChild(statusBar);
+    renderStatusBar();
+    startLiveSummaryPolling();
 
     // Right: action buttons
     const actions = el("div", { class: "actions" });
@@ -440,9 +554,6 @@
     if (!listEl) return;
     listEl.replaceChildren();
 
-    // Track which suggestions have been used (for status coloring)
-    const usedSet = new Set();
-
     list.forEach((rawText, idx) => {
       const text = cleanSuggestionText(rawText);
       if (!text) return;
@@ -453,10 +564,8 @@
       useBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (!isActiveRun() || useBtn.disabled) return;
+        if (!isActiveRun()) return;
         if (!pasteIntoComposer(text)) return;
-        // Mark as used
-        usedSet.add(idx);
         useBtn.disabled = true;
         useBtn.classList.add("used");
         useBtn.textContent = "Used";
@@ -473,7 +582,7 @@
 
   let lastPasteKey = "";
   let lastPasteAt = 0;
-  const PASTE_LOCK_MS = 2500;
+  const PASTE_LOCK_MS = 350;
 
   function pasteIntoComposer(text) {
     if (!isActiveRun()) return false;
@@ -496,7 +605,6 @@
   function isDuplicatePaste(pasteKey, now) {
     if (pasteKey === lastPasteKey && now - lastPasteAt < PASTE_LOCK_MS) return true;
     if (window.__NURAI_LAST_PASTE_KEY === pasteKey && now - (window.__NURAI_LAST_PASTE_AT || 0) < PASTE_LOCK_MS) return true;
-    if (window.__NURAI_ACTIVE_PASTE_KEY === pasteKey && now < (window.__NURAI_ACTIVE_PASTE_UNTIL || 0)) return true;
     return false;
   }
 
@@ -507,6 +615,7 @@
     window.__NURAI_LAST_PASTE_AT = now;
     window.__NURAI_ACTIVE_PASTE_KEY = pasteKey;
     window.__NURAI_ACTIVE_PASTE_UNTIL = now + PASTE_LOCK_MS;
+    window.__NURAI_USER_EDITED_AFTER_PASTE = false;
   }
 
   function replaceComposerText(target, text, pasteKey) {
@@ -514,7 +623,7 @@
     requestAnimationFrame(() => {
       verifyComposerText(text, pasteKey);
     });
-    [80, 180, 420, 900, 1400].forEach(delay => setTimeout(() => verifyComposerText(text, pasteKey), delay));
+    [90, 220].forEach(delay => setTimeout(() => verifyComposerText(text, pasteKey), delay));
   }
 
   function forceComposerText(target, text, reason = "retry") {
@@ -552,6 +661,7 @@
 
     const composer = findComposer();
     if (!composer) return;
+    if (window.__NURAI_USER_EDITED_AFTER_PASTE) return;
 
     const current = getComposerText(composer);
     const wanted = normalizeComposerText(expected);
@@ -697,11 +807,7 @@
 
   function selectComposerContents(target) {
     target.focus();
-    document.execCommand("selectAll");
-
     const sel = window.getSelection();
-    if (selectionWithin(sel, target)) return;
-
     sel.removeAllRanges();
     const range = document.createRange();
     range.selectNodeContents(target);
@@ -877,21 +983,34 @@
 
     /* ── Status bar ── */
     .status-bar {
-      display: flex; align-items: center; gap: 6px; flex: 1;
-      justify-content: center;
+      display: flex; align-items: center; gap: 6px; flex: 1 1 auto;
+      justify-content: center; min-width: 144px;
     }
     .status-icon {
+      position: relative;
       font-size: 14px; line-height: 1;
       width: 26px; height: 26px;
       border-radius: 6px; border: 2px solid transparent;
       display: grid; place-items: center;
-      transition: all .2s;
-      cursor: default;
+      transition: transform .18s ease, background .18s ease, border-color .18s ease, opacity .18s ease;
+      cursor: default; padding: 0; color: #0f1419;
     }
+    button.status-icon { cursor: pointer; font: inherit; }
+    button.status-icon:hover { transform: translateY(-1px); }
     .status-pending { border-color: #ccc; opacity: .45; }
     .status-on      { border-color: #22c55e; background: #dcfce7; }
     .status-off     { border-color: #ef4444; background: #fee2e2; opacity: .7; }
     .status-na      { border-color: #d1d5db; background: #f3f4f6; opacity: .35; }
+    .status-idle    { border-color: #0f1419; background: #ffffff; }
+    .status-alert   { border-color: #ef4444; background: #ffd1dc; animation: alertPulse 1.15s ease-in-out infinite; }
+    .badge {
+      position: absolute; right: -8px; top: -8px;
+      min-width: 16px; height: 16px; padding: 0 4px;
+      border-radius: 999px; border: 1.5px solid #0f1419;
+      background: #ef4444; color: #fff;
+      font-size: 9px; line-height: 14px; font-weight: 900;
+    }
+    @keyframes alertPulse { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.08); } }
 
     .actions { display: flex; gap: 6px; flex-shrink: 0; }
     .icon {
@@ -916,7 +1035,7 @@
       transition: background .15s;
     }
     .use:hover { background: #aee4ac; }
-    .use.used { background: #86efac; border-color: #22c55e; color: #15803d; cursor: default; }
+    .use.used, .use:disabled { background: #86efac; border-color: #22c55e; color: #15803d; cursor: default; opacity: 1; }
     .loader { display:flex; align-items:center; gap:8px; padding: 16px; }
     .dot { width:8px; height:8px; border-radius:50%; background:#0f1419; animation: bounce 1s infinite; }
     .dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
@@ -946,6 +1065,9 @@
       .status-on  { background: #14532d; }
       .status-off { background: #450a0a; }
       .status-na  { background: #1f2937; }
+      .status-idle { background: #2a2a2a; color: #f3f3f5; border-color: #f3f3f5; }
+      .status-alert { background: #7f1d1d; color: #f3f3f5; }
+      .badge { border-color: #f3f3f5; }
     }
   `;
 })();
