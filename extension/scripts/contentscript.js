@@ -570,9 +570,13 @@
         event.stopPropagation();
         if (!isActiveRun()) return;
         if (!pasteIntoComposer(text)) return;
-        useBtn.disabled = true;
         useBtn.classList.add("used");
         useBtn.textContent = "Used";
+        window.setTimeout(() => {
+          if (!useBtn.isConnected) return;
+          useBtn.classList.remove("used");
+          useBtn.textContent = "Use";
+        }, 1200);
       });
       item.appendChild(useBtn);
       listEl.appendChild(item);
@@ -586,7 +590,9 @@
 
   let lastPasteKey = "";
   let lastPasteAt = 0;
+  let programmaticComposerEdit = 0;
   const PASTE_LOCK_MS = 350;
+  const PASTE_VERIFY_MS = 260;
 
   function pasteIntoComposer(text) {
     if (!isActiveRun()) return false;
@@ -618,7 +624,7 @@
     window.__NURAI_LAST_PASTE_KEY = pasteKey;
     window.__NURAI_LAST_PASTE_AT = now;
     window.__NURAI_ACTIVE_PASTE_KEY = pasteKey;
-    window.__NURAI_ACTIVE_PASTE_UNTIL = now + PASTE_LOCK_MS;
+    window.__NURAI_ACTIVE_PASTE_UNTIL = now + PASTE_VERIFY_MS;
     window.__NURAI_USER_EDITED_AFTER_PASTE = false;
   }
 
@@ -627,20 +633,23 @@
     requestAnimationFrame(() => {
       verifyComposerText(text, pasteKey);
     });
-    [90, 220].forEach(delay => setTimeout(() => verifyComposerText(text, pasteKey), delay));
+    [80, 180].forEach(delay => setTimeout(() => verifyComposerText(text, pasteKey), delay));
+    setTimeout(() => releasePasteControl(pasteKey), PASTE_VERIFY_MS + 20);
   }
 
   function forceComposerText(target, text, reason = "retry") {
     const composer = target || findComposer();
     if (!composer || !isActiveRun()) return;
-    activateComposer(composer);
-    selectComposerContents(composer);
-    document.execCommand("delete");
-    dispatchInputLifecycle(composer, "", "deleteContentBackward");
-    selectComposerContents(composer);
-    insertTextFallback(composer, text);
-    placeCaretAtEnd(composer);
-    nudgeComposerState(composer, text, reason);
+    withProgrammaticComposerEdit(() => {
+      activateComposer(composer);
+      selectComposerContents(composer);
+      document.execCommand("delete");
+      dispatchInputLifecycle(composer, "", "deleteContentBackward");
+      selectComposerContents(composer);
+      insertTextFallback(composer, text);
+      placeCaretAtEnd(composer);
+      nudgeComposerState(composer, text, reason);
+    });
   }
 
   function normalizeComposerText(text) {
@@ -662,6 +671,7 @@
   function verifyComposerText(expected, pasteKey) {
     if (!isActiveRun()) return;
     if (pasteKey && window.__NURAI_ACTIVE_PASTE_KEY !== pasteKey) return;
+    if (Date.now() > (window.__NURAI_ACTIVE_PASTE_UNTIL || 0)) return;
 
     const composer = findComposer();
     if (!composer) return;
@@ -684,6 +694,44 @@
 
     forceComposerText(composer, expected, "text-mismatch");
   }
+
+  function releasePasteControl(pasteKey) {
+    if (pasteKey && window.__NURAI_ACTIVE_PASTE_KEY !== pasteKey) return;
+    window.__NURAI_ACTIVE_PASTE_KEY = "";
+    window.__NURAI_ACTIVE_PASTE_UNTIL = 0;
+    window.__NURAI_USER_EDITED_AFTER_PASTE = false;
+  }
+
+  function withProgrammaticComposerEdit(fn) {
+    programmaticComposerEdit++;
+    try {
+      return fn();
+    } finally {
+      programmaticComposerEdit--;
+    }
+  }
+
+  function composerFromEvent(event) {
+    const composer = findComposer();
+    if (!composer) return null;
+    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+    if (path.includes(composer)) return composer;
+    const target = event.target;
+    if (target && (target === composer || composer.contains(target))) return composer;
+    return selectionWithin(window.getSelection(), composer) ? composer : null;
+  }
+
+  function markUserEditedComposer(event) {
+    if (!event.isTrusted || programmaticComposerEdit > 0) return;
+    if (!window.__NURAI_ACTIVE_PASTE_KEY) return;
+    if (!composerFromEvent(event)) return;
+    window.__NURAI_USER_EDITED_AFTER_PASTE = true;
+    releasePasteControl(window.__NURAI_ACTIVE_PASTE_KEY);
+  }
+
+  ["beforeinput", "keydown", "cut", "paste", "drop"].forEach((type) => {
+    document.addEventListener(type, markUserEditedComposer, true);
+  });
 
   function activateComposer(composer) {
     try {
@@ -712,7 +760,10 @@
     dispatchTextInput(composer, text);
     const inserted = document.execCommand("insertText", false, text);
     if (!inserted || getComposerText(composer) !== normalizeComposerText(text)) {
-      writeComposerDomFallback(composer, text);
+      selectComposerContents(composer);
+      document.execCommand("delete");
+      const html = escapeHtml(text).replace(/\n/g, "<br>");
+      document.execCommand("insertHTML", false, html);
     }
     dispatchInputLifecycle(composer, text, "insertText");
   }
@@ -778,13 +829,14 @@
     }
   }
 
-  function writeComposerDomFallback(composer, text) {
-    composer.textContent = "";
-    const lines = normalizeComposerText(text).split("\n");
-    lines.forEach((line, index) => {
-      if (index > 0) composer.appendChild(document.createElement("br"));
-      composer.appendChild(document.createTextNode(line));
-    });
+  function escapeHtml(text) {
+    return normalizeComposerText(text).replace(/[&<>"']/g, (ch) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[ch]);
   }
 
   function placeCaretAtEnd(composer) {
@@ -1040,7 +1092,8 @@
       transition: background .15s;
     }
     .use:hover { background: #aee4ac; }
-    .use.used, .use:disabled { background: #86efac; border-color: #22c55e; color: #15803d; cursor: default; opacity: 1; }
+    .use.used { background: #86efac; border-color: #22c55e; color: #15803d; cursor: pointer; opacity: 1; }
+    .use:disabled { background: #86efac; border-color: #22c55e; color: #15803d; cursor: default; opacity: 1; }
     .loader { display:flex; align-items:center; gap:8px; padding: 16px; }
     .dot { width:8px; height:8px; border-radius:50%; background:#0f1419; animation: bounce 1s infinite; }
     .dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
