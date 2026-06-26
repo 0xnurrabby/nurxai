@@ -4,6 +4,7 @@ import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { prisma } from "@/lib/db";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { getCurrentSubscription, getUpgradeQuote, paymentRawWithQuote } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const current = await getCurrentSubscription(session.sub);
+    const quote = getUpgradeQuote(plan as PlanKey, current);
+    const amountUSD = Number(quote.amountUSD.toFixed(2));
+    if (amountUSD <= 0) {
+      return NextResponse.json({ error: "BAD_AMOUNT" }, { status: 400 });
+    }
+
     const orderId = `nurxai_${session.sub}_${plan}_${Date.now()}`;
     const baseUrl = getPublicUrl();
     const apiKey = getNowPaymentsKey();
@@ -48,10 +56,11 @@ export async function POST(req: NextRequest) {
         userId: session.sub,
         provider: "nowpayments",
         providerId: orderId,
-        amount: p.priceUSD,
+        amount: amountUSD,
         currency: "USD",
         plan,
-        status: "waiting"
+        status: "waiting",
+        raw: paymentRawWithQuote(null, quote) as any
       }
     });
 
@@ -65,10 +74,13 @@ export async function POST(req: NextRequest) {
 
     try {
       const checkout = await sdk.createCheckout({
-        amount: p.priceUSD,
+        amount: amountUSD,
         currency: "usd",
         orderId,
-        description: `NurAi ${p.name} Plan`,
+        description:
+          quote.kind === "upgrade"
+            ? `NurAi upgrade from ${quote.currentPlan} to ${p.name}`
+            : `NurAi ${p.name} Plan`,
         fixedRate: false,
         feePaidByUser: false
       });
@@ -88,7 +100,7 @@ export async function POST(req: NextRequest) {
         where: { id: payment.id },
         data: {
           providerPaymentId: checkout.id || null,
-          raw: checkout as any
+          raw: paymentRawWithQuote(checkout, quote) as any
         }
       });
 
@@ -96,6 +108,8 @@ export async function POST(req: NextRequest) {
         url: checkout.invoice_url,
         invoiceId: checkout.id,
         orderId,
+        amount: amountUSD,
+        billingMode: quote.kind,
         message: "Invoice created. Your subscription activates after the payment is fully confirmed."
       });
     } catch (providerErr: any) {

@@ -13,6 +13,17 @@ type Plan = {
 type Props = {
   plan: Plan;
   currentPlan?: string | null;
+  currentPlanPriceUSD?: number | null;
+  currentPlanEndsAt?: string | null;
+};
+
+type BillingQuote = {
+  kind: "free" | "new" | "renewal" | "upgrade";
+  amountUSD: number;
+  currentPlan: string | null;
+  targetPlan: string;
+  startsAt: string | null;
+  endsAt: string | null;
 };
 
 let basePayCache: any = null;
@@ -24,12 +35,24 @@ async function loadBasePay(): Promise<any> {
   return basePayCache;
 }
 
-export default function PlanCard({ plan, currentPlan }: Props) {
+export default function PlanCard({ plan, currentPlan, currentPlanPriceUSD, currentPlanEndsAt }: Props) {
   const [loading, setLoading] = useState<"" | "base" | "nowp" | "trial">("");
   const [error, setError] = useState("");
   const [chooserOpen, setChooserOpen] = useState(false);
   const isCurrent = currentPlan === plan.key;
   const isFree = plan.priceUSD <= 0;
+  const currentRank = planRank(currentPlan);
+  const targetRank = planRank(plan.key);
+  const isUpgrade =
+    !isFree &&
+    Boolean(currentPlan && currentPlanPriceUSD && currentRank > 0 && targetRank > currentRank);
+  const upgradeAmount =
+    isUpgrade && currentPlanPriceUSD ? Math.max(0, plan.priceUSD - currentPlanPriceUSD) : plan.priceUSD;
+  const buttonLabel = isUpgrade
+    ? `Upgrade for $${upgradeAmount}`
+    : currentPlan
+    ? `Buy ${plan.name} next`
+    : `Buy ${plan.name}`;
 
   function getToken(): string | null {
     return typeof window === "undefined"
@@ -45,6 +68,36 @@ export default function PlanCard({ plan, currentPlan }: Props) {
       data?.error ||
       fallback;
     setError(msg);
+  }
+
+  function planRank(key?: string | null) {
+    if (key === "starter") return 1;
+    if (key === "pro") return 2;
+    if (key === "premium") return 3;
+    return 0;
+  }
+
+  async function fetchQuote(): Promise<BillingQuote | null> {
+    const token = getToken();
+    if (!token) {
+      window.location.href = `/login?next=${encodeURIComponent("/pricing")}`;
+      return null;
+    }
+    if (isFree) return null;
+    const res = await fetch("/api/billing/quote", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ plan: plan.key })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showError(data, "Could not prepare billing quote.");
+      return null;
+    }
+    return data.quote || null;
   }
 
   async function buyWithNowPayments() {
@@ -77,7 +130,11 @@ export default function PlanCard({ plan, currentPlan }: Props) {
         showError(data, "Could not create NowPayments invoice.");
         return;
       }
-      setError(data.message || "Invoice created. Redirecting to secure crypto checkout...");
+      setError(
+        data.billingMode === "upgrade"
+          ? `Upgrade invoice created for $${data.amount}. Redirecting...`
+          : data.message || "Invoice created. Redirecting to secure crypto checkout..."
+      );
       window.location.href = data.url;
     } catch (e: any) {
       setError(e?.message || "Network error. Try again.");
@@ -235,6 +292,16 @@ export default function PlanCard({ plan, currentPlan }: Props) {
           / {plan.days === 1 ? "1 day" : plan.days < 30 ? `${plan.days} days` : "month"}
         </span>
       </div>
+      {isUpgrade && (
+        <div className="mt-3 nb-tag self-start" style={{ background: "var(--accent3)" }}>
+          Upgrade from {currentPlan} for ${upgradeAmount}
+        </div>
+      )}
+      {isUpgrade && currentPlanEndsAt && (
+        <p className="mt-2 text-xs opacity-75">
+          Keeps your current expiry: {new Date(currentPlanEndsAt).toLocaleDateString()}.
+        </p>
+      )}
 
       <ul className="mt-4 space-y-2 flex-1">
         {plan.perks.map((p) => (
@@ -258,9 +325,16 @@ export default function PlanCard({ plan, currentPlan }: Props) {
       ) : !chooserOpen ? (
         <button
           className={`nb-btn mt-6 ${plan.featured ? "nb-btn-success" : "nb-btn-primary"}`}
-          onClick={() => setChooserOpen(true)}
+          onClick={async () => {
+            setError("");
+            setLoading("nowp");
+            const quote = await fetchQuote();
+            setLoading("");
+            if (quote) setChooserOpen(true);
+          }}
+          disabled={!!loading}
         >
-          Buy {plan.name}
+          {loading === "nowp" ? "Checking..." : buttonLabel}
         </button>
       ) : (
         <div className="mt-6 space-y-2">
@@ -280,7 +354,9 @@ export default function PlanCard({ plan, currentPlan }: Props) {
             {loading === "nowp" ? "Creating invoice..." : "Pay with BTC / ETH / USDT"}
           </button>
           <p className="text-xs opacity-70 leading-relaxed">
-            You will choose the coin on NOWPayments. Access turns on automatically after the payment reaches final confirmation.
+            {isUpgrade
+              ? `Upgrade charges only the difference and switches your active plan after confirmation.`
+              : "You will choose the coin on NOWPayments. Access turns on automatically after the payment reaches final confirmation."}
           </p>
           <button
             className="text-xs opacity-60 hover:opacity-100 underline mt-1"

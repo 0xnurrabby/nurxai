@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { prisma } from "@/lib/db";
+import { getCurrentSubscription, getUpgradeQuote, paymentRawWithQuote } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,12 @@ export async function POST(req: NextRequest) {
         { error: "FREE_PLAN", message: "Trial is free. Create an account or start the free trial from the pricing page." },
         { status: 400 }
       );
+    }
+    const current = await getCurrentSubscription(session.sub);
+    const quote = getUpgradeQuote(plan as PlanKey, current);
+    const amountUSD = Number(quote.amountUSD.toFixed(2));
+    if (amountUSD <= 0) {
+      return NextResponse.json({ error: "BAD_AMOUNT" }, { status: 400 });
     }
 
     const to = process.env.BASE_PAY_RECIPIENT;
@@ -51,10 +58,11 @@ export async function POST(req: NextRequest) {
           userId: session.sub,
           provider: "basepay",
           providerId: orderId,
-          amount: p.priceUSD,
+          amount: amountUSD,
           currency: "USDC",
           plan,
-          status: "waiting"
+          status: "waiting",
+          raw: paymentRawWithQuote(null, quote) as any
         }
       });
     } catch (dbErr) {
@@ -64,7 +72,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       orderId,
-      amount: p.priceUSD,
+      amount: amountUSD,
+      billingMode: quote.kind,
       to
     });
   } catch (err) {

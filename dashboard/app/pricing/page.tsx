@@ -58,6 +58,10 @@ export default function Pricing() {
   }
 
   const order = ["trial", "starter", "pro", "premium"] as const;
+  const currentPlanPriceUSD =
+    currentPlan && currentPlan in PLANS
+      ? PLANS[currentPlan as keyof typeof PLANS].priceUSD
+      : null;
 
   return (
     <>
@@ -101,7 +105,13 @@ export default function Pricing() {
 
         <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
           {order.map((k) => (
-            <PlanCard key={k} plan={PLANS[k]} currentPlan={currentPlan} />
+            <PlanCard
+              key={k}
+              plan={PLANS[k]}
+              currentPlan={currentPlan}
+              currentPlanPriceUSD={currentPlanPriceUSD}
+              currentPlanEndsAt={endsAt}
+            />
           ))}
         </div>
 
@@ -169,8 +179,9 @@ export default function Pricing() {
           <details className="mt-3 cursor-pointer">
             <summary className="font-bold">Can I upgrade mid-cycle?</summary>
             <p className="mt-2 text-sm">
-              Yes. Your current paid access keeps its purchased daily limit
-              until it expires, and the new plan is scheduled after that period.
+              Yes. Upgrades charge only the difference from your current paid
+              plan and switch your active plan after payment confirmation. Your
+              current expiry date stays the same.
             </p>
           </details>
           <details className="mt-3 cursor-pointer">

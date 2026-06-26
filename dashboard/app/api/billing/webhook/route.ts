@@ -3,6 +3,7 @@ import { NowPaymentsSDK, normalizePaymentStatus, PaymentStatus } from "@nowpayme
 import { prisma } from "@/lib/db";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { activatePaidSubscription, paymentRawWithQuote, getUpgradeQuote } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -45,24 +46,8 @@ async function activateSubscription(paymentId: string, rawStatus: string | null,
       return;
     }
 
-    const now = new Date();
-    const existing = await tx.subscription.findFirst({
-      where: { userId: payment.userId, status: "active", endsAt: { gt: now } },
-      orderBy: { endsAt: "desc" }
-    });
-    const startsAt = existing ? existing.endsAt : now;
-    const endsAt = new Date(startsAt.getTime() + plan.days * 24 * 60 * 60 * 1000);
-
-    await tx.subscription.create({
-      data: {
-        userId: payment.userId,
-        plan: payment.plan,
-        status: "active",
-        startsAt,
-        dailyLimit: plan.dailyLimit,
-        endsAt
-      }
-    });
+    const activation = await activatePaidSubscription(tx, payment);
+    if (!activation) return;
 
     await tx.payment.update({
       where: { id: payment.id },
@@ -85,9 +70,10 @@ async function activateSubscription(paymentId: string, rawStatus: string | null,
           orderId: payment.providerId,
           providerPaymentId: body.payment_id || body.invoice_id || null,
           plan: payment.plan,
+          billingMode: activation.kind,
           dailyLimit: plan.dailyLimit,
-          startsAt: startsAt.toISOString(),
-          endsAt: endsAt.toISOString()
+          startsAt: activation.startsAt.toISOString(),
+          endsAt: activation.endsAt.toISOString()
         } as any
       }
     });
@@ -134,6 +120,7 @@ export async function POST(req: NextRequest) {
     if (!recovered) return NextResponse.json({ ok: true, ignored: "unknown_order" });
 
     const plan = PLANS[recovered.plan];
+    const quote = getUpgradeQuote(recovered.plan, null);
     payment = await prisma.payment.create({
       data: {
         userId: recovered.userId,
@@ -144,7 +131,7 @@ export async function POST(req: NextRequest) {
         currency: "USD",
         plan: recovered.plan,
         status: "waiting",
-        raw: { recoveredFromWebhook: true, firstWebhook: body } as any
+        raw: paymentRawWithQuote({ recoveredFromWebhook: true, firstWebhook: body }, quote) as any
       }
     });
   }

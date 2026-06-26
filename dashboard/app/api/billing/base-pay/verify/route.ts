@@ -3,6 +3,7 @@ import { getSessionFromAuthHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { prisma } from "@/lib/db";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { activatePaidSubscription } from "@/lib/billing";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -51,16 +52,10 @@ export async function POST(req: NextRequest) {
   await ensureRuntimeSchema();
 
   const { orderId, txHash, plan } = await req.json().catch(() => ({}));
-  if (!orderId || !txHash || !plan)
+  if (!orderId || !txHash)
     return NextResponse.json({ error: "MISSING_PARAMS" }, { status: 400 });
   if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash))) {
     return NextResponse.json({ error: "BAD_TX_HASH" }, { status: 400 });
-  }
-
-  const p = PLANS[plan as PlanKey];
-  if (!p) return NextResponse.json({ error: "BAD_PLAN" }, { status: 400 });
-  if (p.priceUSD <= 0) {
-    return NextResponse.json({ error: "FREE_PLAN", message: "Free trial does not require payment." }, { status: 400 });
   }
 
   const expectedRecipient = process.env.BASE_PAY_RECIPIENT;
@@ -80,6 +75,15 @@ export async function POST(req: NextRequest) {
   }
   if (payment.status === "confirmed") {
     return NextResponse.json({ ok: true, alreadyConfirmed: true });
+  }
+  if (plan && plan !== payment.plan) {
+    return NextResponse.json({ error: "PLAN_MISMATCH" }, { status: 400 });
+  }
+
+  const p = PLANS[payment.plan as PlanKey];
+  if (!p) return NextResponse.json({ error: "BAD_PLAN" }, { status: 400 });
+  if (p.priceUSD <= 0) {
+    return NextResponse.json({ error: "FREE_PLAN", message: "Free trial does not require payment." }, { status: 400 });
   }
 
   // Replay protection: this txHash must not already be confirmed for another payment.
@@ -143,14 +147,18 @@ export async function POST(req: NextRequest) {
 
   // USDC has 6 decimals on Base.
   const rawAmount = BigInt(transferLog.data);
-  const expectedAtomic = BigInt(Math.round(p.priceUSD * 1_000_000));
+  const expectedAmountUSD = Number(payment.amount);
+  if (!Number.isFinite(expectedAmountUSD) || expectedAmountUSD <= 0) {
+    return NextResponse.json({ error: "BAD_PAYMENT_AMOUNT" }, { status: 500 });
+  }
+  const expectedAtomic = BigInt(Math.round(expectedAmountUSD * 1_000_000));
   const minAtomic = expectedAtomic - BigInt(10_000); // tolerate 1 cent rounding
   if (rawAmount < minAtomic) {
     return NextResponse.json(
       {
         error: "AMOUNT_TOO_LOW",
         paid: Number(rawAmount) / 1_000_000,
-        expected: p.priceUSD
+        expected: expectedAmountUSD
       },
       { status: 400 }
     );
@@ -159,46 +167,46 @@ export async function POST(req: NextRequest) {
   const sender =
     "0x" + (transferLog.topics[1] || "").toString().slice(-40).toLowerCase();
 
-  // Activate subscription, mark payment confirmed.
-  const now = new Date();
-  const existing = await prisma.subscription.findFirst({
-    where: { userId: session.sub, status: "active", endsAt: { gt: now } },
-    orderBy: { endsAt: "desc" }
-  });
-  const startsAt = existing ? existing.endsAt : now;
-  const endsAt = new Date(startsAt.getTime() + p.days * 24 * 60 * 60 * 1000);
+  const activation = await prisma.$transaction(async (tx) => {
+    const activated = await activatePaidSubscription(tx, payment);
+    if (!activated) return null;
 
-  await prisma.subscription.create({
-    data: { userId: session.sub, plan, status: "active", startsAt, dailyLimit: p.dailyLimit, endsAt }
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: "confirmed",
+        txHash: String(txHash),
+        payerAddr: sender
+      }
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId: session.sub,
+        event: "subscription_activated",
+        meta: {
+          plan: payment.plan,
+          billingMode: activated.kind,
+          dailyLimit: p.dailyLimit,
+          startsAt: activated.startsAt.toISOString(),
+          endsAt: activated.endsAt.toISOString(),
+          provider: "basepay",
+          txHash,
+          amount: expectedAmountUSD
+        } as any
+      }
+    });
+    return activated;
   });
 
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      status: "confirmed",
-      txHash: String(txHash),
-      payerAddr: sender
-    }
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.sub,
-      event: "subscription_activated",
-      meta: {
-        plan,
-        dailyLimit: p.dailyLimit,
-        startsAt: startsAt.toISOString(),
-        endsAt: endsAt.toISOString(),
-        provider: "basepay",
-        txHash
-      } as any
-    }
-  });
+  if (!activation) {
+    return NextResponse.json({ error: "ACTIVATION_FAILED" }, { status: 500 });
+  }
 
   return NextResponse.json({
     ok: true,
-    plan,
-    endsAt: endsAt.toISOString()
+    plan: payment.plan,
+    billingMode: activation.kind,
+    endsAt: activation.endsAt.toISOString()
   });
 }
