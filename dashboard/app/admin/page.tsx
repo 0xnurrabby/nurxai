@@ -78,37 +78,17 @@ type UserDetail = AdminUser & {
 type Stats = {
   totalUsers: number;
   activeSubs: number;
-  totalPayments: number;
   totalComments: number;
   todayUsage: number;
-  revenue: string;
-  tokens?: {
-    allTime: { input: number; output: number; cost: string };
-    today: { input: number; output: number; cost: string };
-    last30d: { input: number; output: number; cost: string };
+  commentCost: {
+    perCommentUSD: number;
+    todayComments: number;
+    monthlyComments: number;
+    totalComments: number;
+    todayUSD: number;
+    monthlyUSD: number;
+    totalUSD: number;
   };
-  comments?: {
-    allTime: number;
-    today: number;
-    last30d: number;
-    avgCostUSD: string;
-  };
-  gatewaySpend?: {
-    last30d?: {
-      cost: number;
-      inputTokens: number;
-      outputTokens: number;
-      requests: number;
-      rows: Array<{ model: string; cost: number; inputTokens: number; outputTokens: number; requests: number }>;
-    } | null;
-  };
-  planEconomics?: {
-    estimatedCostPerCommentUSD: number;
-    dailyLimits: { starter: number; pro: number; premium: number };
-    monthlyCostUSD?: { starter: number; pro: number; premium: number };
-    expectedProfitMargin?: { starter: number; pro: number; premium: number };
-  };
-  profitMargin?: { revenue: number; cost: number; profit: number };
 };
 
 type AdminAnnouncement = {
@@ -398,64 +378,31 @@ export default function AdminPage() {
 
         {stats && (
           <>
-            <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6">
+            <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-4 mt-6">
               <StatCard label="Total Users" value={stats.totalUsers} color="var(--accent3)" />
               <StatCard label="Active Subs" value={stats.activeSubs} color="var(--accent2)" />
               <StatCard label="Total Comments" value={(stats.totalComments || 0).toLocaleString()} />
               <StatCard label="Today Usage" value={stats.todayUsage} />
-              <StatCard label="Paid Payments" value={stats.totalPayments} color="var(--accent)" />
-              <StatCard label="Revenue" value={`$${money(stats.revenue)}`} />
+              <StatCard label="Rate" value={`$${money(stats.commentCost.perCommentUSD, 3)}`} sub="per comment" color="var(--accent)" />
             </div>
 
-            {stats.tokens && (
-              <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
-                <StatCard
-                  label="AI Stack Tokens Today"
-                  value={(stats.tokens.today.input + stats.tokens.today.output).toLocaleString()}
-                  sub={`cost ~$${money(stats.tokens.today.cost, 4)}`}
-                />
-                <StatCard
-                  label="AI Stack Tokens 30 days"
-                  value={(stats.tokens.last30d.input + stats.tokens.last30d.output).toLocaleString()}
-                  sub={`cost ~$${money(stats.tokens.last30d.cost, 2)}`}
-                />
-                <StatCard
-                  label="Avg DB Cost / Comment"
-                  value={`$${money(stats.comments?.avgCostUSD, 4)}`}
-                  sub={`${(stats.comments?.allTime || 0).toLocaleString()} metered generations`}
-                />
-                <StatCard
-                  label="Gateway Spend 30d"
-                  value={`$${money(stats.gatewaySpend?.last30d?.cost, 2)}`}
-                  sub={`${(stats.gatewaySpend?.last30d?.requests || 0).toLocaleString()} requests | ${(((stats.gatewaySpend?.last30d?.inputTokens || 0) + (stats.gatewaySpend?.last30d?.outputTokens || 0))).toLocaleString()} tokens`}
-                />
-              </div>
-            )}
-
-            {stats.planEconomics && (
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
-                <StatCard
-                  label="All-time Profit"
-                  value={`$${money(stats.profitMargin?.profit, 2)}`}
-                  sub={`revenue $${money(stats.profitMargin?.revenue)} - cost $${money(stats.profitMargin?.cost, 4)}`}
-                  color="var(--accent2)"
-                />
-                <StatCard
-                  label="Current Plan Limits"
-                  value={`${stats.planEconomics.dailyLimits.starter}/${stats.planEconomics.dailyLimits.pro}/${stats.planEconomics.dailyLimits.premium}`}
-                  sub={`starter / pro / premium per day | ~$${money(stats.planEconomics.estimatedCostPerCommentUSD, 4)}/comment`}
-                  color="var(--accent3)"
-                />
-                {stats.planEconomics.expectedProfitMargin && (
-                  <StatCard
-                    label="Expected Plan Margins"
-                    value={`${Math.round(stats.planEconomics.expectedProfitMargin.starter * 100)}% / ${Math.round(stats.planEconomics.expectedProfitMargin.pro * 100)}% / ${Math.round(stats.planEconomics.expectedProfitMargin.premium * 100)}%`}
-                    sub={`monthly AI cost ~$${money(stats.planEconomics.monthlyCostUSD?.starter, 2)} / $${money(stats.planEconomics.monthlyCostUSD?.pro, 2)} / $${money(stats.planEconomics.monthlyCostUSD?.premium, 2)}`}
-                    color="var(--accent2)"
-                  />
-                )}
-              </div>
-            )}
+            <div className="grid md:grid-cols-3 gap-4 mt-4">
+              <StatCard
+                label="Today Cost"
+                value={`$${money(stats.commentCost.todayUSD, 3)}`}
+                sub={`${stats.commentCost.todayComments.toLocaleString()} comments at $${money(stats.commentCost.perCommentUSD, 3)} each`}
+              />
+              <StatCard
+                label="Monthly Cost"
+                value={`$${money(stats.commentCost.monthlyUSD, 2)}`}
+                sub={`${stats.commentCost.monthlyComments.toLocaleString()} comments in last 30 days`}
+              />
+              <StatCard
+                label="Total Cost"
+                value={`$${money(stats.commentCost.totalUSD, 2)}`}
+                sub={`${stats.commentCost.totalComments.toLocaleString()} lifetime comments`}
+              />
+            </div>
           </>
         )}
 
