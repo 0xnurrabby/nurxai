@@ -87,6 +87,14 @@ async function callGenerate(context, imageUrls, regenerate, previousSuggestions)
 
   let data;
   try { data = await resp.json(); } catch { return { ok: false, error: "BAD_RESPONSE" }; }
+  if (resp.status === 426 || data?.error === "EXTENSION_UPDATE_REQUIRED") {
+    return {
+      ok: false,
+      error: "EXTENSION_UPDATE_REQUIRED",
+      requiredVersion: data?.requiredVersion || "",
+      updateUrl: data?.updateUrl || CONFIG.EXTENSION_UPDATE_URL
+    };
+  }
   if (!resp.ok) return { ok: false, error: data?.error || "SERVER_ERROR" };
 
   return {
@@ -215,6 +223,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     case "NURAI_OPEN_PRICING":
       chrome.tabs.create({ url: `${CONFIG.WEB_BASE}/pricing` });
+      sendResponse({ ok: true });
+      return false;
+
+    case "NURAI_OPEN_EXTENSION_UPDATE":
+      chrome.tabs.create({ url: CONFIG.EXTENSION_UPDATE_URL });
       sendResponse({ ok: true });
       return false;
 

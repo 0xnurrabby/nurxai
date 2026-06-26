@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { requireSupportedExtensionVersion } from "@/lib/extension-version";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  const versionBlock = requireSupportedExtensionVersion(req);
+  if (versionBlock) return versionBlock;
+
   const auth = await getAuthUserFromHeader(req);
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   await ensureRuntimeSchema();

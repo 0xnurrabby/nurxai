@@ -546,6 +546,10 @@
       const b = el("button", { class: "primary-btn" }, "View plans");
       b.addEventListener("click", () => chrome.runtime.sendMessage({ type: "NURAI_OPEN_PRICING" }));
       box.appendChild(b);
+    } else if (action === "update") {
+      const b = el("button", { class: "primary-btn" }, "Update extension");
+      b.addEventListener("click", () => chrome.runtime.sendMessage({ type: "NURAI_OPEN_EXTENSION_UPDATE" }));
+      box.appendChild(b);
     }
     listEl.appendChild(box);
   }
@@ -894,7 +898,8 @@
           EMPTY_CONTEXT:    ["No tweet context found.", null],
           BAD_RESPONSE:     ["Server returned an unexpected response.", null],
           UPSTREAM:         ["AI service error. Try again in a moment.", null],
-          EMPTY_SUGGESTIONS:["No good suggestions returned. Try again.", null]
+          EMPTY_SUGGESTIONS:["No good suggestions returned. Try again.", null],
+          EXTENSION_UPDATE_REQUIRED: ["Update NurAi extension to keep using suggestions.", "update"]
         };
         const [m, action] = map[resp?.error] || ["Could not generate suggestions.", null];
         showError(m, action);

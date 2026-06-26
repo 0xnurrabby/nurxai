@@ -4,6 +4,7 @@ import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { getSubscriptionDailyLimit } from "@/lib/subscription-limits";
+import { requireSupportedExtensionVersion } from "@/lib/extension-version";
 import { google } from "@ai-sdk/google";
 import { gateway, generateText } from "ai";
 import crypto from "crypto";
@@ -735,6 +736,8 @@ OUTPUT: JSON only. 4 short replies. No explanation. No bullets unless the origin
 export async function POST(req: NextRequest) {
   const requestStarted = nowMs();
   const requestId = crypto.randomUUID().slice(0, 8);
+  const versionBlock = requireSupportedExtensionVersion(req, { requireHeader: true });
+  if (versionBlock) return versionBlock;
   const [auth, body] = await Promise.all([
     getAuthUserFromHeader(req),
     req.json().catch(() => ({}))

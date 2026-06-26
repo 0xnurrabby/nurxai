@@ -72,10 +72,16 @@ BASE_PAY_RECIPIENT=0x_your_usdc_receiver
 NOWPAYMENTS_API_KEY=
 NOWPAYMENTS_IPN_SECRET=
 ADMIN_EMAILS=owner@example.com,second-admin@example.com
+MIN_EXTENSION_VERSION=2.0.9
+EXTENSION_UPDATE_URL=https://chromewebstore.google.com/detail/odapbgkbdpalphekkmibliclmedgmlhb
 ```
 
 If you do not need billing locally, leave NOWPayments values empty. `NOWPAYMENTS_KEY`
 is still accepted for older deployments, but `NOWPAYMENTS_API_KEY` is preferred.
+
+Set `MIN_EXTENSION_VERSION` only after that version is approved and live in the
+Chrome Web Store. Any extension request below that version is blocked before AI
+generation starts.
 
 Production uses Supabase Postgres through Prisma. Point `DATABASE_URL` at the
 Supabase direct connection string, then run:

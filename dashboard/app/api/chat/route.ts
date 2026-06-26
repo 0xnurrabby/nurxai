@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { requireSupportedExtensionVersion } from "@/lib/extension-version";
 
 export const runtime = "nodejs";
 const CHAT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -42,6 +43,9 @@ async function premiumUserIds(userIds: string[]) {
 }
 
 export async function GET(req: NextRequest) {
+  const versionBlock = requireSupportedExtensionVersion(req);
+  if (versionBlock) return versionBlock;
+
   const auth = await getAuthUserFromHeader(req);
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   await ensureRuntimeSchema();
