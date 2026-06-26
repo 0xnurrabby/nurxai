@@ -479,8 +479,11 @@
 
     const head = el("div", { class: "head" });
 
-    // Left: title
-    head.appendChild(el("span", { class: "title" }, "NurAi"));
+    // Left: brand + extension version
+    const brand = el("div", { class: "brand" });
+    brand.appendChild(el("span", { class: "title" }, "NurAi"));
+    brand.appendChild(el("span", { class: "version" }, `v${chrome.runtime.getManifest().version}`));
+    head.appendChild(brand);
 
     // Center: status bar
     statusBar = el("div", { class: "status-bar" });
@@ -1036,7 +1039,12 @@
       background: #fff89c; border-bottom: 2px solid #0f1419;
       gap: 8px;
     }
-    .title { font-weight: 800; font-size: 14px; letter-spacing: .3px; flex-shrink: 0; }
+    .brand {
+      display: grid; gap: 1px; flex: 0 0 auto; min-width: 70px;
+      line-height: 1.05;
+    }
+    .title { font-weight: 800; font-size: 14px; letter-spacing: .3px; }
+    .version { font-size: 9px; font-weight: 800; color: #536471; }
 
     /* ── Status bar ── */
     .status-bar {
