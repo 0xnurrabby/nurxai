@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NurXai - AI Reply for X",
-  "version": "2.0.12",
+  "version": "2.0.13",
   "description": "AI-powered, human-like reply suggestions for X/Twitter.",
   "default_locale": "en",
   "icons": {
@@ -30,7 +30,7 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["storage", "scripting", "activeTab"],
+  "permissions": ["storage", "scripting", "activeTab", "clipboardRead", "clipboardWrite"],
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",

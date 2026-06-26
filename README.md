@@ -72,7 +72,7 @@ BASE_PAY_RECIPIENT=0x_your_usdc_receiver
 NOWPAYMENTS_API_KEY=
 NOWPAYMENTS_IPN_SECRET=
 ADMIN_EMAILS=owner@example.com,second-admin@example.com
-MIN_EXTENSION_VERSION=2.0.12
+MIN_EXTENSION_VERSION=2.0.13
 EXTENSION_UPDATE_URL=https://chromewebstore.google.com/detail/odapbgkbdpalphekkmibliclmedgmlhb
 ```
 

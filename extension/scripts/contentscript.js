@@ -568,11 +568,20 @@
       const item = el("div", { class: "item", role: "listitem" });
       item.appendChild(el("div", { class: "item-text" }, text));
       const useBtn = el("button", { class: "use", "aria-label": "Use this reply" }, "Use");
-      useBtn.addEventListener("click", (event) => {
+      useBtn.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
         if (!isActiveRun()) return;
-        if (!pasteIntoComposer(text)) return;
+        if (useBtn.dataset.pasting === "1") return;
+        useBtn.dataset.pasting = "1";
+        useBtn.disabled = true;
+        const pasted = await pasteIntoComposer(text);
+        useBtn.disabled = false;
+        useBtn.dataset.pasting = "";
+        if (!pasted) {
+          useBtn.textContent = "Retry";
+          return;
+        }
         useBtn.classList.add("used");
         useBtn.textContent = "Used";
         window.setTimeout(() => {
@@ -595,7 +604,7 @@
   let lastPasteAt = 0;
   const PASTE_LOCK_MS = 350;
 
-  function pasteIntoComposer(text) {
+  async function pasteIntoComposer(text) {
     if (!isActiveRun()) return false;
     const c = findComposer();
     if (!c) return false;
@@ -625,11 +634,11 @@
     window.__NURAI_LAST_PASTE_AT = now;
   }
 
-  function replaceComposerText(target, text) {
+  async function replaceComposerText(target, text) {
     return forceComposerText(target, text, "initial");
   }
 
-  function forceComposerText(target, text, reason = "retry") {
+  async function forceComposerText(target, text, reason = "retry") {
     const composer = target || findComposer();
     if (!composer || !isActiveRun()) return false;
 
@@ -637,7 +646,7 @@
     activateComposer(composer);
     selectComposerContents(composer);
 
-    const inserted = insertNativeText(composer, wanted);
+    const inserted = await insertNativeText(composer, wanted);
     console.debug?.("[NurAi] composer text inserted", reason);
 
     return inserted || getComposerText(composer) === wanted;
@@ -681,19 +690,70 @@
     }
   }
 
-  function insertNativeText(composer, text) {
+  async function insertNativeText(composer, text) {
+    let clipboardReady = copyTextWithHiddenTextarea(text);
+    if (!clipboardReady) {
+      clipboardReady = await writeTextToClipboard(text);
+    }
+    if (!clipboardReady) return false;
+
+    activateComposer(composer);
     selectComposerContents(composer);
-    const inserted = document.execCommand("insertText", false, text);
-    return inserted || getComposerText(composer) === normalizeComposerText(text);
+    document.execCommand("paste");
+    return waitForComposerText(composer, text);
+  }
+
+  async function writeTextToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return copyTextWithHiddenTextarea(text);
+    }
+  }
+
+  function copyTextWithHiddenTextarea(text) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;";
+    document.documentElement.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {}
+    textarea.remove();
+    return ok;
+  }
+
+  async function waitForComposerText(composer, expected) {
+    const wanted = normalizeComposerText(expected);
+    for (let attempt = 0; attempt < 8; attempt++) {
+      if (getComposerText(composer) === wanted) return true;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return false;
   }
 
   function selectComposerContents(target) {
     target.focus();
+    try {
+      document.execCommand("selectAll");
+    } catch {}
     const sel = window.getSelection();
+    if (selectionWithin(sel, target)) return;
     sel.removeAllRanges();
     const range = document.createRange();
     range.selectNodeContents(target);
     sel.addRange(range);
+  }
+
+  function selectionWithin(sel, target) {
+    if (!sel?.rangeCount) return false;
+    const common = sel.getRangeAt(0).commonAncestorContainer;
+    return common === target || target.contains(common);
   }
 
   let lastSuggestions = [];
