@@ -21,8 +21,9 @@ function cleanNote(value: unknown) {
 }
 
 async function getActiveSubscription(userId: string) {
+  const now = new Date();
   return prisma.subscription.findFirst({
-    where: { userId, status: "active", endsAt: { gt: new Date() } },
+    where: { userId, status: "active", startsAt: { lte: now }, endsAt: { gt: now } },
     orderBy: { endsAt: "desc" }
   });
 }

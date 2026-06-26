@@ -45,25 +45,20 @@ async function activateSubscription(paymentId: string, rawStatus: string | null,
       return;
     }
 
+    const now = new Date();
     const existing = await tx.subscription.findFirst({
-      where: { userId: payment.userId, status: "active", endsAt: { gt: new Date() } },
+      where: { userId: payment.userId, status: "active", endsAt: { gt: now } },
       orderBy: { endsAt: "desc" }
     });
-    const baseDate = existing ? existing.endsAt : new Date();
-    const endsAt = new Date(baseDate.getTime() + plan.days * 24 * 60 * 60 * 1000);
-
-    if (existing) {
-      await tx.subscription.update({
-        where: { id: existing.id },
-        data: { status: "replaced" }
-      });
-    }
+    const startsAt = existing ? existing.endsAt : now;
+    const endsAt = new Date(startsAt.getTime() + plan.days * 24 * 60 * 60 * 1000);
 
     await tx.subscription.create({
       data: {
         userId: payment.userId,
         plan: payment.plan,
         status: "active",
+        startsAt,
         dailyLimit: plan.dailyLimit,
         endsAt
       }
@@ -91,6 +86,7 @@ async function activateSubscription(paymentId: string, rawStatus: string | null,
           providerPaymentId: body.payment_id || body.invoice_id || null,
           plan: payment.plan,
           dailyLimit: plan.dailyLimit,
+          startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString()
         } as any
       }

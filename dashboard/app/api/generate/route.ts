@@ -755,10 +755,11 @@ export async function POST(req: NextRequest) {
     : [];
 
   const day = new Date().toISOString().slice(0, 10);
+  const now = new Date();
   const dbStarted = nowMs();
   const [sub, usage] = await Promise.all([
     prisma.subscription.findFirst({
-      where: { userId, status: "active", endsAt: { gt: new Date() } },
+      where: { userId, status: "active", startsAt: { lte: now }, endsAt: { gt: now } },
       orderBy: { endsAt: "desc" }
     }),
     prisma.usageLog.findUnique({

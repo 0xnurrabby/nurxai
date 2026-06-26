@@ -15,9 +15,10 @@ export async function GET(req: NextRequest) {
   await ensureRuntimeSchema();
 
   const day = new Date().toISOString().slice(0, 10);
+  const now = new Date();
   const [sub, usage, profile] = await Promise.all([
     prisma.subscription.findFirst({
-      where: { userId: user.id, status: "active", endsAt: { gt: new Date() } },
+      where: { userId: user.id, status: "active", startsAt: { lte: now }, endsAt: { gt: now } },
       orderBy: { endsAt: "desc" }
     }),
     prisma.usageLog.findUnique({

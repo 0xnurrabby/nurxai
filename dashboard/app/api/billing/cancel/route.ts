@@ -10,11 +10,13 @@ export async function POST(req: NextRequest) {
   if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   await ensureRuntimeSchema();
 
+  const now = new Date();
   const result = await prisma.subscription.updateMany({
     where: {
       userId: session.sub,
       status: "active",
-      endsAt: { gt: new Date() }
+      startsAt: { lte: now },
+      endsAt: { gt: now }
     },
     data: { status: "cancelled" }
   });

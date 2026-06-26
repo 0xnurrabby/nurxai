@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
 
   // Today's per-user usage (from UsageLog).
   const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
   const todayUsage =
     userIds.length === 0
       ? []
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
 
   const enriched = users.map((u) => {
     const s = statsByUser.get(u.id);
-    const activeSub = u.subscriptions.find((sub) => sub.status === "active" && sub.endsAt > new Date());
+    const activeSub = u.subscriptions.find((sub) => sub.status === "active" && sub.startsAt <= now && sub.endsAt > now);
     return {
       ...u,
       isAdmin: isAdminEmail(u.email),

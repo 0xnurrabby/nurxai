@@ -35,6 +35,15 @@ function summarizeGatewayRows(rows: any[] = []) {
   };
 }
 
+function planMonthlyCost(plan: { dailyLimit: number; days: number }) {
+  return plan.dailyLimit * plan.days * PLAN_COST_MODEL.estimatedCostPerCommentUSD;
+}
+
+function planProfitMargin(plan: { priceUSD: number; dailyLimit: number; days: number }) {
+  if (plan.priceUSD <= 0) return 0;
+  return (plan.priceUSD - planMonthlyCost(plan)) / plan.priceUSD;
+}
+
 async function getGatewaySpendReport(startDate: string, endDate: string) {
   if (!process.env.AI_GATEWAY_API_KEY) return null;
   try {
@@ -59,6 +68,7 @@ export async function GET(req: NextRequest) {
   await ensureRuntimeSchema();
 
   const today = dayKey(new Date());
+  const now = new Date();
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const last30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const last30dKey = dayKey(last30d);
@@ -79,7 +89,7 @@ export async function GET(req: NextRequest) {
     gatewaySpend30d
   ] = await Promise.all([
     prisma.user.count(),
-    prisma.subscription.count({ where: { status: "active", endsAt: { gt: new Date() } } }),
+    prisma.subscription.count({ where: { status: "active", startsAt: { lte: now }, endsAt: { gt: now } } }),
     prisma.payment.count({ where: { status: "confirmed" } }),
     prisma.usageLog.aggregate({ _sum: { count: true }, where: { day: today } }),
     prisma.payment.aggregate({ _sum: { amount: true }, where: { status: "confirmed" } }),
@@ -145,6 +155,16 @@ export async function GET(req: NextRequest) {
         starter: PLANS.starter.dailyLimit,
         pro: PLANS.pro.dailyLimit,
         premium: PLANS.premium.dailyLimit
+      },
+      monthlyCostUSD: {
+        starter: planMonthlyCost(PLANS.starter),
+        pro: planMonthlyCost(PLANS.pro),
+        premium: planMonthlyCost(PLANS.premium)
+      },
+      expectedProfitMargin: {
+        starter: planProfitMargin(PLANS.starter),
+        pro: planProfitMargin(PLANS.pro),
+        premium: planProfitMargin(PLANS.premium)
       }
     },
     profitMargin: {

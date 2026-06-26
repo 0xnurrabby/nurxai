@@ -30,11 +30,13 @@ async function deleteExpiredMessages() {
 
 async function premiumUserIds(userIds: string[]) {
   if (userIds.length === 0) return new Set<string>();
+  const now = new Date();
   const subs = await prisma.subscription.findMany({
     where: {
       userId: { in: userIds },
       status: "active",
-      endsAt: { gt: new Date() },
+      startsAt: { lte: now },
+      endsAt: { gt: now },
       plan: { in: ["pro", "premium"] }
     },
     select: { userId: true }

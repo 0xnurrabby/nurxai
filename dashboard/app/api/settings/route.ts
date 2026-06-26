@@ -27,8 +27,9 @@ function cleanAvatarUrl(value: unknown) {
 }
 
 async function getActivePlan(userId: string) {
+  const now = new Date();
   const sub = await prisma.subscription.findFirst({
-    where: { userId, status: "active", endsAt: { gt: new Date() } },
+    where: { userId, status: "active", startsAt: { lte: now }, endsAt: { gt: now } },
     orderBy: { endsAt: "desc" }
   });
   if (!sub) return null;

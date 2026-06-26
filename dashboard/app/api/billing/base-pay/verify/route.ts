@@ -160,22 +160,16 @@ export async function POST(req: NextRequest) {
     "0x" + (transferLog.topics[1] || "").toString().slice(-40).toLowerCase();
 
   // Activate subscription, mark payment confirmed.
+  const now = new Date();
   const existing = await prisma.subscription.findFirst({
-    where: { userId: session.sub, status: "active", endsAt: { gt: new Date() } },
+    where: { userId: session.sub, status: "active", endsAt: { gt: now } },
     orderBy: { endsAt: "desc" }
   });
-  const baseDate = existing ? existing.endsAt : new Date();
-  const endsAt = new Date(baseDate.getTime() + p.days * 24 * 60 * 60 * 1000);
-
-  if (existing) {
-    await prisma.subscription.update({
-      where: { id: existing.id },
-      data: { status: "replaced" }
-    });
-  }
+  const startsAt = existing ? existing.endsAt : now;
+  const endsAt = new Date(startsAt.getTime() + p.days * 24 * 60 * 60 * 1000);
 
   await prisma.subscription.create({
-    data: { userId: session.sub, plan, status: "active", dailyLimit: p.dailyLimit, endsAt }
+    data: { userId: session.sub, plan, status: "active", startsAt, dailyLimit: p.dailyLimit, endsAt }
   });
 
   await prisma.payment.update({
@@ -194,6 +188,7 @@ export async function POST(req: NextRequest) {
       meta: {
         plan,
         dailyLimit: p.dailyLimit,
+        startsAt: startsAt.toISOString(),
         endsAt: endsAt.toISOString(),
         provider: "basepay",
         txHash

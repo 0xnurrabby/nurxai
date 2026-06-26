@@ -105,6 +105,8 @@ type Stats = {
   planEconomics?: {
     estimatedCostPerCommentUSD: number;
     dailyLimits: { starter: number; pro: number; premium: number };
+    monthlyCostUSD?: { starter: number; pro: number; premium: number };
+    expectedProfitMargin?: { starter: number; pro: number; premium: number };
   };
   profitMargin?: { revenue: number; cost: number; profit: number };
 };
@@ -133,6 +135,12 @@ function daysRemaining(value?: string | null) {
 
 function money(value: string | number | undefined | null, digits = 2) {
   return Number(value || 0).toFixed(digits);
+}
+
+function isCurrentlyActive(sub?: Subscription | null) {
+  if (!sub || sub.status !== "active") return false;
+  const now = Date.now();
+  return new Date(sub.startsAt).getTime() <= now && new Date(sub.endsAt).getTime() > now;
 }
 
 function usageBreakdown(details: any) {
@@ -435,9 +443,17 @@ export default function AdminPage() {
                 <StatCard
                   label="Current Plan Limits"
                   value={`${stats.planEconomics.dailyLimits.starter}/${stats.planEconomics.dailyLimits.pro}/${stats.planEconomics.dailyLimits.premium}`}
-                  sub={`starter / pro / premium per day | cost model ~$${money(stats.planEconomics.estimatedCostPerCommentUSD, 4)}/comment`}
+                  sub={`starter / pro / premium per day | ~$${money(stats.planEconomics.estimatedCostPerCommentUSD, 4)}/comment`}
                   color="var(--accent3)"
                 />
+                {stats.planEconomics.expectedProfitMargin && (
+                  <StatCard
+                    label="Expected Plan Margins"
+                    value={`${Math.round(stats.planEconomics.expectedProfitMargin.starter * 100)}% / ${Math.round(stats.planEconomics.expectedProfitMargin.pro * 100)}% / ${Math.round(stats.planEconomics.expectedProfitMargin.premium * 100)}%`}
+                    sub={`monthly AI cost ~$${money(stats.planEconomics.monthlyCostUSD?.starter, 2)} / $${money(stats.planEconomics.monthlyCostUSD?.pro, 2)} / $${money(stats.planEconomics.monthlyCostUSD?.premium, 2)}`}
+                    color="var(--accent2)"
+                  />
+                )}
               </div>
             )}
           </>
@@ -581,7 +597,7 @@ function UserTable({
         </thead>
         <tbody>
           {users.map((u) => {
-            const sub = u.activeSubscription || u.subscriptions.find((s) => s.status === "active");
+            const sub = u.activeSubscription || u.subscriptions.find(isCurrentlyActive);
             const totalTokens = (u.gen?.inputTokens || 0) + (u.gen?.outputTokens || 0);
             const selected = selectedId === u.id;
             return (
@@ -687,7 +703,7 @@ function DetailPanel({
   useEffect(() => {
     setName(user?.name || "");
     setEmail(user?.email || "");
-    const active = user?.activeSubscription || user?.subscriptions?.find((s) => s.status === "active");
+    const active = user?.activeSubscription || user?.subscriptions?.find(isCurrentlyActive);
     setExpiry(active ? active.endsAt.slice(0, 10) : "");
     setExtraDaysNote("Admin gifted extra premium days for your account.");
     setEditingGiftId("");
@@ -705,7 +721,7 @@ function DetailPanel({
   }
 
   const detail = user as Partial<UserDetail>;
-  const active = user.activeSubscription || user.subscriptions?.find((s) => s.status === "active" && new Date(s.endsAt) > new Date());
+  const active = user.activeSubscription || user.subscriptions?.find(isCurrentlyActive);
   const allSubs = detail.subscriptions || user.subscriptions || [];
   const gifts = detail.subscriptionGifts || [];
   const isBusy = !!busy;

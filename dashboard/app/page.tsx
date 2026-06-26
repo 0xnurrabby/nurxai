@@ -153,21 +153,21 @@ const softwareJsonLd = {
       name: "Starter",
       price: "5",
       priceCurrency: "USD",
-      description: "55 comments per day"
+      description: "28 comments per day"
     },
     {
       "@type": "Offer",
       name: "Pro",
       price: "10",
       priceCurrency: "USD",
-      description: "130 comments per day with image understanding"
+      description: "67 comments per day with image understanding"
     },
     {
       "@type": "Offer",
       name: "Premium",
       price: "30",
       priceCurrency: "USD",
-      description: "460 comments per day with the full AI stack"
+      description: "233 comments per day with the full AI stack"
     }
   ],
   sameAs: [chromeStoreUrl]
@@ -253,9 +253,9 @@ export default function Home() {
           <div className="grid gap-4 md:grid-cols-4">
             {[
               ["Trial", "10/day", "Free for 3 days"],
-              ["Starter", "55/day", "Text replies + styles"],
-              ["Pro", "130/day", "Image understanding"],
-              ["Premium", "460/day", "Full AI context stack"]
+              ["Starter", "28/day", "Text replies + styles"],
+              ["Pro", "67/day", "Image understanding"],
+              ["Premium", "233/day", "Full AI context stack"]
             ].map(([label, value, sub]) => (
               <div key={label} className="nb-card p-5 text-center">
                 <div className="text-sm font-black opacity-70">{label}</div>
@@ -445,8 +445,8 @@ export default function Home() {
               Premium is for serious reply work.
             </h2>
             <p className="mt-3 max-w-2xl mx-auto">
-              Starter gives 55 comments per day. Pro gives 130 with image
-              understanding. Premium gives <strong>460 comments per day</strong>{" "}
+              Starter gives 28 comments per day. Pro gives 67 with image
+              understanding. Premium gives <strong>233 comments per day</strong>{" "}
               and the full GPT, Grok, and Gemini stack for deeper context,
               nuance, and cleaner replies.
             </p>

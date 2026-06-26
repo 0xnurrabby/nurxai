@@ -149,11 +149,11 @@ export default function Pricing() {
         >
           <h3 className="font-display font-black text-xl">Premium math</h3>
           <p className="mt-2 text-sm">
-            Starter = 55 / day, Pro = 130 / day, and Premium = 460 / day
-            with the full GPT + Grok + Gemini stack. Premium is still the
-            strongest value for heavy reply work while keeping quality stable.
-            Premium is dramatically better at picking up nuance, sarcasm,
-            visual detail, and live context.
+            Starter = 28 / day, Pro = 67 / day, and Premium = 233 / day
+            with the full GPT + Grok + Gemini stack. Premium gives the most
+            comments per dollar and the strongest context engine while keeping
+            generation quality stable. Existing buyers keep the daily limit
+            they purchased until that plan expires.
           </p>
         </div>
 
@@ -169,8 +169,8 @@ export default function Pricing() {
           <details className="mt-3 cursor-pointer">
             <summary className="font-bold">Can I upgrade mid-cycle?</summary>
             <p className="mt-2 text-sm">
-              Yes. Buying a higher plan replaces your current one and adds the
-              new period from today.
+              Yes. Your current paid access keeps its purchased daily limit
+              until it expires, and the new plan is scheduled after that period.
             </p>
           </details>
           <details className="mt-3 cursor-pointer">

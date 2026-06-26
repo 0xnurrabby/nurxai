@@ -42,9 +42,9 @@ HOW IT WORKS
 PLANS
 
 * Free Trial: 3 days, 10 comments per day
-* Starter: $5/month, 55 comments per day, text replies, all styles, custom style note
-* Pro: $10/month, 130 comments per day, image understanding, project contexts
-* Premium: $30/month, 460 comments per day, full GPT + Grok + Gemini context stack
+* Starter: $5/month, 28 comments per day, text replies, all styles, custom style note
+* Pro: $10/month, 67 comments per day, image understanding, project contexts
+* Premium: $30/month, 233 comments per day, full GPT + Grok + Gemini context stack
 
 Payments are available through NOWPayments crypto checkout and Base Pay.
 

@@ -44,6 +44,9 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     }
   });
   if (!user) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  const now = new Date();
+  const activeSubscription =
+    user.subscriptions.find((sub) => sub.status === "active" && sub.startsAt <= now && sub.endsAt > now) || null;
 
   const [tokenTotals, auditLogs] = await Promise.all([
     prisma.generation.aggregate({
@@ -63,6 +66,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     user: {
       ...user,
       isAdmin: isAdminEmail(user.email),
+      activeSubscription,
       totals: {
         inputTokens: tokenTotals._sum.inputTokens || 0,
         outputTokens: tokenTotals._sum.outputTokens || 0,
