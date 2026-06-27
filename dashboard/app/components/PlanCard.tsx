@@ -369,10 +369,10 @@ export default function PlanCard({ plan, currentPlan, currentPlanPriceUSD, curre
           {loading === "nowp" ? "Checking..." : buttonLabel}
         </button>
       ) : (
-        <div className="mt-6 space-y-2">
+        <div className="mt-6 grid gap-2 plan-pay-actions">
           {walletBalanceUSD > 0 && (
             <button
-              className="nb-btn nb-btn-success w-full"
+              className="nb-btn nb-btn-success plan-pay-btn"
               onClick={buyWithWallet}
               disabled={!!loading || !walletCanPay}
             >
@@ -384,7 +384,7 @@ export default function PlanCard({ plan, currentPlan, currentPlanPriceUSD, curre
             </button>
           )}
           <button
-            className="nb-btn w-full font-bold"
+            className="nb-btn plan-pay-btn"
             style={{ background: "#0000FF", color: "#fff" }}
             onClick={buyWithBasePay}
             disabled={!!loading}
@@ -392,7 +392,7 @@ export default function PlanCard({ plan, currentPlan, currentPlanPriceUSD, curre
             {loading === "base" ? "Opening Base..." : "Pay with Base (USDC)"}
           </button>
           <button
-            className="nb-btn nb-btn-primary w-full"
+            className="nb-btn nb-btn-primary plan-pay-btn"
             onClick={buyWithNowPayments}
             disabled={!!loading}
           >

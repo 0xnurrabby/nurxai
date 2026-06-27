@@ -124,6 +124,16 @@ export async function POST(req: NextRequest) {
   if (!selectedPlan) return NextResponse.json({ error: "BAD_PLAN" }, { status: 400 });
 
   const customDays = parsePositiveDays(days) || selectedPlan.days;
+  const currentActive = await getActiveSubscription(userId);
+  if (currentActive?.plan === plan) {
+    return NextResponse.json(
+      {
+        error: "SAME_PLAN_ACTIVE",
+        message: "This user already has the same active plan. Use Add days or Set expiry instead."
+      },
+      { status: 409 }
+    );
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     await tx.subscription.updateMany({
@@ -154,7 +164,7 @@ export async function POST(req: NextRequest) {
             { id: sub.id, userId, plan, amount: bonusBaseUSD },
             {
               sourceType: "admin_grant_referral_bonus",
-              sourceId: sub.id,
+              sourceId: `${userId}:${plan}:${sub.startsAt.toISOString().slice(0, 10)}`,
               adminId: admin.id,
               note: `Manual admin-approved 10% referral bonus for ${selectedPlan.name} grant ($${bonusBaseUSD.toFixed(2)} base).`
             }

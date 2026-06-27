@@ -16,8 +16,15 @@ export function isPaidPlanKey(plan: string): plan is Exclude<PlanKey, "trial"> {
 }
 
 export async function getCurrentSubscription(userId: string) {
-  const now = new Date();
-  return prisma.subscription.findFirst({
+  return getCurrentSubscriptionForUser(userId);
+}
+
+export async function getCurrentSubscriptionForUser(
+  userId: string,
+  tx: any = prisma,
+  now = new Date()
+) {
+  const current = await tx.subscription.findFirst({
     where: {
       userId,
       status: "active",
@@ -25,6 +32,37 @@ export async function getCurrentSubscription(userId: string) {
       endsAt: { gt: now }
     },
     orderBy: { endsAt: "desc" }
+  });
+  if (!current || current.plan !== "trial") return current;
+
+  const queuedPaid = await tx.subscription.findFirst({
+    where: {
+      userId,
+      status: "active",
+      startsAt: { gt: now },
+      endsAt: { gt: now },
+      plan: { in: ["starter", "pro", "premium"] }
+    },
+    orderBy: { startsAt: "asc" }
+  });
+  if (!queuedPaid) return current;
+
+  const queuedPlan = PLANS[queuedPaid.plan as PlanKey];
+  if (!queuedPlan || queuedPlan.priceUSD <= 0) return current;
+
+  await tx.subscription.update({
+    where: { id: current.id },
+    data: { status: "replaced", endsAt: now }
+  });
+
+  return tx.subscription.update({
+    where: { id: queuedPaid.id },
+    data: {
+      startsAt: now,
+      endsAt: new Date(now.getTime() + queuedPlan.days * DAY_MS),
+      dailyLimit: queuedPlan.dailyLimit,
+      status: "active"
+    }
   });
 }
 
@@ -62,10 +100,10 @@ export function getUpgradeQuote(plan: PlanKey, current: ActiveSubscription) {
   }
 
   const now = new Date();
-  const startsAt = current ? current.endsAt : now;
+  const startsAt = current?.plan === "trial" ? now : current ? current.endsAt : now;
   const endsAt = new Date(startsAt.getTime() + targetPlan.days * 24 * 60 * 60 * 1000);
   return {
-    kind: current ? "renewal" as const : "new" as const,
+    kind: current && current.plan !== "trial" ? "renewal" as const : "new" as const,
     amountUSD: targetPlan.priceUSD,
     currentPlan: current?.plan || null,
     targetPlan: plan,
@@ -127,6 +165,16 @@ export async function activatePaidSubscription(
   const quoteSubscriptionId =
     typeof quote?.currentSubscriptionId === "string" ? quote.currentSubscriptionId : "";
 
+  const currentActive = await tx.subscription.findFirst({
+    where: {
+      userId: payment.userId,
+      status: "active",
+      startsAt: { lte: now },
+      endsAt: { gt: now }
+    },
+    orderBy: { endsAt: "desc" }
+  });
+
   if (quoteKind === "upgrade" && isPaidPlanKey(paymentPlanKey)) {
     const current = quoteSubscriptionId
       ? await tx.subscription.findFirst({
@@ -138,15 +186,7 @@ export async function activatePaidSubscription(
             endsAt: { gt: now }
           }
         })
-      : await tx.subscription.findFirst({
-          where: {
-            userId: payment.userId,
-            status: "active",
-            startsAt: { lte: now },
-            endsAt: { gt: now }
-          },
-          orderBy: { endsAt: "desc" }
-        });
+      : currentActive;
 
     const currentPlanKey = current?.plan;
     const targetRank = PAID_PLAN_ORDER[paymentPlanKey];
@@ -169,6 +209,40 @@ export async function activatePaidSubscription(
         endsAt: updated.endsAt
       };
     }
+  }
+
+  if (currentActive?.plan === "trial") {
+    await tx.subscription.update({
+      where: { id: currentActive.id },
+      data: { status: "replaced", endsAt: now }
+    });
+    await tx.subscription.updateMany({
+      where: {
+        userId: payment.userId,
+        status: "active",
+        startsAt: { gt: now },
+        plan: payment.plan
+      },
+      data: { status: "replaced" }
+    });
+
+    const endsAt = new Date(now.getTime() + plan.days * DAY_MS);
+    const subscription = await tx.subscription.create({
+      data: {
+        userId: payment.userId,
+        plan: payment.plan,
+        status: "active",
+        startsAt: now,
+        dailyLimit: plan.dailyLimit,
+        endsAt
+      }
+    });
+    return {
+      kind: "new" as const,
+      subscription,
+      startsAt: now,
+      endsAt
+    };
   }
 
   const quoteStartsAt = safeDate(quote?.startsAt);

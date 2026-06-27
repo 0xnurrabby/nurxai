@@ -5,6 +5,7 @@ import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { getSubscriptionDailyLimit } from "@/lib/subscription-limits";
 import { isAdminEmail } from "@/lib/admin";
 import { ensureReferralCode, getWalletSummary, REFERRAL_BONUS_RATE } from "@/lib/referrals";
+import { getCurrentSubscriptionForUser } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -19,10 +20,7 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   await ensureReferralCode(prisma, user.id);
   const [sub, usage, profile, wallet, withdrawals] = await Promise.all([
-    prisma.subscription.findFirst({
-      where: { userId: user.id, status: "active", startsAt: { lte: now }, endsAt: { gt: now } },
-      orderBy: { endsAt: "desc" }
-    }),
+    getCurrentSubscriptionForUser(user.id, prisma, now),
     prisma.usageLog.findUnique({
       where: { userId_day: { userId: user.id, day } },
       select: { count: true }

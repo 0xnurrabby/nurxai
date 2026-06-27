@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin, isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { getWalletSummary } from "@/lib/referrals";
+import { getCurrentSubscriptionForUser } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -76,9 +77,12 @@ export async function GET(req: NextRequest) {
         });
   const todayByUser = new Map(todayUsage.map((u) => [u.userId, u.count]));
 
+  const activeSubs = await Promise.all(userIds.map((userId) => getCurrentSubscriptionForUser(userId, prisma, now)));
+  const activeSubByUser = new Map(userIds.map((userId, index) => [userId, activeSubs[index]]));
+
   const enriched = users.map((u) => {
     const s = statsByUser.get(u.id);
-    const activeSub = u.subscriptions.find((sub) => sub.status === "active" && sub.startsAt <= now && sub.endsAt > now);
+    const activeSub = activeSubByUser.get(u.id);
     return {
       ...u,
       isAdmin: isAdminEmail(u.email),

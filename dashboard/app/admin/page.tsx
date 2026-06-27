@@ -172,6 +172,7 @@ export default function AdminPage() {
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [announcementBusy, setAnnouncementBusy] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const router = useRouter();
 
   const selected = useMemo(
@@ -181,6 +182,11 @@ export default function AdminPage() {
 
   function getToken() {
     return typeof window !== "undefined" ? localStorage.getItem("nurxai_jwt") : null;
+  }
+
+  function showToast(text: string, type: "success" | "error" = "success") {
+    setToast({ text, type });
+    window.setTimeout(() => setToast(null), 3200);
   }
 
   async function apiFetch(url: string, init: RequestInit = {}) {
@@ -262,10 +268,10 @@ export default function AdminPage() {
     const d = await r.json().catch(() => ({}));
     setBusy("");
     if (r.ok) {
-      alert(success);
+      showToast(success);
       await refreshAll();
     } else {
-      alert(d.message || d.error || "Action failed.");
+      showToast(d.message || d.error || "Action failed.", "error");
     }
   }
 
@@ -293,10 +299,10 @@ export default function AdminPage() {
     });
     const d = await r.json().catch(() => ({}));
     if (r.ok) {
-      alert("User updated");
+      showToast("User updated");
       await refreshAll();
     } else {
-      alert(d.message || d.error || "Update failed.");
+      showToast(d.message || d.error || "Update failed.", "error");
     }
   }
 
@@ -307,9 +313,10 @@ export default function AdminPage() {
     });
     const d = await r.json().catch(() => ({}));
     if (r.ok) {
+      showToast("Wallet balance updated");
       await refreshAll();
     } else {
-      alert(d.message || d.error || "Wallet adjustment failed.");
+      showToast(d.message || d.error || "Wallet adjustment failed.", "error");
     }
   }
 
@@ -320,9 +327,10 @@ export default function AdminPage() {
     });
     const d = await r.json().catch(() => ({}));
     if (r.ok) {
+      showToast("Withdrawal updated");
       await refreshAll();
     } else {
-      alert(d.message || d.error || "Withdrawal update failed.");
+      showToast(d.message || d.error || "Withdrawal update failed.", "error");
     }
   }
 
@@ -335,9 +343,10 @@ export default function AdminPage() {
     const d = await r.json().catch(() => ({}));
     setBusy("");
     if (r.ok) {
+      showToast("Gift updated");
       await refreshAll();
     } else {
-      alert(d.message || d.error || "Gift update failed.");
+      showToast(d.message || d.error || "Gift update failed.", "error");
     }
   }
 
@@ -348,16 +357,17 @@ export default function AdminPage() {
     const d = await r.json().catch(() => ({}));
     setBusy("");
     if (r.ok) {
+      showToast("Gift removed");
       await refreshAll();
     } else {
-      alert(d.message || d.error || "Gift remove failed.");
+      showToast(d.message || d.error || "Gift remove failed.", "error");
     }
   }
 
   async function sendAnnouncement() {
     const body = announcementBody.trim();
     if (!body) {
-      alert("Announcement text is empty.");
+      showToast("Announcement text is empty.", "error");
       return;
     }
     setAnnouncementBusy(true);
@@ -374,9 +384,9 @@ export default function AdminPage() {
       setAnnouncementTitle("");
       setAnnouncementBody("");
       await fetchAnnouncements();
-      alert("Announcement sent.");
+      showToast("Announcement sent.");
     } else {
-      alert(d.message || d.error || "Announcement failed.");
+      showToast(d.message || d.error || "Announcement failed.", "error");
     }
   }
 
@@ -386,8 +396,9 @@ export default function AdminPage() {
     const d = await r.json().catch(() => ({}));
     if (r.ok) {
       setAnnouncements((items) => items.filter((item) => item.id !== id));
+      showToast("Announcement deleted");
     } else {
-      alert(d.message || d.error || "Delete failed.");
+      showToast(d.message || d.error || "Delete failed.", "error");
     }
   }
 
@@ -399,8 +410,9 @@ export default function AdminPage() {
       setSelectedId(null);
       setDetail(null);
       await refreshAll();
+      showToast("User deleted");
     } else {
-      alert(d.message || d.error || "Delete failed.");
+      showToast(d.message || d.error || "Delete failed.", "error");
     }
   }
 
@@ -424,6 +436,7 @@ export default function AdminPage() {
     <>
       <Navbar />
       <main className="max-w-7xl mx-auto px-5 py-8">
+        {toast && <div className={`premium-toast ${toast.type === "error" ? "premium-toast-error" : ""}`}>{toast.text}</div>}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="font-display font-black text-4xl">Admin Panel</h1>
@@ -635,6 +648,7 @@ function UserTable({
             <th className="p-3 text-left">User</th>
             <th className="p-3 text-left">Plan</th>
             <th className="p-3 text-left">Expires</th>
+            <th className="p-3 text-left">Wallet</th>
             <th className="p-3 text-left">Usage</th>
             <th className="p-3 text-left">Tokens</th>
             <th className="p-3 text-left">Cost</th>
@@ -656,9 +670,7 @@ function UserTable({
                 <td className="p-3 min-w-[220px]">
                   <div className="font-bold">{u.email}</div>
                   <div className="text-xs opacity-60">{u.name || "-"} | joined {fmtDate(u.createdAt)}</div>
-                  <div className="text-xs opacity-70">
-                    wallet ${money(u.wallet?.balanceUSD)} {u.referredBy ? `| ref ${u.referredBy.email}` : ""}
-                  </div>
+                  <div className="text-xs opacity-70">{u.referredBy ? `ref ${u.referredBy.email}` : "no referrer"}</div>
                   {u.isAdmin && <span className="nb-tag mt-1" style={{ background: "var(--accent3)" }}>ADMIN</span>}
                 </td>
                 <td className="p-3">
@@ -670,6 +682,10 @@ function UserTable({
                   ) : <span className="opacity-50">none</span>}
                 </td>
                 <td className="p-3 text-xs">{sub ? `${fmtDate(sub.endsAt)} (${daysRemaining(sub.endsAt)}d)` : "-"}</td>
+                <td className="p-3">
+                  <div className="font-bold">${money(u.wallet?.balanceUSD)}</div>
+                  <div className="text-xs opacity-70">earned ${money(u.wallet?.earnedUSD)}</div>
+                </td>
                 <td className="p-3">
                   <div className="font-bold">{u.gen?.total || 0}</div>
                   <div className="text-xs opacity-70">today {u.gen?.usedToday || 0}</div>
@@ -693,7 +709,11 @@ function UserTable({
                       defaultValue=""
                     >
                       <option value="" disabled>Grant...</option>
-                      {PLAN_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                      {PLAN_OPTIONS.map((p) => (
+                        <option key={p} value={p} disabled={sub?.plan === p}>
+                          {sub?.plan === p ? `${p} (active)` : p}
+                        </option>
+                      ))}
                     </select>
                     {sub && <button className="nb-btn text-xs px-2 py-1 nb-btn-danger" onClick={() => onRevoke(u.id)}>Revoke</button>}
                     <button className="nb-btn text-xs px-2 py-1 nb-btn-warn" onClick={() => onReset(u)}>Reset PW</button>
@@ -703,7 +723,7 @@ function UserTable({
               </tr>
             );
           })}
-          {users.length === 0 && <tr><td colSpan={8} className="p-6 text-center opacity-60">No users found.</td></tr>}
+          {users.length === 0 && <tr><td colSpan={9} className="p-6 text-center opacity-60">No users found.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -789,6 +809,7 @@ function DetailPanel({
   const wallet = detail.wallet || user.wallet;
   const referrer = user.referredBy;
   const isBusy = !!busy;
+  const selectedGrantIsActive = active?.plan === grantPlan;
 
   return (
     <aside className="nb-card p-5 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
@@ -801,6 +822,21 @@ function DetailPanel({
       </div>
 
       {detailLoading && <p className="mt-4 text-sm font-bold">Loading full profile...</p>}
+
+      <div className="grid grid-cols-3 gap-2 mt-5 text-sm">
+        <div className="admin-summary-box" style={{ background: "var(--accent2)" }}>
+          <span>Plan</span>
+          <strong>{active?.plan || "none"}</strong>
+        </div>
+        <div className="admin-summary-box" style={{ background: "var(--accent3)" }}>
+          <span>Wallet</span>
+          <strong>${money(wallet?.balanceUSD)}</strong>
+        </div>
+        <div className="admin-summary-box" style={{ background: "var(--accent)" }}>
+          <span>Referrals</span>
+          <strong>{detail.referrals?.length || 0}</strong>
+        </div>
+      </div>
 
       <section className="mt-5 nb-divider pt-4">
         <h3 className="font-bold text-lg">Profile</h3>
@@ -826,6 +862,14 @@ function DetailPanel({
           <div className="p-3 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg">
             <div className="text-xs opacity-70">Earned</div>
             <div className="font-black text-xl">${money(wallet?.earnedUSD)}</div>
+          </div>
+          <div className="p-3 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg">
+            <div className="text-xs opacity-70">Spent</div>
+            <div className="font-black text-xl">${money(wallet?.spentUSD)}</div>
+          </div>
+          <div className="p-3 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg">
+            <div className="text-xs opacity-70">Pending</div>
+            <div className="font-black text-xl">${money(wallet?.pendingWithdrawUSD)}</div>
           </div>
         </div>
         <div className="text-xs opacity-70 mt-2">
@@ -886,6 +930,12 @@ function DetailPanel({
           <input className="nb-input text-sm" type="number" min="1" value={grantDays} onChange={(e) => setGrantDays(e.target.value)} />
           {referrer && (
             <>
+              <div className="col-span-2 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg p-3 text-xs">
+                <div className="font-black">Referral bonus control</div>
+                <div className="opacity-75 mt-1">
+                  Referrer: <strong>{referrer.email}</strong>. Enable this only when the user actually paid and automatic payment activation failed.
+                </div>
+              </div>
               <label className="col-span-2 flex items-start gap-2 text-xs font-bold">
                 <input
                   type="checkbox"
@@ -909,9 +959,14 @@ function DetailPanel({
               )}
             </>
           )}
+          {selectedGrantIsActive && (
+            <div className="col-span-2 border-2 border-ink dark:border-nightInk rounded-lg p-3 text-xs font-bold" style={{ background: "var(--accent4)" }}>
+              Same plan is already active. Use Add days or Set expiry instead of granting it again.
+            </div>
+          )}
           <button
             className="nb-btn nb-btn-primary col-span-2"
-            disabled={isBusy}
+            disabled={isBusy || selectedGrantIsActive}
             onClick={() => onGrant(user.id, grantPlan, Number(grantDays), grantReferralBonus, Number(referralBonusBase))}
           >
             Grant / replace plan
@@ -1120,10 +1175,10 @@ function DetailPanel({
 
 function MiniList({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-5 nb-divider pt-4">
-      <h3 className="font-bold text-lg">{title}</h3>
+    <details className="admin-detail-group mt-4" open={["Gifted extra days", "Subscription history", "Payments"].includes(title)}>
+      <summary>{title}</summary>
       <div className="mt-2">{children || <p className="text-sm opacity-60">No data.</p>}</div>
-    </section>
+    </details>
   );
 }
 

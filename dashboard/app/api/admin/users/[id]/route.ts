@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin, isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { ensureReferralCode, getWalletSummary } from "@/lib/referrals";
+import { getCurrentSubscriptionForUser } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -55,8 +56,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   });
   if (!user) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   const now = new Date();
-  const activeSubscription =
-    user.subscriptions.find((sub) => sub.status === "active" && sub.startsAt <= now && sub.endsAt > now) || null;
+  const activeSubscription = await getCurrentSubscriptionForUser(user.id, prisma, now);
 
   const [tokenTotals, auditLogs, wallet] = await Promise.all([
     prisma.generation.aggregate({

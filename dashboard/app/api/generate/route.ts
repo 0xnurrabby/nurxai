@@ -5,6 +5,7 @@ import { PLANS, PlanKey } from "@/lib/plans";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { getSubscriptionDailyLimit } from "@/lib/subscription-limits";
 import { requireSupportedExtensionVersion } from "@/lib/extension-version";
+import { getCurrentSubscriptionForUser } from "@/lib/billing";
 import { google } from "@ai-sdk/google";
 import { gateway, generateText } from "ai";
 import crypto from "crypto";
@@ -758,10 +759,7 @@ export async function POST(req: NextRequest) {
   const now = new Date();
   const dbStarted = nowMs();
   const [sub, usage] = await Promise.all([
-    prisma.subscription.findFirst({
-      where: { userId, status: "active", startsAt: { lte: now }, endsAt: { gt: now } },
-      orderBy: { endsAt: "desc" }
-    }),
+    getCurrentSubscriptionForUser(userId, prisma, now),
     prisma.usageLog.findUnique({
       where: { userId_day: { userId, day } },
       select: { count: true }

@@ -107,6 +107,7 @@ function WithdrawalHeadline({ notices, onSeen }: { notices: NonNullable<Me["with
 export default function Dashboard() {
   const [data, setData] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -173,10 +174,11 @@ export default function Dashboard() {
     if (!link) return;
     try {
       await navigator.clipboard.writeText(link);
-      alert("Referral link copied.");
+      setToast("Referral link copied.");
     } catch {
-      alert(link);
+      setToast("Copy failed. Select the link manually.");
     }
+    window.setTimeout(() => setToast(""), 2200);
   }
 
   async function markWithdrawalSeen(id: string) {
@@ -193,7 +195,9 @@ export default function Dashboard() {
     return (
       <>
         <Navbar />
-        <main className="p-10 text-center">Loading…</main>
+        <main className="max-w-5xl mx-auto px-5 py-10">
+          <DashboardLoadingState />
+        </main>
       </>
     );
   if (!data) return null;
@@ -235,6 +239,7 @@ export default function Dashboard() {
     <>
       <Navbar />
       <main className="max-w-5xl mx-auto px-5 py-10">
+        {toast && <div className="premium-toast">{toast}</div>}
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div>
             <h1 className="font-display font-black text-4xl">
@@ -394,11 +399,11 @@ export default function Dashboard() {
             <h3 className="font-display font-black text-xl">Referral link</h3>
             <p className="text-sm opacity-70 mt-2">Share your link. Bonus unlocks only after a paid subscription confirms.</p>
             <div className="mt-3 p-3 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg break-all text-sm">
-              {data.referral?.link || "Loading referral link..."}
+              {data.referral?.link || <span className="inline-block w-full nb-skeleton h-6" />}
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <button className="nb-btn nb-btn-primary" onClick={copyReferralLink}>Copy link</button>
-              <span className="nb-tag" style={{ background: "var(--accent2)" }}>{data.referral?.totalReferrals || 0} signups</span>
+              <span className="nb-box-badge" style={{ background: "var(--accent2)" }}>{data.referral?.totalReferrals || 0} signups</span>
             </div>
           </div>
         </div>
@@ -445,5 +450,35 @@ export default function Dashboard() {
         />
       </main>
     </>
+  );
+}
+
+function DashboardLoadingState() {
+  return (
+    <div className="grid gap-5">
+      <div className="nb-card p-6">
+        <div className="nb-skeleton h-10 max-w-[320px]" />
+        <div className="nb-skeleton h-5 max-w-[240px] mt-3" />
+      </div>
+      <div className="grid md:grid-cols-3 gap-5">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="nb-card p-6">
+            <div className="nb-skeleton h-4 max-w-[120px]" />
+            <div className="nb-skeleton h-12 max-w-[90px] mt-4" />
+            <div className="nb-skeleton h-4 max-w-[160px] mt-3" />
+          </div>
+        ))}
+      </div>
+      <div className="grid md:grid-cols-2 gap-5">
+        {[0, 1].map((item) => (
+          <div key={item} className="nb-card p-6">
+            <div className="nb-skeleton h-7 max-w-[180px]" />
+            <div className="nb-skeleton h-5 mt-4" />
+            <div className="nb-skeleton h-5 max-w-[70%] mt-3" />
+            <div className="nb-skeleton h-11 max-w-[160px] mt-5" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
