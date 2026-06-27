@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { activatePaidSubscription, paymentRawWithQuote, getUpgradeQuote } from "@/lib/billing";
+import { creditReferralBonus } from "@/lib/referrals";
 
 export const runtime = "nodejs";
 
@@ -60,6 +61,8 @@ async function activateSubscription(paymentId: string, rawStatus: string | null,
       }
     });
 
+    const referralBonus = await creditReferralBonus(tx, payment);
+
     await tx.auditLog.create({
       data: {
         userId: payment.userId,
@@ -72,6 +75,8 @@ async function activateSubscription(paymentId: string, rawStatus: string | null,
           plan: payment.plan,
           billingMode: activation.kind,
           dailyLimit: plan.dailyLimit,
+          referralBonusId: referralBonus?.ledger.id || null,
+          referralBonusUSD: referralBonus ? Number(referralBonus.ledger.amountUSD) : 0,
           startsAt: activation.startsAt.toISOString(),
           endsAt: activation.endsAt.toISOString()
         } as any

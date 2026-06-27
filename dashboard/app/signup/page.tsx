@@ -1,22 +1,37 @@
 "use client";
-import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 
-export default function Signup() {
+const REF_STORAGE_KEY = "nurxai_referral_code";
+
+function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const router = useRouter();
+  const params = useSearchParams();
+
+  useEffect(() => {
+    const fromUrl = (params.get("ref") || params.get("r") || "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+    const saved = typeof window !== "undefined" ? localStorage.getItem(REF_STORAGE_KEY) || "" : "";
+    const code = fromUrl || saved;
+    if (code) {
+      setReferralCode(code);
+      try { localStorage.setItem(REF_STORAGE_KEY, code); } catch {}
+    }
+  }, [params]);
 
   const finishAuth = useCallback((token: string, user: any) => {
     try {
       localStorage.setItem("nurxai_jwt", token);
       localStorage.setItem("nurxai_user", JSON.stringify(user));
+      localStorage.removeItem(REF_STORAGE_KEY);
     } catch {}
     router.push("/dashboard");
   }, [router]);
@@ -29,7 +44,7 @@ export default function Signup() {
       const r = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name })
+        body: JSON.stringify({ email, password, name, referralCode })
       });
       const d = await r.json();
       if (!r.ok) {
@@ -57,6 +72,7 @@ export default function Signup() {
           <div className="mt-6">
             <GoogleSignInButton
               label="signup_with"
+              referralCode={referralCode}
               onSuccess={finishAuth}
               onError={setErr}
             />
@@ -88,6 +104,15 @@ export default function Signup() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
+            <div>
+              <label className="font-semibold text-sm">Referral code (optional)</label>
+              <input
+                className="nb-input mt-1 uppercase"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())}
+                placeholder="FRIENDCODE"
+              />
+            </div>
             {err && <p className="text-sm font-semibold" style={{ color: "#b00020" }}>{err}</p>}
             <button className="nb-btn nb-btn-primary w-full" disabled={busy}>
               {busy ? "Creating..." : "Create with email"}
@@ -100,5 +125,13 @@ export default function Signup() {
         </div>
       </main>
     </>
+  );
+}
+
+export default function Signup() {
+  return (
+    <Suspense fallback={<><Navbar /><main className="p-10 text-center">Loading...</main></>}>
+      <SignupForm />
+    </Suspense>
   );
 }

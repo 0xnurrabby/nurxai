@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin";
 import { PLANS, PlanKey } from "@/lib/plans";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { creditReferralBonus } from "@/lib/referrals";
 
 export const runtime = "nodejs";
 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   await ensureRuntimeSchema();
 
-  const { userId, plan, days, action, endsAt, note } = await req.json().catch(() => ({}));
+  const { userId, plan, days, action, endsAt, note, grantReferralBonus, referralBonusBaseUSD } = await req.json().catch(() => ({}));
   if (!userId || typeof userId !== "string") {
     return NextResponse.json({ error: "MISSING_USER" }, { status: 400 });
   }
@@ -124,28 +125,68 @@ export async function POST(req: NextRequest) {
 
   const customDays = parsePositiveDays(days) || selectedPlan.days;
 
-  await prisma.subscription.updateMany({
-    where: { userId, status: "active" },
-    data: { status: "replaced" }
-  });
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.subscription.updateMany({
+      where: { userId, status: "active" },
+      data: { status: "replaced" }
+    });
 
-  const sub = await prisma.subscription.create({
-    data: {
-      userId,
-      plan,
-      status: "active",
-      dailyLimit: selectedPlan.dailyLimit,
-      endsAt: new Date(Date.now() + customDays * DAY_MS)
-    }
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userId: admin.id,
-      event: "admin_grant",
-        meta: { targetId: userId, plan, days: customDays, dailyLimit: selectedPlan.dailyLimit, subscriptionId: sub.id } as any
+    const sub = await tx.subscription.create({
+      data: {
+        userId,
+        plan,
+        status: "active",
+        dailyLimit: selectedPlan.dailyLimit,
+        endsAt: new Date(Date.now() + customDays * DAY_MS)
       }
     });
 
-  return NextResponse.json({ ok: true, action: "granted", subscription: sub });
+    const bonusBase = Number(referralBonusBaseUSD);
+    const bonusBaseUSD =
+      Number.isFinite(bonusBase) && bonusBase > 0
+        ? Number(bonusBase.toFixed(2))
+        : selectedPlan.priceUSD;
+
+    const referralBonus =
+      grantReferralBonus === true && bonusBaseUSD > 0
+        ? await creditReferralBonus(
+            tx,
+            { id: sub.id, userId, plan, amount: bonusBaseUSD },
+            {
+              sourceType: "admin_grant_referral_bonus",
+              sourceId: sub.id,
+              adminId: admin.id,
+              note: `Manual admin-approved 10% referral bonus for ${selectedPlan.name} grant ($${bonusBaseUSD.toFixed(2)} base).`
+            }
+          )
+        : null;
+
+    await tx.auditLog.create({
+      data: {
+        userId: admin.id,
+        event: "admin_grant",
+        meta: {
+          targetId: userId,
+          plan,
+          days: customDays,
+          dailyLimit: selectedPlan.dailyLimit,
+          subscriptionId: sub.id,
+          referralBonusRequested: grantReferralBonus === true,
+          referralBonusBaseUSD: bonusBaseUSD,
+          referralBonusId: referralBonus?.ledger.id || null,
+          referralBonusUSD: referralBonus ? Number(referralBonus.ledger.amountUSD) : 0
+        } as any
+      }
+    });
+    return { sub, referralBonus };
+  });
+
+  return NextResponse.json({
+    ok: true,
+    action: "granted",
+    subscription: result.sub,
+    referralBonus: result.referralBonus
+      ? { id: result.referralBonus.ledger.id, amountUSD: Number(result.referralBonus.ledger.amountUSD) }
+      : null
+  });
 }

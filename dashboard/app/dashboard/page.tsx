@@ -16,6 +16,30 @@ type Me = {
   usageToday: number;
   usageHistory?: Array<{ day: string; count: number }>;
   totalUsage?: number;
+  referral?: {
+    code?: string | null;
+    link?: string | null;
+    referredBy?: { email: string; name?: string | null; referralCode?: string | null } | null;
+    totalReferrals: number;
+    bonusRate: number;
+  };
+  wallet?: {
+    balanceUSD: number;
+    earnedUSD: number;
+    spentUSD: number;
+    withdrawnUSD: number;
+    pendingWithdrawUSD: number;
+  };
+  withdrawalNotices?: Array<{
+    id: string;
+    amountUSD: number;
+    status: string;
+    adminNote?: string | null;
+    txHash?: string | null;
+    paidAt?: string | null;
+    rejectedAt?: string | null;
+    createdAt: string;
+  }>;
   subscriptionGifts?: Array<{
     id: string;
     days: number;
@@ -45,6 +69,30 @@ function GiftHeadline({ gifts }: { gifts: NonNullable<Me["subscriptionGifts"]> }
     <section className="gift-news-banner" aria-label="Subscription gift">
       <div className="gift-news-label" aria-hidden="true">
         <span className="gift-news-emoji">🎁</span>
+      </div>
+      <div className="gift-news-window">
+        <div className="gift-news-track">
+          <span>{headlineText}</span>
+          <span aria-hidden="true">{headlineText}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WithdrawalHeadline({ notices, onSeen }: { notices: NonNullable<Me["withdrawalNotices"]>; onSeen: (id: string) => void }) {
+  if (!notices.length) return null;
+  const headlines = notices.slice(0, 3).map((item) => {
+    const note = item.adminNote?.trim();
+    if (item.status === "paid") return `Withdrawal paid: $${item.amountUSD.toFixed(2)}${note ? ` - ${note}` : ""}`;
+    return `Withdrawal update: $${item.amountUSD.toFixed(2)} request rejected${note ? ` - ${note}` : ""}`;
+  });
+  const headlineText = headlines.join("   |   ");
+
+  return (
+    <section className="gift-news-banner wallet-news-banner" aria-label="Withdrawal update" onMouseEnter={() => notices.forEach((n) => onSeen(n.id))}>
+      <div className="gift-news-label" aria-hidden="true">
+        <span className="gift-news-emoji">USDT</span>
       </div>
       <div className="gift-news-window">
         <div className="gift-news-track">
@@ -108,11 +156,37 @@ export default function Dashboard() {
     })();
   }, [router]);
 
+  useEffect(() => {
+    if (!data?.withdrawalNotices?.length) return;
+    data.withdrawalNotices.forEach((notice) => markWithdrawalSeen(notice.id));
+  }, [data?.withdrawalNotices?.map((notice) => notice.id).join(",")]);
+
   function logout() {
     localStorage.removeItem("nurxai_jwt");
     localStorage.removeItem("nurxai_user");
     localStorage.removeItem(DASHBOARD_CACHE_KEY);
     router.push("/");
+  }
+
+  async function copyReferralLink() {
+    const link = data?.referral?.link;
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      alert("Referral link copied.");
+    } catch {
+      alert(link);
+    }
+  }
+
+  async function markWithdrawalSeen(id: string) {
+    const token = localStorage.getItem("nurxai_jwt");
+    if (!token) return;
+    fetch("/api/referrals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: "markNoticeSeen", id })
+    }).catch(() => {});
   }
 
   if (loading)
@@ -181,6 +255,7 @@ export default function Dashboard() {
         </div>
 
         <GiftHeadline gifts={data.subscriptionGifts || []} />
+        <WithdrawalHeadline notices={data.withdrawalNotices || []} onSeen={markWithdrawalSeen} />
 
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-5 mt-8">
@@ -294,6 +369,37 @@ export default function Dashboard() {
             >
               Re-link extension
             </Link>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-5 mt-5">
+          <div className="nb-card p-6" style={{ background: "var(--accent3)" }}>
+            <h3 className="font-display font-black text-xl">Referral wallet</h3>
+            <div className="mt-3 font-display font-black text-4xl">${(data.wallet?.balanceUSD || 0).toFixed(2)}</div>
+            <p className="text-sm opacity-75 mt-1">
+              Earn 10% when a referred user buys any paid plan.
+            </p>
+            <div className="grid grid-cols-3 gap-2 mt-4 text-xs">
+              <div><strong>${(data.wallet?.earnedUSD || 0).toFixed(2)}</strong><br />earned</div>
+              <div><strong>${(data.wallet?.pendingWithdrawUSD || 0).toFixed(2)}</strong><br />pending</div>
+              <div><strong>${(data.wallet?.withdrawnUSD || 0).toFixed(2)}</strong><br />paid</div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link href="/pricing" className="nb-btn nb-btn-primary">Use balance</Link>
+              <Link href="/settings#referrals" className="nb-btn">Withdraw</Link>
+            </div>
+          </div>
+
+          <div className="nb-card p-6">
+            <h3 className="font-display font-black text-xl">Referral link</h3>
+            <p className="text-sm opacity-70 mt-2">Share your link. Bonus unlocks only after a paid subscription confirms.</p>
+            <div className="mt-3 p-3 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg break-all text-sm">
+              {data.referral?.link || "Loading referral link..."}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button className="nb-btn nb-btn-primary" onClick={copyReferralLink}>Copy link</button>
+              <span className="nb-tag" style={{ background: "var(--accent2)" }}>{data.referral?.totalReferrals || 0} signups</span>
+            </div>
           </div>
         </div>
 

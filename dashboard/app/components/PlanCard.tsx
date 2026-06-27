@@ -15,6 +15,7 @@ type Props = {
   currentPlan?: string | null;
   currentPlanPriceUSD?: number | null;
   currentPlanEndsAt?: string | null;
+  walletBalanceUSD?: number;
 };
 
 type BillingQuote = {
@@ -35,8 +36,8 @@ async function loadBasePay(): Promise<any> {
   return basePayCache;
 }
 
-export default function PlanCard({ plan, currentPlan, currentPlanPriceUSD, currentPlanEndsAt }: Props) {
-  const [loading, setLoading] = useState<"" | "base" | "nowp" | "trial">("");
+export default function PlanCard({ plan, currentPlan, currentPlanPriceUSD, currentPlanEndsAt, walletBalanceUSD = 0 }: Props) {
+  const [loading, setLoading] = useState<"" | "base" | "nowp" | "trial" | "wallet">("");
   const [error, setError] = useState("");
   const [chooserOpen, setChooserOpen] = useState(false);
   const isCurrent = currentPlan === plan.key;
@@ -53,6 +54,7 @@ export default function PlanCard({ plan, currentPlan, currentPlanPriceUSD, curre
     : currentPlan
     ? `Buy ${plan.name} next`
     : `Buy ${plan.name}`;
+  const walletCanPay = !isFree && walletBalanceUSD + 0.0001 >= upgradeAmount;
 
   function getToken(): string | null {
     return typeof window === "undefined"
@@ -239,6 +241,36 @@ export default function PlanCard({ plan, currentPlan, currentPlanPriceUSD, curre
     }
   }
 
+  async function buyWithWallet() {
+    setError("");
+    setLoading("wallet");
+    try {
+      const token = getToken();
+      if (!token) {
+        window.location.href = `/login?next=${encodeURIComponent("/pricing")}`;
+        return;
+      }
+      const res = await fetch("/api/billing/wallet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ plan: plan.key })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showError(data, "Could not pay with referral balance.");
+        return;
+      }
+      window.location.href = "/dashboard?wallet=1";
+    } catch (e: any) {
+      setError(e?.message || "Wallet payment failed.");
+    } finally {
+      setLoading("");
+    }
+  }
+
   async function startFreeTrial() {
     setError("");
     setLoading("trial");
@@ -338,6 +370,19 @@ export default function PlanCard({ plan, currentPlan, currentPlanPriceUSD, curre
         </button>
       ) : (
         <div className="mt-6 space-y-2">
+          {walletBalanceUSD > 0 && (
+            <button
+              className="nb-btn nb-btn-success w-full"
+              onClick={buyWithWallet}
+              disabled={!!loading || !walletCanPay}
+            >
+              {loading === "wallet"
+                ? "Activating..."
+                : walletCanPay
+                ? `Pay with balance ($${walletBalanceUSD.toFixed(2)})`
+                : `Balance $${walletBalanceUSD.toFixed(2)} insufficient`}
+            </button>
+          )}
           <button
             className="nb-btn w-full font-bold"
             style={{ background: "#0000FF", color: "#fff" }}

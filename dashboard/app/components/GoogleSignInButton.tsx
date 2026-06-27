@@ -17,6 +17,7 @@ declare global {
 type Props = {
   next?: string;
   label?: "signin_with" | "signup_with" | "continue_with";
+  referralCode?: string;
   onSuccess: (token: string, user: any) => void;
   onError: (message: string) => void;
 };
@@ -46,7 +47,7 @@ function loadGoogleScript() {
   });
 }
 
-export default function GoogleSignInButton({ label = "continue_with", onSuccess, onError }: Props) {
+export default function GoogleSignInButton({ label = "continue_with", referralCode, onSuccess, onError }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [configured, setConfigured] = useState(true);
 
@@ -68,7 +69,7 @@ export default function GoogleSignInButton({ label = "continue_with", onSuccess,
               const r = await fetch("/api/auth/google", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ credential: response.credential })
+                body: JSON.stringify({ credential: response.credential, referralCode })
               });
               const d = await r.json().catch(() => ({}));
               if (!r.ok) {
@@ -97,7 +98,7 @@ export default function GoogleSignInButton({ label = "continue_with", onSuccess,
     return () => {
       cancelled = true;
     };
-  }, [label, onError, onSuccess]);
+  }, [label, onError, onSuccess, referralCode]);
 
   if (!configured) {
     return (

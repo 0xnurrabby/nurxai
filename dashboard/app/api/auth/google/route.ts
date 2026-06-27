@@ -5,6 +5,7 @@ import { signToken } from "@/lib/jwt";
 import { isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { createTrialSubscription } from "@/lib/trial";
+import { applyReferralCode, ensureReferralCode } from "@/lib/referrals";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "GOOGLE_NOT_CONFIGURED" }, { status: 500 });
     }
 
-    const { credential } = await req.json().catch(() => ({}));
+    const { credential, referralCode } = await req.json().catch(() => ({}));
     if (typeof credential !== "string" || !credential) {
       return NextResponse.json({ error: "MISSING_CREDENTIAL" }, { status: 400 });
     }
@@ -63,9 +64,22 @@ export async function POST(req: NextRequest) {
               avatarUrl
             }
           });
+          await ensureReferralCode(tx, created.id);
+          if (referralCode) {
+            const referral = await applyReferralCode(tx, created.id, referralCode);
+            if (!referral.ok && referral.error !== "REFERRAL_NOT_FOUND") {
+              await tx.auditLog.create({
+                data: { userId: created.id, event: "signup_referral_ignored", meta: { error: referral.error } as any }
+              });
+            }
+          }
           await createTrialSubscription(tx, created.id);
           return created;
         });
+
+    if (existing && !existing.referralCode) {
+      await ensureReferralCode(prisma, user.id);
+    }
 
     await prisma.auditLog.create({
       data: {

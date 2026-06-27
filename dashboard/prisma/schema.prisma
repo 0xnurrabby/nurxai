@@ -17,10 +17,15 @@ model User {
   avatarUrl       String?        @db.Text
   chatReadAt      DateTime?
   isAdmin         Boolean        @default(false)
+  referralCode    String?        @unique
+  referredById    String?
+  referredAt      DateTime?
   // Personalization
   replyStyle      String         @default("default") // default, funny, short, productive, professional, witty
   customStyleNote String?        @db.Text // optional user's own style note
   createdAt       DateTime       @default(now())
+  referredBy      User?          @relation("UserReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals       User[]         @relation("UserReferrals")
   subscriptions   Subscription[]
   usage           UsageLog[]
   payments        Payment[]
@@ -29,6 +34,10 @@ model User {
   announcementReads AnnouncementRead[]
   chatMessages    ChatMessage[]
   subscriptionGifts SubscriptionGift[]
+  walletLedger    WalletLedger[]
+  withdrawals     WithdrawalRequest[]
+
+  @@index([referredById])
 }
 
 model Subscription {
@@ -175,4 +184,44 @@ model ChatMessage {
 
   @@index([createdAt])
   @@index([userId, createdAt])
+}
+
+model WalletLedger {
+  id          String   @id @default(cuid())
+  userId      String
+  amountUSD   Decimal
+  type        String
+  sourceType  String?
+  sourceId    String?
+  note        String?  @db.Text
+  adminId     String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+  @@unique([sourceType, sourceId])
+}
+
+model WithdrawalRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  amountUSD     Decimal
+  network       String   @default("BEP20_USDT")
+  address       String
+  status        String   @default("pending")
+  userNote      String?  @db.Text
+  adminNote     String?  @db.Text
+  txHash        String?
+  paidAt        DateTime?
+  rejectedAt    DateTime?
+  noticeSeenAt  DateTime?
+  noticeClearAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([noticeClearAt])
 }

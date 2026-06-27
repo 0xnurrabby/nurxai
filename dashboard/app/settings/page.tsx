@@ -30,6 +30,26 @@ type PlanInfo = {
   qualityTier: string;
 };
 
+type ReferralData = {
+  referral: {
+    code: string;
+    link: string;
+    referredBy?: { email: string; name?: string | null; code?: string | null } | null;
+    totalReferrals: number;
+    paidReferrals: number;
+    bonusRate: number;
+  };
+  wallet: {
+    balanceUSD: number;
+    earnedUSD: number;
+    spentUSD: number;
+    withdrawnUSD: number;
+    pendingWithdrawUSD: number;
+  };
+  withdrawals: Array<{ id: string; amountUSD: number; status: string; address: string; adminNote?: string | null; createdAt: string }>;
+  minWithdrawUSD: number;
+};
+
 export default function Settings() {
   const router = useRouter();
   const [style, setStyle] = useState("default");
@@ -45,6 +65,12 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [profileMsg, setProfileMsg] = useState("");
+  const [referralData, setReferralData] = useState<ReferralData | null>(null);
+  const [manualReferralCode, setManualReferralCode] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [withdrawNote, setWithdrawNote] = useState("");
+  const [referralMsg, setReferralMsg] = useState("");
 
   function getToken() {
     return typeof window !== "undefined" ? localStorage.getItem("nurxai_jwt") : null;
@@ -66,6 +92,12 @@ export default function Settings() {
       }
       if (s?.plan) setPlan(s.plan);
       if (p?.projects) setProjects(p.projects);
+      fetch("/api/referrals", { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d?.referral) setReferralData(d);
+        })
+        .catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -146,6 +178,61 @@ export default function Settings() {
     const reader = new FileReader();
     reader.onload = () => setAvatarUrl(String(reader.result || ""));
     reader.readAsDataURL(file);
+  }
+
+  async function applyReferralCode() {
+    const code = manualReferralCode.replace(/[^a-z0-9]/gi, "").toUpperCase();
+    if (!code) return;
+    setReferralMsg("");
+    const token = getToken();
+    const r = await fetch("/api/referrals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: "applyReferral", code })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      setReferralMsg("Referral code locked.");
+      setManualReferralCode("");
+      await load();
+    } else {
+      setReferralMsg(d.message || d.error || "Could not apply referral.");
+    }
+  }
+
+  async function requestWithdraw() {
+    setReferralMsg("");
+    const token = getToken();
+    const r = await fetch("/api/referrals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        action: "withdraw",
+        amountUSD: Number(withdrawAmount),
+        address: withdrawAddress,
+        note: withdrawNote
+      })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      setReferralMsg("Withdrawal request sent.");
+      setWithdrawAmount("");
+      setWithdrawAddress("");
+      setWithdrawNote("");
+      await load();
+    } else {
+      setReferralMsg(d.message || d.error || "Could not request withdrawal.");
+    }
+  }
+
+  async function copyReferralLink() {
+    if (!referralData?.referral.link) return;
+    try {
+      await navigator.clipboard.writeText(referralData.referral.link);
+      setReferralMsg("Referral link copied.");
+    } catch {
+      setReferralMsg(referralData.referral.link);
+    }
   }
 
   async function createProject() {
@@ -290,6 +377,98 @@ export default function Settings() {
               {profileMsg && <span className="text-sm font-semibold opacity-80">{profileMsg}</span>}
             </div>
           </div>
+        </section>
+
+        <section id="referrals" className="nb-card p-6 mt-8">
+          <h2 className="font-display font-black text-2xl">Referrals and wallet</h2>
+          <p className="text-sm opacity-70 mt-1">Earn 10% when your referred users buy a paid plan.</p>
+
+          <div className="grid md:grid-cols-3 gap-3 mt-5">
+            <div className="p-4 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg">
+              <div className="text-xs font-bold opacity-70">Available balance</div>
+              <div className="font-display font-black text-3xl">${(referralData?.wallet.balanceUSD || 0).toFixed(2)}</div>
+            </div>
+            <div className="p-4 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg">
+              <div className="text-xs font-bold opacity-70">Paid referrals</div>
+              <div className="font-display font-black text-3xl">{referralData?.referral.paidReferrals || 0}</div>
+            </div>
+            <div className="p-4 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg">
+              <div className="text-xs font-bold opacity-70">Pending withdraw</div>
+              <div className="font-display font-black text-3xl">${(referralData?.wallet.pendingWithdrawUSD || 0).toFixed(2)}</div>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <label className="font-semibold text-sm">Your referral link</label>
+            <div className="mt-1 flex gap-2">
+              <input className="nb-input flex-1" value={referralData?.referral.link || ""} readOnly />
+              <button className="nb-btn nb-btn-primary" onClick={copyReferralLink}>Copy</button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid md:grid-cols-2 gap-4">
+            <div>
+              <h3 className="font-bold">Your referrer</h3>
+              {referralData?.referral.referredBy ? (
+                <p className="text-sm mt-2">
+                  Locked to <strong>{referralData.referral.referredBy.name || referralData.referral.referredBy.email}</strong>.
+                </p>
+              ) : (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    className="nb-input flex-1 uppercase"
+                    value={manualReferralCode}
+                    onChange={(e) => setManualReferralCode(e.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())}
+                    placeholder="Enter referral code"
+                  />
+                  <button className="nb-btn" onClick={applyReferralCode}>Apply</button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h3 className="font-bold">Withdraw BEP-20 USDT</h3>
+              <div className="mt-2 grid gap-2">
+                <input
+                  className="nb-input"
+                  type="number"
+                  min={referralData?.minWithdrawUSD || 3}
+                  step="0.01"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder={`Minimum $${referralData?.minWithdrawUSD || 3}`}
+                />
+                <input
+                  className="nb-input"
+                  value={withdrawAddress}
+                  onChange={(e) => setWithdrawAddress(e.target.value)}
+                  placeholder="BEP-20 USDT address (0x...)"
+                />
+                <input
+                  className="nb-input"
+                  value={withdrawNote}
+                  onChange={(e) => setWithdrawNote(e.target.value)}
+                  placeholder="Optional note"
+                />
+                <button className="nb-btn nb-btn-primary" onClick={requestWithdraw}>Request withdraw</button>
+              </div>
+            </div>
+          </div>
+
+          {referralMsg && <p className="mt-3 text-sm font-bold">{referralMsg}</p>}
+          {referralData?.withdrawals?.length ? (
+            <div className="mt-5">
+              <h3 className="font-bold">Recent withdrawals</h3>
+              <div className="mt-2 grid gap-2">
+                {referralData.withdrawals.slice(0, 5).map((w) => (
+                  <div key={w.id} className="text-sm border-2 border-ink/20 dark:border-nightInk/20 rounded-lg p-3">
+                    <strong>${w.amountUSD.toFixed(2)}</strong> - {w.status} - {new Date(w.createdAt).toLocaleDateString()}
+                    {w.adminNote && <div className="text-xs opacity-70 mt-1">{w.adminNote}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </section>
 
         {/* STYLE */}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAdmin, isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { ensureReferralCode, getWalletSummary } from "@/lib/referrals";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   await ensureRuntimeSchema();
+  await ensureReferralCode(prisma, ctx.params.id);
 
   const user = await prisma.user.findUnique({
     where: { id: ctx.params.id },
@@ -40,6 +42,14 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
         orderBy: { createdAt: "desc" },
         take: 30
       },
+      referredBy: { select: { id: true, email: true, name: true, referralCode: true } },
+      referrals: {
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { id: true, email: true, name: true, createdAt: true, payments: { where: { status: "confirmed" }, select: { id: true }, take: 1 } }
+      },
+      walletLedger: { orderBy: { createdAt: "desc" }, take: 30 },
+      withdrawals: { orderBy: { createdAt: "desc" }, take: 20 },
       _count: { select: { payments: true, generations: true, projects: true } }
     }
   });
@@ -48,7 +58,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const activeSubscription =
     user.subscriptions.find((sub) => sub.status === "active" && sub.startsAt <= now && sub.endsAt > now) || null;
 
-  const [tokenTotals, auditLogs] = await Promise.all([
+  const [tokenTotals, auditLogs, wallet] = await Promise.all([
     prisma.generation.aggregate({
       _sum: { inputTokens: true, outputTokens: true, costUSD: true },
       where: { userId: user.id }
@@ -59,7 +69,8 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
       },
       orderBy: { createdAt: "desc" },
       take: 30
-    })
+    }),
+    getWalletSummary(user.id)
   ]);
 
   return NextResponse.json({
@@ -72,6 +83,10 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
         outputTokens: tokenTotals._sum.outputTokens || 0,
         costUSD: tokenTotals._sum.costUSD?.toString() || "0"
       },
+      wallet,
+      walletLedger: user.walletLedger.map((item) => ({ ...item, amountUSD: Number(item.amountUSD || 0) })),
+      withdrawals: user.withdrawals.map((item) => ({ ...item, amountUSD: Number(item.amountUSD || 0) })),
+      referrals: user.referrals.map((item) => ({ ...item, hasPaid: item.payments.length > 0, payments: undefined })),
       auditLogs
     }
   });
@@ -141,6 +156,8 @@ export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) 
     await tx.announcementRead.deleteMany({ where: { userId: ctx.params.id } });
     await tx.chatMessage.deleteMany({ where: { userId: ctx.params.id } });
     await tx.subscriptionGift.deleteMany({ where: { userId: ctx.params.id } });
+    await tx.withdrawalRequest.deleteMany({ where: { userId: ctx.params.id } });
+    await tx.walletLedger.deleteMany({ where: { userId: ctx.params.id } });
     await tx.generation.deleteMany({ where: { userId: ctx.params.id } });
     await tx.usageLog.deleteMany({ where: { userId: ctx.params.id } });
     await tx.subscription.deleteMany({ where: { userId: ctx.params.id } });

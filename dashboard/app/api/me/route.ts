@@ -4,6 +4,7 @@ import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { getSubscriptionDailyLimit } from "@/lib/subscription-limits";
 import { isAdminEmail } from "@/lib/admin";
+import { ensureReferralCode, getWalletSummary, REFERRAL_BONUS_RATE } from "@/lib/referrals";
 
 export const runtime = "nodejs";
 
@@ -16,7 +17,8 @@ export async function GET(req: NextRequest) {
 
   const day = new Date().toISOString().slice(0, 10);
   const now = new Date();
-  const [sub, usage, profile] = await Promise.all([
+  await ensureReferralCode(prisma, user.id);
+  const [sub, usage, profile, wallet, withdrawals] = await Promise.all([
     prisma.subscription.findFirst({
       where: { userId: user.id, status: "active", startsAt: { lte: now }, endsAt: { gt: now } },
       orderBy: { endsAt: "desc" }
@@ -27,7 +29,23 @@ export async function GET(req: NextRequest) {
     }),
     prisma.user.findUnique({
       where: { id: user.id },
-      select: { avatarUrl: true, name: true }
+      select: {
+        avatarUrl: true,
+        name: true,
+        referralCode: true,
+        referredBy: { select: { email: true, name: true, referralCode: true } },
+        _count: { select: { referrals: true } }
+      }
+    }),
+    getWalletSummary(user.id),
+    prisma.withdrawalRequest.findMany({
+      where: {
+        userId: user.id,
+        status: { in: ["paid", "rejected"] },
+        OR: [{ noticeClearAt: null }, { noticeClearAt: { gt: now } }]
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 5
     })
   ]);
   const giftsPromise = sub
@@ -61,6 +79,24 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     user: { id: user.id, email: user.email, name: profile?.name ?? user.name, avatarUrl: profile?.avatarUrl || null, isAdmin },
+    referral: {
+      code: profile?.referralCode || null,
+      link: profile?.referralCode ? `${(process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://www.nurxai.xyz").replace(/\/+$/, "")}/signup?ref=${encodeURIComponent(profile.referralCode)}` : null,
+      referredBy: profile?.referredBy || null,
+      totalReferrals: profile?._count.referrals || 0,
+      bonusRate: REFERRAL_BONUS_RATE
+    },
+    wallet,
+    withdrawalNotices: withdrawals.map((item) => ({
+      id: item.id,
+      amountUSD: Number(item.amountUSD || 0),
+      status: item.status,
+      adminNote: item.adminNote,
+      txHash: item.txHash,
+      paidAt: item.paidAt?.toISOString() || null,
+      rejectedAt: item.rejectedAt?.toISOString() || null,
+      createdAt: item.createdAt.toISOString()
+    })),
     subscription: sub
       ? {
           plan: sub.plan,

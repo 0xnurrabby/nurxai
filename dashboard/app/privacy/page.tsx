@@ -16,6 +16,8 @@ export default function Privacy() {
             <li>Tweet text you are actively replying to, only when you use NurAi</li>
             <li>Daily usage count for billing and quota enforcement</li>
             <li>Crypto payment metadata such as transaction ID and plan purchased</li>
+            <li>Referral codes, referral attribution, wallet ledger entries, and withdrawal requests</li>
+            <li>BEP-20 USDT withdrawal address if you request a referral payout</li>
             <li>Dashboard announcements and global chat messages you send or read</li>
           </ul>
 
@@ -27,7 +29,7 @@ export default function Privacy() {
             <li>Tweets you did not actively reply to</li>
             <li>Generated reply text after the response is returned to you</li>
             <li>Your IP address or location beyond standard server logs</li>
-            <li>Your crypto wallet address, which is handled by the payment processor</li>
+            <li>Your payment wallet address for NOWPayments/Base Pay checkouts, except withdrawal addresses you submit for referral payouts</li>
           </ul>
 
           <h2 className="font-bold text-xl mt-6">How we use your data</h2>
@@ -36,7 +38,9 @@ export default function Privacy() {
             We do not store the tweet text or generated reply text. Email is used
             for login, account recovery, and important service announcements.
             Announcements and global chat are stored so users can read updates
-            and community messages inside the dashboard.
+            and community messages inside the dashboard. Referral and withdrawal
+            records are used to calculate bonuses, prevent duplicate credits,
+            process manual payouts, and keep an audit trail.
           </p>
 
           <h2 className="font-bold text-xl mt-6">Third-party services</h2>

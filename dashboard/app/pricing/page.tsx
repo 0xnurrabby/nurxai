@@ -7,6 +7,7 @@ import { PLANS } from "@/lib/plans";
 export default function Pricing() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [endsAt, setEndsAt] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export default function Pricing() {
             setCurrentPlan(d.subscription.plan);
             setEndsAt(d.subscription.endsAt);
           }
+          setWalletBalance(Number(d.wallet?.balanceUSD || 0));
         }
       } catch {}
     })();
@@ -111,6 +113,7 @@ export default function Pricing() {
               currentPlan={currentPlan}
               currentPlanPriceUSD={currentPlanPriceUSD}
               currentPlanEndsAt={endsAt}
+              walletBalanceUSD={walletBalance}
             />
           ))}
         </div>

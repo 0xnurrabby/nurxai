@@ -41,6 +41,9 @@ type AdminUser = {
   id: string;
   email: string;
   name: string | null;
+  referralCode?: string | null;
+  referredBy?: { id: string; email: string; name?: string | null; referralCode?: string | null } | null;
+  wallet?: { balanceUSD: number; earnedUSD: number; spentUSD: number; withdrawnUSD: number; pendingWithdrawUSD: number };
   isAdmin: boolean;
   createdAt: string;
   subscriptions: Subscription[];
@@ -73,6 +76,10 @@ type UserDetail = AdminUser & {
   totals: { inputTokens: number; outputTokens: number; costUSD: string };
   auditLogs: Array<{ id: string; event: string; meta: any; createdAt: string }>;
   subscriptionGifts: SubscriptionGift[];
+  wallet?: { balanceUSD: number; earnedUSD: number; spentUSD: number; withdrawnUSD: number; pendingWithdrawUSD: number };
+  walletLedger?: Array<{ id: string; amountUSD: number; type: string; note?: string | null; createdAt: string }>;
+  withdrawals?: Array<{ id: string; amountUSD: number; status: string; address: string; adminNote?: string | null; txHash?: string | null; createdAt: string }>;
+  referrals?: Array<{ id: string; email: string; name?: string | null; createdAt: string; hasPaid: boolean }>;
 };
 
 type Stats = {
@@ -99,7 +106,21 @@ type AdminAnnouncement = {
   _count?: { reads: number };
 };
 
+type AdminWithdrawal = {
+  id: string;
+  amountUSD: number;
+  status: string;
+  address: string;
+  userId: string;
+  user?: { email: string; name?: string | null };
+  userNote?: string | null;
+  adminNote?: string | null;
+  txHash?: string | null;
+  createdAt: string;
+};
+
 const PLAN_OPTIONS = ["trial", "starter", "pro", "premium"];
+const PLAN_PRICE: Record<string, number> = { trial: 0, starter: 5, pro: 10, premium: 30 };
 
 function fmtDate(value?: string | null, withTime = false) {
   if (!value) return "-";
@@ -149,6 +170,7 @@ export default function AdminPage() {
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementBody, setAnnouncementBody] = useState("");
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
+  const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [announcementBusy, setAnnouncementBusy] = useState(false);
   const router = useRouter();
 
@@ -196,6 +218,14 @@ export default function AdminPage() {
     }
   }
 
+  async function fetchWithdrawals() {
+    const r = await apiFetch("/api/admin/referrals?status=pending");
+    if (r.ok) {
+      const d = await r.json();
+      setWithdrawals(d.withdrawals || []);
+    }
+  }
+
   async function fetchDetail(userId: string) {
     setSelectedId(userId);
     setDetail(null);
@@ -209,14 +239,14 @@ export default function AdminPage() {
   }
 
   async function refreshAll() {
-    await Promise.all([fetchUsers(search), fetchStats(), fetchAnnouncements()]);
+    await Promise.all([fetchUsers(search), fetchStats(), fetchAnnouncements(), fetchWithdrawals()]);
     if (selectedId) await fetchDetail(selectedId);
   }
 
   useEffect(() => {
     (async () => {
       try {
-        await Promise.all([fetchUsers(""), fetchStats(), fetchAnnouncements()]);
+        await Promise.all([fetchUsers(""), fetchStats(), fetchAnnouncements(), fetchWithdrawals()]);
       } finally {
         setLoading(false);
       }
@@ -239,8 +269,8 @@ export default function AdminPage() {
     }
   }
 
-  async function grantPlan(userId: string, plan: string, days?: number) {
-    await subscriptionAction(userId, { plan, days, action: "grant" }, `Granted ${plan}`);
+  async function grantPlan(userId: string, plan: string, days?: number, grantReferralBonus?: boolean, referralBonusBaseUSD?: number) {
+    await subscriptionAction(userId, { plan, days, action: "grant", grantReferralBonus, referralBonusBaseUSD }, `Granted ${plan}`);
   }
 
   async function extendPlan(userId: string, days: number, note?: string) {
@@ -267,6 +297,32 @@ export default function AdminPage() {
       await refreshAll();
     } else {
       alert(d.message || d.error || "Update failed.");
+    }
+  }
+
+  async function adjustWallet(userId: string, amountUSD: number, note: string) {
+    const r = await apiFetch("/api/admin/referrals", {
+      method: "POST",
+      body: JSON.stringify({ action: "adjustBalance", userId, amountUSD, note })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      await refreshAll();
+    } else {
+      alert(d.message || d.error || "Wallet adjustment failed.");
+    }
+  }
+
+  async function updateWithdrawal(id: string, action: "withdrawPaid" | "withdrawReject", note: string, txHash?: string) {
+    const r = await apiFetch("/api/admin/referrals", {
+      method: "POST",
+      body: JSON.stringify({ action, id, note, txHash })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      await refreshAll();
+    } else {
+      alert(d.message || d.error || "Withdrawal update failed.");
     }
   }
 
@@ -406,6 +462,17 @@ export default function AdminPage() {
           </>
         )}
 
+        {withdrawals.length > 0 && (
+          <div className="nb-card p-5 mt-6" style={{ background: "var(--accent3)" }}>
+            <h2 className="font-display font-black text-2xl">Pending withdrawals</h2>
+            <div className="mt-4 grid gap-3">
+              {withdrawals.map((w) => (
+                <PendingWithdrawalCard key={w.id} withdrawal={w} onUpdate={updateWithdrawal} />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="nb-card p-5 mt-6">
           <h2 className="font-display font-black text-2xl">Send dashboard announcement</h2>
           <p className="text-sm opacity-70 mt-1">
@@ -484,6 +551,8 @@ export default function AdminPage() {
             }}
             onGrant={grantPlan}
             onExtend={extendPlan}
+            onAdjustWallet={adjustWallet}
+            onUpdateWithdrawal={updateWithdrawal}
             onUpdateGift={updateSubscriptionGift}
             onRemoveGift={removeSubscriptionGift}
             onSetExpiry={setExpiry}
@@ -506,6 +575,37 @@ function StatCard({ label, value, sub, color }: { label: string; value: any; sub
       <div className="text-sm font-bold opacity-70">{label}</div>
       <div className="font-display font-black text-3xl">{value}</div>
       {sub && <div className="text-xs opacity-70 mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+function PendingWithdrawalCard({
+  withdrawal,
+  onUpdate
+}: {
+  withdrawal: AdminWithdrawal;
+  onUpdate: (id: string, action: "withdrawPaid" | "withdrawReject", note: string, txHash?: string) => void;
+}) {
+  const [note, setNote] = useState("");
+  const [txHash, setTxHash] = useState("");
+  return (
+    <div className="border-2 border-ink/20 dark:border-nightInk/20 rounded-lg p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="font-black">${money(withdrawal.amountUSD)} - {withdrawal.user?.email || withdrawal.userId}</div>
+          <div className="text-xs opacity-70 break-all">BEP-20 USDT: {withdrawal.address}</div>
+          <div className="text-xs opacity-70">{fmtDate(withdrawal.createdAt, true)}</div>
+          {withdrawal.userNote && <div className="text-xs opacity-80 mt-1">User note: {withdrawal.userNote}</div>}
+        </div>
+      </div>
+      <div className="grid md:grid-cols-[minmax(0,1fr)_180px] gap-2 mt-3">
+        <input className="nb-input text-sm" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Admin note shown to user" />
+        <input className="nb-input text-sm" value={txHash} onChange={(e) => setTxHash(e.target.value)} placeholder="Tx hash optional" />
+      </div>
+      <div className="flex gap-2 mt-2">
+        <button className="nb-btn nb-btn-success text-sm" onClick={() => onUpdate(withdrawal.id, "withdrawPaid", note, txHash)}>Mark paid</button>
+        <button className="nb-btn nb-btn-danger text-sm" onClick={() => onUpdate(withdrawal.id, "withdrawReject", note)}>Reject</button>
+      </div>
     </div>
   );
 }
@@ -556,6 +656,9 @@ function UserTable({
                 <td className="p-3 min-w-[220px]">
                   <div className="font-bold">{u.email}</div>
                   <div className="text-xs opacity-60">{u.name || "-"} | joined {fmtDate(u.createdAt)}</div>
+                  <div className="text-xs opacity-70">
+                    wallet ${money(u.wallet?.balanceUSD)} {u.referredBy ? `| ref ${u.referredBy.email}` : ""}
+                  </div>
                   {u.isAdmin && <span className="nb-tag mt-1" style={{ background: "var(--accent3)" }}>ADMIN</span>}
                 </td>
                 <td className="p-3">
@@ -614,6 +717,8 @@ function DetailPanel({
   onClose,
   onGrant,
   onExtend,
+  onAdjustWallet,
+  onUpdateWithdrawal,
   onUpdateGift,
   onRemoveGift,
   onSetExpiry,
@@ -626,8 +731,10 @@ function DetailPanel({
   detailLoading: boolean;
   busy: string;
   onClose: () => void;
-  onGrant: (userId: string, plan: string, days?: number) => void;
+  onGrant: (userId: string, plan: string, days?: number, grantReferralBonus?: boolean, referralBonusBaseUSD?: number) => void;
   onExtend: (userId: string, days: number, note?: string) => void;
+  onAdjustWallet: (userId: string, amountUSD: number, note: string) => void;
+  onUpdateWithdrawal: (id: string, action: "withdrawPaid" | "withdrawReject", note: string, txHash?: string) => void;
   onUpdateGift: (id: string, days: number, note: string) => void;
   onRemoveGift: (id: string) => void;
   onSetExpiry: (userId: string, endsAt: string) => void;
@@ -638,6 +745,8 @@ function DetailPanel({
 }) {
   const [grantPlan, setGrantPlan] = useState("premium");
   const [grantDays, setGrantDays] = useState("30");
+  const [grantReferralBonus, setGrantReferralBonus] = useState(false);
+  const [referralBonusBase, setReferralBonusBase] = useState("30");
   const [extraDays, setExtraDays] = useState("7");
   const [extraDaysNote, setExtraDaysNote] = useState("Admin gifted extra premium days for your account.");
   const [editingGiftId, setEditingGiftId] = useState("");
@@ -646,6 +755,8 @@ function DetailPanel({
   const [expiry, setExpiry] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [walletAmount, setWalletAmount] = useState("");
+  const [walletNote, setWalletNote] = useState("");
 
   useEffect(() => {
     setName(user?.name || "");
@@ -656,6 +767,10 @@ function DetailPanel({
     setEditingGiftId("");
     setEditingGiftDays("7");
     setEditingGiftNote("");
+    setGrantReferralBonus(false);
+    setReferralBonusBase("30");
+    setWalletAmount("");
+    setWalletNote("");
   }, [user?.id]);
 
   if (!user) {
@@ -671,6 +786,8 @@ function DetailPanel({
   const active = user.activeSubscription || user.subscriptions?.find(isCurrentlyActive);
   const allSubs = detail.subscriptions || user.subscriptions || [];
   const gifts = detail.subscriptionGifts || [];
+  const wallet = detail.wallet || user.wallet;
+  const referrer = user.referredBy;
   const isBusy = !!busy;
 
   return (
@@ -700,6 +817,48 @@ function DetailPanel({
       </section>
 
       <section className="mt-5 nb-divider pt-4">
+        <h3 className="font-bold text-lg">Referral wallet</h3>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+          <div className="p-3 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg">
+            <div className="text-xs opacity-70">Balance</div>
+            <div className="font-black text-xl">${money(wallet?.balanceUSD)}</div>
+          </div>
+          <div className="p-3 border-2 border-ink/20 dark:border-nightInk/20 rounded-lg">
+            <div className="text-xs opacity-70">Earned</div>
+            <div className="font-black text-xl">${money(wallet?.earnedUSD)}</div>
+          </div>
+        </div>
+        <div className="text-xs opacity-70 mt-2">
+          Code: <strong>{user.referralCode || "-"}</strong>
+          {referrer ? <> | Referred by <strong>{referrer.email}</strong></> : <> | No referrer</>}
+        </div>
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <input
+            className="nb-input text-sm"
+            type="number"
+            step="0.01"
+            value={walletAmount}
+            onChange={(e) => setWalletAmount(e.target.value)}
+            placeholder="+/- amount"
+          />
+          <button
+            className="nb-btn nb-btn-warn"
+            disabled={isBusy || !Number(walletAmount)}
+            onClick={() => onAdjustWallet(user.id, Number(walletAmount), walletNote)}
+          >
+            Adjust balance
+          </button>
+          <textarea
+            className="nb-input text-sm col-span-2 min-h-[64px]"
+            value={walletNote}
+            onChange={(e) => setWalletNote(e.target.value)}
+            placeholder="Admin note for wallet adjustment"
+            maxLength={500}
+          />
+        </div>
+      </section>
+
+      <section className="mt-5 nb-divider pt-4">
         <h3 className="font-bold text-lg">Subscription</h3>
         {active ? (
           <div className="mt-2 p-3 border-2 border-ink dark:border-nightInk rounded-lg" style={{ background: "var(--accent2)" }}>
@@ -714,11 +873,47 @@ function DetailPanel({
         )}
 
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <select className="nb-input text-sm" value={grantPlan} onChange={(e) => setGrantPlan(e.target.value)}>
+          <select
+            className="nb-input text-sm"
+            value={grantPlan}
+            onChange={(e) => {
+              setGrantPlan(e.target.value);
+              setReferralBonusBase(String(PLAN_PRICE[e.target.value] || 0));
+            }}
+          >
             {PLAN_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
           <input className="nb-input text-sm" type="number" min="1" value={grantDays} onChange={(e) => setGrantDays(e.target.value)} />
-          <button className="nb-btn nb-btn-primary col-span-2" disabled={isBusy} onClick={() => onGrant(user.id, grantPlan, Number(grantDays))}>
+          {referrer && (
+            <>
+              <label className="col-span-2 flex items-start gap-2 text-xs font-bold">
+                <input
+                  type="checkbox"
+                  checked={grantReferralBonus}
+                  onChange={(e) => setGrantReferralBonus(e.target.checked)}
+                />
+                <span>
+                  Also credit 10% referral bonus to {referrer.email}. Leave off for gifts/free manual grants.
+                </span>
+              </label>
+              {grantReferralBonus && (
+                <input
+                  className="nb-input text-sm col-span-2"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={referralBonusBase}
+                  onChange={(e) => setReferralBonusBase(e.target.value)}
+                  placeholder="Actual paid amount for bonus base"
+                />
+              )}
+            </>
+          )}
+          <button
+            className="nb-btn nb-btn-primary col-span-2"
+            disabled={isBusy}
+            onClick={() => onGrant(user.id, grantPlan, Number(grantDays), grantReferralBonus, Number(referralBonusBase))}
+          >
             Grant / replace plan
           </button>
         </div>
@@ -833,6 +1028,41 @@ function DetailPanel({
             <div className="font-bold">{p.provider} ${money(p.amount)} {p.currency} <span className="opacity-60">({p.status})</span></div>
             <div className="text-xs opacity-70 break-all">{p.providerPaymentId || p.providerId}</div>
             <div className="text-xs opacity-70">{fmtDate(p.createdAt, true)}</div>
+          </div>
+        ))}
+      </MiniList>
+
+      <MiniList title="Referral signups">
+        {(detail.referrals || []).slice(0, 10).map((r) => (
+          <div key={r.id} className="py-2 border-b border-ink/20 dark:border-nightInk/20 text-sm">
+            <div className="font-bold">{r.email} {r.hasPaid && <span className="nb-tag ml-1" style={{ background: "var(--accent2)" }}>paid</span>}</div>
+            <div className="text-xs opacity-70">Joined {fmtDate(r.createdAt, true)}</div>
+          </div>
+        ))}
+      </MiniList>
+
+      <MiniList title="Wallet ledger">
+        {(detail.walletLedger || []).slice(0, 12).map((l) => (
+          <div key={l.id} className="py-2 border-b border-ink/20 dark:border-nightInk/20 text-sm">
+            <div className="font-bold">{l.type} <span className={l.amountUSD >= 0 ? "text-green-700" : "text-red-700"}>${money(l.amountUSD)}</span></div>
+            <div className="text-xs opacity-70">{fmtDate(l.createdAt, true)}</div>
+            {l.note && <div className="text-xs opacity-70">{l.note}</div>}
+          </div>
+        ))}
+      </MiniList>
+
+      <MiniList title="Withdrawals">
+        {(detail.withdrawals || []).slice(0, 10).map((w) => (
+          <div key={w.id} className="py-2 border-b border-ink/20 dark:border-nightInk/20 text-sm">
+            <div className="font-bold">${money(w.amountUSD)} <span className="opacity-60">({w.status})</span></div>
+            <div className="text-xs opacity-70 break-all">{w.address}</div>
+            <div className="text-xs opacity-70">{fmtDate(w.createdAt, true)}</div>
+            {w.status === "pending" && (
+              <div className="flex gap-2 mt-2">
+                <button className="nb-btn nb-btn-success text-xs px-3 py-1" onClick={() => onUpdateWithdrawal(w.id, "withdrawPaid", "Paid manually by admin.", w.txHash || "")}>Mark paid</button>
+                <button className="nb-btn nb-btn-danger text-xs px-3 py-1" onClick={() => onUpdateWithdrawal(w.id, "withdrawReject", "Rejected by admin.")}>Reject</button>
+              </div>
+            )}
           </div>
         ))}
       </MiniList>

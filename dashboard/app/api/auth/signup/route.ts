@@ -5,13 +5,14 @@ import { signToken } from "@/lib/jwt";
 import { isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { createTrialSubscription } from "@/lib/trial";
+import { applyReferralCode, ensureReferralCode } from "@/lib/referrals";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
     await ensureRuntimeSchema();
-    const { email, password, name } = await req.json();
+    const { email, password, name, referralCode } = await req.json();
     if (typeof email !== "string" || typeof password !== "string") {
       return NextResponse.json({ error: "MISSING" }, { status: 400 });
     }
@@ -32,6 +33,15 @@ export async function POST(req: NextRequest) {
         data: { email: e, passwordHash: hash, name: name?.toString().slice(0, 60) || null, isAdmin }
       });
 
+      await ensureReferralCode(tx, created.id);
+      if (referralCode) {
+        const referral = await applyReferralCode(tx, created.id, referralCode);
+        if (!referral.ok && referral.error !== "REFERRAL_NOT_FOUND") {
+          await tx.auditLog.create({
+            data: { userId: created.id, event: "signup_referral_ignored", meta: { error: referral.error } as any }
+          });
+        }
+      }
       await tx.auditLog.create({ data: { userId: created.id, event: "signup" } });
       await createTrialSubscription(tx, created.id);
       return created;

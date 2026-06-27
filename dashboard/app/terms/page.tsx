@@ -7,7 +7,7 @@ export default function Terms() {
       <main className="max-w-3xl mx-auto px-5 py-12">
         <div className="nb-card p-8">
           <h1 className="font-display font-black text-4xl">Terms of Service</h1>
-          <p className="opacity-70 mt-2">Last updated: October 2025</p>
+          <p className="opacity-70 mt-2">Last updated: June 2026</p>
 
           <h2 className="font-bold text-xl mt-6">1. Acceptance</h2>
           <p className="mt-2">
@@ -42,31 +42,42 @@ export default function Terms() {
           <h2 className="font-bold text-xl mt-6">5. Subscriptions & payments</h2>
           <ul className="list-disc pl-6 mt-2 space-y-1">
             <li>Payments are processed via NOWPayments in cryptocurrency.</li>
+            <li>Referral wallet balance can be used for NurAi subscriptions.</li>
+            <li>Referral withdrawals are manually reviewed and require at least $3 available balance.</li>
             <li>Subscriptions are non-refundable once activated.</li>
             <li>Plans don&apos;t auto-renew. You manually re-purchase to continue.</li>
             <li>Daily usage limits reset at 00:00 UTC.</li>
           </ul>
 
-          <h2 className="font-bold text-xl mt-6">6. Service availability</h2>
+          <h2 className="font-bold text-xl mt-6">6. Referrals</h2>
+          <p className="mt-2">
+            Referral bonuses are credited only after a referred account completes
+            a confirmed paid subscription, or when an admin explicitly approves
+            a referral bonus for a manual paid grant. Self-referrals, fake
+            accounts, abuse, chargebacks, or suspicious activity may result in
+            bonus removal and account suspension.
+          </p>
+
+          <h2 className="font-bold text-xl mt-6">7. Service availability</h2>
           <p className="mt-2">
             We aim for 99% uptime but don&apos;t guarantee uninterrupted service.
             Maintenance windows or third-party (OpenAI, Vercel) outages may
             cause temporary disruption.
           </p>
 
-          <h2 className="font-bold text-xl mt-6">7. Limitation of liability</h2>
+          <h2 className="font-bold text-xl mt-6">8. Limitation of liability</h2>
           <p className="mt-2">
             NurAi is provided &quot;as is&quot;. We&apos;re not liable for damages from
             using or being unable to use the service, including consequences
             of replies you choose to send. You&apos;re responsible for what you post.
           </p>
 
-          <h2 className="font-bold text-xl mt-6">8. Changes to terms</h2>
+          <h2 className="font-bold text-xl mt-6">9. Changes to terms</h2>
           <p className="mt-2">
             We may update these terms. Continued use after changes means acceptance.
           </p>
 
-          <h2 className="font-bold text-xl mt-6">9. Contact</h2>
+          <h2 className="font-bold text-xl mt-6">10. Contact</h2>
           <p className="mt-2">
             Email <strong>probably.nothing.to.say@gmail.com</strong> or Telegram <strong>@Nur_Xai</strong>.
           </p>

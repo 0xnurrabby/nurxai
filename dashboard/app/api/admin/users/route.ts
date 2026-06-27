@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAdmin, isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { getWalletSummary } from "@/lib/referrals";
 
 export const runtime = "nodejs";
 
@@ -41,6 +42,9 @@ export async function GET(req: NextRequest) {
           status: true,
           createdAt: true
         }
+      },
+      referredBy: {
+        select: { id: true, email: true, name: true, referralCode: true }
       },
       _count: { select: { payments: true, generations: true, projects: true } }
     },
@@ -89,5 +93,8 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ users: enriched });
+  const walletRows = await Promise.all(enriched.map((u) => getWalletSummary(u.id)));
+  const withWallet = enriched.map((u, index) => ({ ...u, wallet: walletRows[index] }));
+
+  return NextResponse.json({ users: withWallet });
 }

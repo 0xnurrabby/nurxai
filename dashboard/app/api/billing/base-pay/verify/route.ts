@@ -4,6 +4,7 @@ import { PLANS, PlanKey } from "@/lib/plans";
 import { prisma } from "@/lib/db";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { activatePaidSubscription } from "@/lib/billing";
+import { creditReferralBonus } from "@/lib/referrals";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -180,6 +181,8 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    const referralBonus = await creditReferralBonus(tx, payment);
+
     await tx.auditLog.create({
       data: {
         userId: session.sub,
@@ -192,7 +195,9 @@ export async function POST(req: NextRequest) {
           endsAt: activated.endsAt.toISOString(),
           provider: "basepay",
           txHash,
-          amount: expectedAmountUSD
+          amount: expectedAmountUSD,
+          referralBonusId: referralBonus?.ledger.id || null,
+          referralBonusUSD: referralBonus ? Number(referralBonus.ledger.amountUSD) : 0
         } as any
       }
     });
