@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const DEFAULT_EXTENSION_UPDATE_URL = "https://chromewebstore.google.com/detail/odapbgkbdpalphekkmibliclmedgmlhb";
+const UPDATE_AWARE_EXTENSION_VERSION = "2.0.10";
 
 function parseVersion(value: string) {
   const parts = value
@@ -32,12 +33,21 @@ export function requireSupportedExtensionVersion(req: NextRequest, options: { re
   if (!currentVersion && !options.requireHeader) return null;
 
   if (!currentVersion || compareVersions(currentVersion, requiredVersion) < 0) {
+    const updateUrl = process.env.EXTENSION_UPDATE_URL || DEFAULT_EXTENSION_UPDATE_URL;
+    const updateAwareClient = !!currentVersion && compareVersions(currentVersion, UPDATE_AWARE_EXTENSION_VERSION) >= 0;
+
     return NextResponse.json(
       {
-        error: "EXTENSION_UPDATE_REQUIRED",
+        // Builds before 2.0.10 did not know EXTENSION_UPDATE_REQUIRED and
+        // rendered unknown errors as "Could not generate suggestions." Keep a
+        // legacy-known error for those clients while newer builds still use
+        // the 426 status to show the proper update button.
+        error: updateAwareClient ? "EXTENSION_UPDATE_REQUIRED" : "NEEDS_RECONNECT",
+        code: "EXTENSION_UPDATE_REQUIRED",
+        message: `Please update NurAi extension to v${requiredVersion} or newer.`,
         currentVersion: currentVersion || null,
         requiredVersion,
-        updateUrl: process.env.EXTENSION_UPDATE_URL || DEFAULT_EXTENSION_UPDATE_URL
+        updateUrl
       },
       { status: 426 }
     );

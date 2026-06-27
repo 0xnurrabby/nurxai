@@ -835,6 +835,11 @@
       if (requestContextKey && contextKeyFor(latest.text, latest.imageUrls) !== requestContextKey) return;
 
       if (!resp || !resp.ok) {
+        const updateMessage = resp?.message || (
+          resp?.requiredVersion
+            ? `Please update NurAi extension to v${resp.requiredVersion} or newer.`
+            : "Please update NurAi extension to keep using suggestions."
+        );
         const map = {
           NOT_LOGGED_IN:    ["Please sign in to use NurAi.", "login"],
           SESSION_EXPIRED:  ["Session expired. Please sign in again.", "login"],
@@ -847,7 +852,7 @@
           BAD_RESPONSE:     ["Server returned an unexpected response.", null],
           UPSTREAM:         ["AI service error. Try again in a moment.", null],
           EMPTY_SUGGESTIONS:["No good suggestions returned. Try again.", null],
-          EXTENSION_UPDATE_REQUIRED: ["Update NurAi extension to keep using suggestions.", "update"]
+          EXTENSION_UPDATE_REQUIRED: [updateMessage, "update"]
         };
         const [m, action] = map[resp?.error] || ["Could not generate suggestions.", null];
         showError(m, action);

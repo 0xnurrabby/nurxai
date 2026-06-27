@@ -91,6 +91,8 @@ async function callGenerate(context, imageUrls, regenerate, previousSuggestions)
     return {
       ok: false,
       error: "EXTENSION_UPDATE_REQUIRED",
+      message: data?.message || "",
+      currentVersion: data?.currentVersion || chrome.runtime.getManifest().version,
       requiredVersion: data?.requiredVersion || "",
       updateUrl: data?.updateUrl || CONFIG.EXTENSION_UPDATE_URL
     };
