@@ -39,6 +39,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Login failed:", error);
-    return NextResponse.json({ error: "SERVER_ERROR", message: "Could not sign in. Check database migrations." }, { status: 500 });
+    return NextResponse.json({ error: "SERVER_ERROR", message: "Could not sign in right now." }, { status: 500 });
   }
 }

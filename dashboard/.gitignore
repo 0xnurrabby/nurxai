@@ -8,3 +8,4 @@ node_modules/
 .vercel
 prisma/dev.db
 .env*
+!.env.example

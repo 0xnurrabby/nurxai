@@ -54,6 +54,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Signup failed:", error);
-    return NextResponse.json({ error: "SERVER_ERROR", message: "Could not create account. Check database migrations." }, { status: 500 });
+    return NextResponse.json({ error: "SERVER_ERROR", message: "Could not create account right now." }, { status: 500 });
   }
 }

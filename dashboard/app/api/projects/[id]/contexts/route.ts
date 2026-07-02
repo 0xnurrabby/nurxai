@@ -16,10 +16,13 @@ async function getActivePlan(userId: string) {
   return PLANS[sub.plan as PlanKey] || null;
 }
 
-export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
+type ProjectContextRouteContext = { params: Promise<{ id: string }> };
+
+export async function POST(req: NextRequest, ctx: ProjectContextRouteContext) {
   const session = await getSessionFromAuthHeader(req);
   if (!session?.sub) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   await ensureRuntimeSchema();
+  const { id } = await ctx.params;
 
   const plan = await getActivePlan(session.sub);
   if (!plan) return NextResponse.json({ error: "NO_SUBSCRIPTION" }, { status: 402 });
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const proj = await prisma.project.findFirst({
-    where: { id: ctx.params.id, userId: session.sub }
+    where: { id, userId: session.sub }
   });
   if (!proj) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   }
 
   const c = await prisma.projectContext.create({
-    data: { projectId: ctx.params.id, content: content.slice(0, 5000) }
+    data: { projectId: id, content: content.slice(0, 5000) }
   });
   return NextResponse.json({ context: c });
 }

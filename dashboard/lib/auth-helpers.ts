@@ -6,7 +6,7 @@ import { verifyToken } from "./jwt";
 export const COOKIE_NAME = "nurxai_session";
 
 export async function getSessionFromCookies() {
-  const c = cookies().get(COOKIE_NAME);
+  const c = (await cookies()).get(COOKIE_NAME);
   if (!c?.value) return null;
   return await verifyToken(c.value);
 }

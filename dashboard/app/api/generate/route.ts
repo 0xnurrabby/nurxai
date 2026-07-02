@@ -426,7 +426,37 @@ Otherwise return max 2 bullets, under 12 words each.`,
 
 // ─── Image Fetching ───────────────────────────────────────────────────────────
 
+function isPrivateIPv4(hostname: string) {
+  const parts = hostname.split(".").map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  const [a, b] = parts;
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    a === 0
+  );
+}
+
+function isSafeImageUrl(rawUrl: string) {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+    const host = parsed.hostname.toLowerCase();
+    if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return false;
+    if (host.includes(":")) return false;
+    if (isPrivateIPv4(host)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function imageCandidates(url: string) {
+  if (!isSafeImageUrl(url)) return [];
   const candidates = [
     url,
     url.replace(/&name=\w+/, "&name=large"),
@@ -509,7 +539,8 @@ async function prepareImages(rawImageUrls: string[], plan: Plan): Promise<ImageP
   }
 
   const limit = plan.qualityTier === "masterpiece" ? 3 : 2;
-  const urls = rawImageUrls.slice(0, limit);
+  const urls = rawImageUrls.filter(isSafeImageUrl).slice(0, limit);
+  if (!urls.length) return { imageParts: [], imagesInlined: 0, imagesUrlFallback: 0 };
   const detail: "high" | "auto" = plan.qualityTier === "masterpiece" ? "high" : "auto";
   const dataUrls = await Promise.all(urls.map((u) => fetchImageAsDataUrl(u)));
 
