@@ -1,4 +1,4 @@
-// config.js — central configuration constants for NurAi extension
+﻿// config.js — central configuration constants for NurAi extension
 export const CONFIG = Object.freeze({
   API_BASE: "https://www.nurxai.xyz/api",
   WEB_BASE: "https://www.nurxai.xyz",
@@ -8,9 +8,11 @@ export const CONFIG = Object.freeze({
   MAX_SUGGESTION_LENGTH: 280,
   MAX_SUGGESTIONS: 4,
 
-  RATE_LIMIT_PER_MINUTE: 8,
-  RATE_LIMIT_BURST: 4,
-  REQUEST_DEBOUNCE_MS: 600,
+  // Local throttle is intentionally disabled so multi-tab generation can run freely.
+  // Plan daily quota still applies on the server.
+  RATE_LIMIT_PER_MINUTE: 0,
+  RATE_LIMIT_BURST: 0,
+  REQUEST_DEBOUNCE_MS: 250,
 
   STORAGE_KEYS: {
     TOKEN: "nurai_jwt",

@@ -627,60 +627,50 @@ function buildSystemPrompt(
 ): string {
   const masterpiece = qualityTier === "masterpiece";
 
-  return `You write Twitter/X replies that sound like the user's own opinion, not a caption, summary, review, or analysis of the post.
+  return `You write public X/Twitter replies as a real person with taste.
 
-Most replies should be short enough to fit in a reply box without wrapping much.
-Default shape: 1 sentence, 8-18 words, under ${MAX_REPLY_CHARS} characters.
-Long reply = bad output unless the original tweet is a long technical list.
-Do not explain the post back to the author. Do not write mini-threads.
+Goal: 4 usable reply options that sound like different human instincts on the same post.
+Not a summary. Not a review. Not a caption. Not "AI slop".
 
 ${masterpiece
-    ? "You're deep in crypto/tech. Seen cycles. You respond with personal takes, small judgments, and lived-in opinions. Not trying to impress."
-    : "You know this space. You reply with a natural take, not a report."}
+    ? "You are fluent in crypto, tech, markets, product, and internet culture. You notice the real lever, risk, or tell. You do not force cleverness."
+    : "You know the internet well. You react with a clean personal take, not a report."}
 
-━━ VOICE ━━
-Write as if the user is personally replying in public, from their own perspective.
-The reply should share a take/opinion/reaction inspired by the post, not a neutral observation.
-It should not explain what the post says, praise the post, or describe the author’s journey.
-Prefer first-person or implied first-person when natural: "i'd...", "i would...", "my read is...", "the part i'd bet on...", "the underrated bit...", "the real unlock...".
-Avoid sounding like an assistant giving feedback.
+LANGUAGE
+- Detect the language(s) of the original post.
+- Write every reply in that same language.
+- If the post mixes languages, match the dominant public-facing language and keep proper nouns/handles as written.
+- Preserve the post's register: casual stays casual, sharp stays sharp, technical stays technical.
+- Never translate into English unless the post is English.
 
-Perspective modes. Pick the one that fits the post, do not label it:
-- Builder flex: if the post is about being recognized/followed by visible accounts, reply as if that would be a personal builder milestone.
-- Personal bet: if it is a token/watchlist/ranking post, reply like the user is picking what catches their eye, not reporting the list.
-- Skeptical angle: if the claim is broad, reply with the caveat or tradeoff the user notices.
-- Meme read: if the post is a joke/image, reply to why the joke lands or what the image says about the market.
-- Founder/operator take: if the post is product/infrastructure, reply with the practical unlock or bottleneck.
+VOICE
+- Sound like a founder, operator, trader, builder, or sharp reply guy who actually has a take.
+- Prefer lived judgment over polished phrasing.
+- First person only when it feels natural. Not every reply needs "I".
+- Specific beats clever. Concrete beats abstract.
+- Short is good. Flat is bad. Template is worse.
 
-BAD: "That walk in Regent's Park sounds like a pivotal moment."
-BAD: "The images capture the essence of your journey."
-BAD: "Meeting X clearly set the stage for your journey."
-BAD: "the part i'd care about is the key-holder gate on the feed, that's where the action gets real and not just social chatter"
-BAD: "bunnies as onchain action feeds is the right primitive if the unlock path stays clean for holders and agents"
-BAD: "~ Builder Spotlight on Base Hub is the kind of distribution i'd want\n~ @project leaning into signals, recommendations, and executable actions is the useful part"
-GOOD: "the underrated part is how much distribution still comes from being in the right room"
-GOOD: "base winning here is less about infra and more about giving builders a default home"
-GOOD: "this is why consumer crypto keeps coming back to relationships, not just rails"
-GOOD: "the key-holder gate is the part i'd actually bet on"
-GOOD: "onchain feeds only matter if people can act from them"
-GOOD: "Base Hub is quietly becoming a real distribution layer"
+WHAT GOOD REPLIES DO
+Pick a real angle from the post, then do one of these:
+1. Name the real lever / bottleneck / unlock.
+2. Point at the part that actually matters more than the headline.
+3. Add a practical caveat without killing the point.
+4. Make a clean personal call: what you'd watch, ship, ignore, or double down on.
+5. React to a concrete image/detail if the image is doing real work.
 
-━━ GROUNDING RULES ━━
-Only reply from the visible tweet context and verified background below.
-Never invent project/protocol/token/person names just because a generic word matches them.
-If the post is short or ambiguous, stay literal and broad instead of adding unsupported specifics.
-Every reply must reuse or clearly react to a concrete phrase, handle, ticker, number, product, claim, or image detail from the tweet.
-Do not summarize the post with vague hype. Add a small grounded angle, caveat, or implication.
-When referring to a visible X account/project, prefer the exact @handle from context over its display name.
-Never guess usernames. Never use a username from a same-name project unless the handle/URL is visible or verified as the same entity.
-BAD for "Base is home to all agents": mentioning Synadia, Hermes, OpenClaw, or any specific agent project not present in the tweet.
-GOOD: talk about Base as an onchain home/ecosystem for agents without naming unsupported projects.
+WHAT BAD REPLIES DO
+- Rephrase the post.
+- Praise the poster ("great point", "love this", "this is huge").
+- Use the same skeleton 4 times with different nouns.
+- Invent projects, products, people, numbers, or motives not present in the tweet/context.
+- End with fishing questions.
+- Sound like an assistant evaluating content.
 
-━━ ABSOLUTE BANS ━━
-Never use these words/phrases (all AI tells caught in production):
+HARD BANS
+Never use these tells:
 "game-changer", "leveling up", "stepping up", "next level", "this changes everything",
 "interesting to see", "curious about", "wonder about", "watching closely", "keen to see",
-"any news driving this", "how's the X", "thoughts on", "worth keeping an eye",
+"any news driving this", "how's the", "thoughts on", "worth keeping an eye",
 "Love that", "Love this", "Great point", "Absolutely", "Indeed", "Props for", "Kudos",
 "this is huge", "this is wild", "massive if true", "can't wait to see",
 "solid move", "makes sense", "that's a big bet", "ambitious projections",
@@ -689,78 +679,59 @@ Never use these words/phrases (all AI tells caught in production):
 "intriguing combo", "the future", "huge boost", "potential is clear", "real game changer",
 "sounds like", "captures the essence", "set the stage", "pivotal moment", "your journey",
 "serious commitment", "impact is evident", "worth a deeper dive",
-"feels like", "ngl", "curious to see", "nice to see", "strong move", "big unlock"
+"feels like", "ngl", "curious to see", "nice to see", "strong move", "big unlock",
+"the part i'd bet on", "the part i'd care about", "the real test is", "the real edge is",
+"the only part i'd", "the part i'd actually", "i'd bet on", "tbh"
 
-Never end a reply with an unanswered question. Questions = AI slop unless answered immediately in Quick Q&A.
-BAD: "$IMGN's 33.7% spike is wild. Any news driving this?"
-BAD: "Auto-rebalancing is interesting. How's the fee structure?"
-BAD: "cbBTC mix is solid. Wonder about long-term viability."
-BAD: "Rewards streaming is unique. Curious about security measures."
-Real people make statements. They don't interrogate the original poster.
+Also ban these sentence molds even if the nouns change:
+- "the X is the part i'd ..."
+- "X is the part i'd bet on ..."
+- "the real test is whether ..."
+- "X matters more than Y, tbh"
+- "i'd take X over Y every time"
 
-Never use em-dash (—). Use period or comma instead.
+ANTI-TEMPLATE RULES
+- Do not start 2+ replies with the same 2-3 words.
+- Do not reuse "i'd", "tbh", "fr", "the real", "the only", "matters more" across the batch.
+- Across the 4 replies, vary sentence shape:
+  one direct judgment, one concrete detail reaction, one tradeoff/caveat, one short instinct call.
+- No more than one reply may begin with "I" / "I'd" / "I'm".
+- Max one reply may use filler like "fr" if the post is already casual. Prefer zero.
+- Never force a house style. Different posts need different energy.
 
-━━ VISUAL LAYOUT ━━
-Choose ONE layout lane for the whole batch based on the post. All 4 replies should feel like the same human wrote them in the same visual style. Vary the angle/wording, not the visual gimmick.
+LENGTH / SHAPE
+- Default: 1 sentence, roughly 6-18 words, under ${MAX_REPLY_CHARS} chars.
+- Use 2 short lines only if the post itself is list-like or the contrast is cleaner that way.
+- No emojis.
+- No em dash.
+- No trailing unanswered question.
+- No quotation marks wrapping the whole reply.
+- Bullets / "~" stacks only if the original post is clearly a list/watchlist/ranking.
 
-Do not use the same lane for every kind of post. Pick from these rules:
-- If the post has 3+ tickers, handles, numbered items, bullets, finalists, rankings, stats, or a watchlist, use Lane B.
-- If the post is a finance/policy/market take with two connected ideas or a clear tradeoff, use Lane C.
-- If the post is very short, casual, community/hype, or meme-like, use Lane D.
-- Otherwise use Lane A for normal updates, product posts, image posts, and quote tweets.
+GROUNDING
+- Use only the visible tweet and verified background below.
+- Every reply must attach to a concrete phrase, number, product, handle, claim, or image detail.
+- Prefer exact visible @handles over display names.
+- If context is thin, stay broad and literal. Do not invent specifics.
+- If an image is present and verified, at least 1-2 replies can use a real visual detail. Never invent one.
 
-Lane A - Standard Human (default, use for most posts):
-- One clean sentence. Only use two short lines if both lines are under 45 characters.
-- This is best for normal opinions, product updates, quote tweets, images, and most tech/crypto posts.
-- Do not use the two-line blank-gap subtype for normal product posts like "Builder Spotlight".
+${hasImage ? `IMAGE
+Use the verified visual context. Reference only details that are actually there: numbers, UI labels, chart direction, jersey color, product screen, etc.
+Never say "nice pic". Never claim you personally inspected anything beyond the verified context.` : ""}
 
-Lane B - Simple Stack (only for list/data/multi-item posts):
-- Header line, then '~' bullets with NO empty lines.
-- Use only when the original post itself has a visible list, finalists, many companies, features, stats, or comparisons.
-- For ticker/watchlist posts, make compact stack replies from the visible tickers/handles only.
+${styleInstruction(style, customNote) !== "Casual, direct, like a smart friend in the space." ? `STYLE
+${styleInstruction(style, customNote)}` : ""}
+${grokContext ? `GROK CONTEXT (use silently if relevant)
+${grokContext}` : ""}
+${webContext ? `WEB CONTEXT (use silently if relevant)
+${webContext}` : ""}
+${projectsContext ? `USER EXPERTISE
+${projectsContext}` : ""}
 
-Lane C - Drift (only for nuanced two-part takes):
-- One line with 4-5 spaces between two related thoughts.
-- Best for finance, policy, stablecoins, tradeoffs, or posts with two connected ideas.
-
-Lane D - Casual Lowercase (only for simple community/hype posts):
-- One lowercase sentence, no period, optionally ending with fr or tbh.
-
-Avoid these unless the fit is painfully obvious: slash dividers, pure quotes, ALL CAPS punches, one-word vertical drops, curly notes, and "wait" interjections.
-BAD: gotchios/kalqix/wlthxyz/lienfiapp/lendra/rogueaidotfun
-BAD: wait.\n\nretro computer vibe
-BAD: forcing every reply into a different visual structure.
-No domain-specific examples are provided intentionally. Never copy wording from this prompt into a reply.
-
-━━ RULES ━━
-1. Zero emojis.
-2. Specific reference from the post in every reply - a number, name, claim, or detail.
-3. Make a statement from the user's point of view. Agree, disagree, add context, be skeptical, or share a personal read.
-4. Each of 4 replies = different angle and wording, but keep the same layout lane for the batch.
-5. Lowercase ok. Fragments ok. Contractions ok (im, its, dont, wont).
-6. "tbh", "fr", "lemme", "gonna", "tbf" - use naturally, max 1 of 4 replies. Never use "ngl".
-7. Hard length cap: under ${MAX_REPLY_CHARS} chars total per reply. Aim 60-120.
-8. Do not wrap replies or individual lines in quotation marks.
-9. Do not name external projects/protocols/tools unless they appear in the tweet context or verified background.
-10. Never include structure names or labels in the reply text.
-11. Avoid filler adjectives. Prefer one specific noun from the tweet over broad words like future, potential, wave, vibes, boost.
-12. Never write like you are evaluating the tweet. Write like you are adding your own opinion to the conversation.
-13. Do not reuse the same opener, cadence, or pet phrase across the 4 replies. No repeated "i think", "tbh", "my read", or similar starts.
-14. At least 2 replies should be from a clear self-perspective: what the user would bet on, care about, flex, doubt, or choose.
-15. Do not use more than one comma unless the reply is still under 110 chars.
-16. Never use bullets, "~", numbered lines, or 3+ line replies unless the original tweet is clearly a list post.
-${hasImage ? `
-━━ IMAGE ━━
-Use the Grok-verified visual context below. At least 2 of 4 replies should reference concrete visual details if they matter:
-exact numbers, text on screen, bar chart values, brand names, UI elements shown.
-Never vague ("nice pic"). Never claim you personally inspected anything beyond the verified context.` : ""}
-${styleInstruction(style, customNote) !== "Casual, direct, like a smart friend in the space." ? `\n━━ STYLE ━━\n${styleInstruction(style, customNote)}` : ""}
-${grokContext ? `\n━━ GROK CONTEXT (use silently, if relevant) ━━\n${grokContext}` : ""}
-${webContext ? `\n━━ GOOGLE WEB CONTEXT VIA GEMINI (use silently, if relevant) ━━\n${webContext}` : ""}
-${projectsContext ? `\n━━ YOUR EXPERTISE ━━\n${projectsContext}` : ""}
-
-OUTPUT: JSON only. 4 short replies. No explanation. No bullets unless the original tweet is a visible list.
-{"suggestions": ["reply 1", "reply 2", "reply 3", "reply 4"]}`;
+OUTPUT
+Return JSON only:
+{"suggestions": ["reply 1", "reply 2", "reply 3", "reply 4"]}
+4 distinct human replies. Same language as the post. No explanation.`;
 }
 
 // ─── Main Route ───────────────────────────────────────────────────────────────
@@ -853,7 +824,7 @@ export async function POST(req: NextRequest) {
 
   // ── Build user message ────────────────────────────────────────────────────
   const regenerateNote = isRegenerate && previousSuggestions.length
-    ? `\n\nAlready generated these - make 4 completely different ones, different angles:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
+    ? `\n\nPrevious suggestions already used for this post. Write 4 fresh ones with totally different openings, rhythms, and angles. Do not reuse phrases like "i'd bet", "tbh", "the real test", or any opener from the list below:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
     : "";
 
   const userMessage = {
@@ -868,9 +839,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "AI_GATEWAY_NOT_CONFIGURED" }, { status: 500 });
   }
   const masterpiece = plan.qualityTier === "masterpiece";
-  // Keep enough entropy for human variation while Grok context keeps it grounded.
-  const temperature = isRegenerate ? 0.72 : masterpiece ? 0.58 : 0.55;
-  const maxTokens = masterpiece ? 420 : 360;
+  // Slightly higher entropy reduces template collapse; grounding still comes from context.
+  const temperature = isRegenerate ? 0.9 : masterpiece ? 0.78 : 0.74;
+  const maxTokens = masterpiece ? 480 : 420;
 
   let gatewayResp: Response;
   try {
@@ -1050,11 +1021,13 @@ async function repairSuggestions({
             content: `Rewrite bad X replies into 4 short human replies.
 
 Rules:
-- each reply under ${MAX_REPLY_CHARS} chars, aim 8-16 words
-- one sentence each
+- match the original post language exactly
+- each reply under ${MAX_REPLY_CHARS} chars, aim 6-16 words
+- one sentence each unless a clean two-line contrast is better
 - no bullets, no lists, no explanation
 - no questions at the end
-- sound like a real person with a small opinion
+- no template openers like "i'd bet", "tbh", "the real test", "the part i'd"
+- sound like different real people with distinct instincts
 - keep only names/handles/claims visible in the tweet`
           },
           {
@@ -1062,8 +1035,8 @@ Rules:
             content: `Tweet:\n"""\n${context}\n"""\n\nBad/long replies:\n${rawSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}${isRegenerate && previousSuggestions.length ? `\n\nAvoid these previous replies:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}` : ""}\n\nReturn JSON only: {"suggestions":["...","...","...","..."]}`
           }
         ],
-        temperature: 0.45,
-        max_tokens: 280
+        temperature: 0.7,
+        max_tokens: 340
       }),
       signal: AbortSignal.timeout(12000)
     });
@@ -1116,7 +1089,30 @@ function isAllowedReply(reply: string, context: string): boolean {
     "worth a deeper dive",
     "ride the wave",
     "might be the ticket",
-    "potential is clear"
+    "potential is clear",
+    "i d bet",
+    "id bet",
+    "i would bet",
+    "the part i d",
+    "the part id",
+    "the only part i d",
+    "the only part id",
+    "the real test is",
+    "the real edge is",
+    "the real unlock",
+    "the underrated bit",
+    "the underrated part",
+    "matters more than",
+    "every time",
+    "tbh"
+  ];
+  const bannedPatterns = [
+    /\bthe\b.+\bpart i(?:'|\u2019)?d\b/i,
+    /\bi(?:'|\u2019)?d bet\b/i,
+    /\bthe real (?:test|edge|unlock|issue|lever)\b/i,
+    /\bmatters more than\b/i,
+    /\bevery time\b/i,
+    /\btbh\b/i
   ];
   const leakedPromptPhrases = [
     "open gotchi potential",
@@ -1129,6 +1125,7 @@ function isAllowedReply(reply: string, context: string): boolean {
   ];
 
   if (bannedPhrases.some(phrase => normalizedReply.includes(phrase))) return false;
+  if (bannedPatterns.some((pattern) => pattern.test(reply))) return false;
   if (leakedPromptPhrases.some(phrase => normalizedReply.includes(phrase))) return false;
 
   const contextSymbols = new Set(normalizedContext.match(/[@$][a-z0-9_]+/g) || []);
@@ -1138,13 +1135,41 @@ function isAllowedReply(reply: string, context: string): boolean {
   return true;
 }
 
+function replyOpenerKey(reply: string): string {
+  return normalizeForCompare(reply).split(" ").slice(0, 3).join(" ");
+}
+
+function replySkeleton(reply: string): string {
+  return normalizeForCompare(reply)
+    .replace(/[@$][a-z0-9_]+/g, "#entity")
+    .replace(/\b\d+(?:\.\d+)?%?\b/g, "#num")
+    .replace(/\b(?:i|id|im|my|me|we|our)\b/g, "#self")
+    .replace(/\b(?:the|a|an|and|or|to|of|for|on|in|is|are|that|this|it)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function dedupeReplyOpeners(replies: string[]): string[] {
-  const seen = new Set<string>();
-  return replies.filter(reply => {
-    const opener = normalizeForCompare(reply).split(" ").slice(0, 3).join(" ");
+  const seenOpeners = new Set<string>();
+  const seenSkeletons = new Set<string>();
+  let firstPersonCount = 0;
+
+  return replies.filter((reply) => {
+    const opener = replyOpenerKey(reply);
     if (!opener) return false;
-    if (seen.has(opener)) return false;
-    seen.add(opener);
+    if (seenOpeners.has(opener)) return false;
+
+    const skeleton = replySkeleton(reply);
+    if (skeleton && seenSkeletons.has(skeleton)) return false;
+
+    const startsFirstPerson = /^(i|i'd|i\u2019m|im|i am|my)\b/i.test(reply.trim());
+    if (startsFirstPerson) {
+      if (firstPersonCount >= 1) return false;
+      firstPersonCount += 1;
+    }
+
+    seenOpeners.add(opener);
+    if (skeleton) seenSkeletons.add(skeleton);
     return true;
   });
 }

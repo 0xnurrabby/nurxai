@@ -42,7 +42,8 @@ function ratePolicy(pathname: string, method: string): RatePolicy {
     return { name: "auth", windowMs: 15 * MINUTE, max: 5, bodyLimitBytes: 32 * 1024 };
   }
   if (pathname === "/api/generate") {
-    return { name: "ai", windowMs: MINUTE, max: 10, bodyLimitBytes: 256 * 1024, keyByAuth: true };
+    // High enough for multi-tab / multi-user reply bursts. Plan daily quota still gates usage.
+    return { name: "ai", windowMs: MINUTE, max: 120, bodyLimitBytes: 256 * 1024, keyByAuth: true };
   }
   if (pathname === "/api/chat") {
     return { name: "chat", windowMs: MINUTE, max: 30, bodyLimitBytes: 32 * 1024, keyByAuth: true };

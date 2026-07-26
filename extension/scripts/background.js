@@ -83,10 +83,19 @@ async function callGenerate(context, imageUrls, regenerate, previousSuggestions)
     await audit("subscription_check_failed");
     return { ok: false, error: "NEEDS_RECONNECT" };
   }
-  if (resp.status === 429) return { ok: false, error: "QUOTA_EXCEEDED" };
-
   let data;
-  try { data = await resp.json(); } catch { return { ok: false, error: "BAD_RESPONSE" }; }
+  try { data = await resp.json(); } catch {
+    if (resp.status === 429) return { ok: false, error: "RATE_LIMITED" };
+    return { ok: false, error: "BAD_RESPONSE" };
+  }
+  if (resp.status === 429) {
+    return {
+      ok: false,
+      error: data?.error === "QUOTA_EXCEEDED" ? "QUOTA_EXCEEDED" : "RATE_LIMITED",
+      message: data?.message || "",
+      limit: data?.limit
+    };
+  }
   if (resp.status === 426 || data?.error === "EXTENSION_UPDATE_REQUIRED") {
     return {
       ok: false,
