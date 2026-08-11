@@ -1,0 +1,44 @@
+name: Deploy Cloudflare Worker
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            dashboard/package-lock.json
+
+      - name: Install deploy tooling
+        run: npm ci
+
+      - name: Build Worker
+        run: npm run cf:build
+
+      - name: Configure Cloudflare authentication
+        env:
+          WRANGLER_CONFIG: ${{ secrets.CLOUDFLARE_WRANGLER_CONFIG }}
+        run: |
+          mkdir -p "$HOME/.config/.wrangler/config"
+          printf '%s' "$WRANGLER_CONFIG" > "$HOME/.config/.wrangler/config/github-actions.toml"
+
+      - name: Deploy Worker
+        run: npx wrangler deploy --profile github-actions
