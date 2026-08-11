@@ -3,12 +3,16 @@ import { PrismaClient } from "@prisma/client";
 const sourceUrl = process.env.SUPABASE_URL?.replace(/\/+$/, "");
 const sourceKey = process.env.SUPABASE_ANON_KEY;
 const targetUrl = process.env.TARGET_DATABASE_URL;
+const mode = process.env.MIGRATION_MODE || "reset";
 
 if (!sourceUrl || !sourceKey || !targetUrl) {
   throw new Error("SUPABASE_URL, SUPABASE_ANON_KEY, and TARGET_DATABASE_URL are required.");
 }
-if (process.env.CONFIRM_DATABASE_RESET !== "yes") {
+if (mode === "reset" && process.env.CONFIRM_DATABASE_RESET !== "yes") {
   throw new Error("Set CONFIRM_DATABASE_RESET=yes to replace all target application data.");
+}
+if (mode !== "reset" && mode !== "merge") {
+  throw new Error("MIGRATION_MODE must be reset or merge.");
 }
 
 const tables = [
@@ -75,6 +79,16 @@ async function createInBatches(delegate, rows) {
   }
 }
 
+async function upsertInBatches(delegate, rows) {
+  for (let offset = 0; offset < rows.length; offset += 5) {
+    const batch = rows.slice(offset, offset + 5);
+    await Promise.all(batch.map((row) => {
+      const { id, ...update } = row;
+      return delegate.upsert({ where: { id }, create: row, update });
+    }));
+  }
+}
+
 const exported = new Map();
 for (const [table, , dateFields, decimalFields] of tables) {
   const rows = await fetchTable(table);
@@ -85,28 +99,31 @@ for (const [table, , dateFields, decimalFields] of tables) {
 const prisma = new PrismaClient({ datasources: { db: { url: targetUrl } } });
 
 try {
-  await prisma.$transaction([
-    prisma.withdrawalRequest.deleteMany(),
-    prisma.walletLedger.deleteMany(),
-    prisma.subscriptionGift.deleteMany(),
-    prisma.announcementRead.deleteMany(),
-    prisma.chatMessage.deleteMany(),
-    prisma.projectContext.deleteMany(),
-    prisma.generation.deleteMany(),
-    prisma.payment.deleteMany(),
-    prisma.usageLog.deleteMany(),
-    prisma.subscription.deleteMany(),
-    prisma.project.deleteMany(),
-    prisma.announcement.deleteMany(),
-    prisma.auditLog.deleteMany(),
-    prisma.user.deleteMany()
-  ]);
+  if (mode === "reset") {
+    await prisma.$transaction([
+      prisma.withdrawalRequest.deleteMany(),
+      prisma.walletLedger.deleteMany(),
+      prisma.subscriptionGift.deleteMany(),
+      prisma.announcementRead.deleteMany(),
+      prisma.chatMessage.deleteMany(),
+      prisma.projectContext.deleteMany(),
+      prisma.generation.deleteMany(),
+      prisma.payment.deleteMany(),
+      prisma.usageLog.deleteMany(),
+      prisma.subscription.deleteMany(),
+      prisma.project.deleteMany(),
+      prisma.announcement.deleteMany(),
+      prisma.auditLog.deleteMany(),
+      prisma.user.deleteMany()
+    ]);
+  }
 
   for (const [table, delegateName] of tables) {
     const rows = exported.get(table);
-    await createInBatches(prisma[delegateName], rows);
+    if (mode === "reset") await createInBatches(prisma[delegateName], rows);
+    else await upsertInBatches(prisma[delegateName], rows);
     const targetCount = await prisma[delegateName].count();
-    if (targetCount !== rows.length) {
+    if (mode === "reset" ? targetCount !== rows.length : targetCount < rows.length) {
       throw new Error(`${table} count mismatch: source=${rows.length}, target=${targetCount}`);
     }
     console.log(`Verified ${table}: ${targetCount}`);
