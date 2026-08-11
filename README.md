@@ -92,6 +92,19 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
+Cloudflare Workers deployment uses OpenNext from the `dashboard` directory:
+
+```powershell
+cd dashboard
+npm run cf:build
+npm run deploy
+```
+
+The production Worker is `nurxai` and uses the `HYPERDRIVE` binding declared in
+`dashboard/wrangler.jsonc`. Cloudflare Workers Builds tracks the `main` branch
+with `/dashboard/` as its root directory. Runtime credentials belong in Worker
+secrets and must never be committed.
+
 Admin access is controlled by `ADMIN_EMAILS`; database `isAdmin` is only synced
 for display and cannot grant access by itself.
 
