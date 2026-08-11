@@ -3,7 +3,7 @@
 <div align="center">
 
 ![Extension](https://img.shields.io/badge/Extension-Manifest+V3-C7D2FE?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
-[![Dashboard](https://img.shields.io/badge/Dashboard-Next.js+14-BBF7D0?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)](https://www.nurxai.xyz)
+[![Dashboard](https://img.shields.io/badge/Dashboard-Next.js+14-BBF7D0?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)](https://nurxai.xyz)
 ![Database](https://img.shields.io/badge/Database-Prisma-FDE68A?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
 ![AI](https://img.shields.io/badge/AI-GPT+%2B+Grok+%2B+Gemini-FBCFE8?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
 
@@ -100,10 +100,13 @@ npm run cf:build
 npm run deploy
 ```
 
-The production Worker is `nurxai` and uses the `HYPERDRIVE` binding declared in
-`dashboard/wrangler.jsonc`. Cloudflare Workers Builds tracks the `main` branch
-with `/dashboard/` as its root directory. Runtime credentials belong in Worker
-secrets and must never be committed.
+The `nurxai` Worker uses the `HYPERDRIVE` binding declared in
+`dashboard/wrangler.jsonc`. It is deployed as a preview and disaster-recovery
+target; production traffic for `nurxai.xyz` is served by Vercel behind the
+Cloudflare proxy. Do not attach the production domain to the Worker on the Free
+plan: the OpenNext application exceeds the 10 ms CPU limit during some cold
+starts. Runtime credentials belong in Worker secrets and must never be
+committed.
 
 Admin access is controlled by `ADMIN_EMAILS`; database `isAdmin` is only synced
 for display and cannot grant access by itself.
@@ -126,7 +129,7 @@ nurxai/
 
 ## Notes
 
-- The extension currently points to `https://www.nurxai.xyz` in `extension/scripts/config.js`.
+- The extension points to `https://nurxai.xyz` in `extension/scripts/config.js`.
 - For a fully local extension test, change `API_BASE` and `WEB_BASE` to your local or preview URL.
 - Keep `JWT_SECRET`, payment keys, and AI keys out of Git.
 
