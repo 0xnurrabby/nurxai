@@ -17,7 +17,7 @@ import {
 export const runtime = "nodejs";
 
 function publicUrl() {
-  return (process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://www.nurxai.xyz").replace(/\/+$/, "");
+  return (process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://nurxai.xyz").replace(/\/+$/, "");
 }
 
 function serializeWithdrawal(row: any) {

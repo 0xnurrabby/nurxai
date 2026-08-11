@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
     user: { id: user.id, email: user.email, name: profile?.name ?? user.name, avatarUrl: profile?.avatarUrl || null, isAdmin },
     referral: {
       code: profile?.referralCode || null,
-      link: profile?.referralCode ? `${(process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://www.nurxai.xyz").replace(/\/+$/, "")}/signup?ref=${encodeURIComponent(profile.referralCode)}` : null,
+      link: profile?.referralCode ? `${(process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://nurxai.xyz").replace(/\/+$/, "")}/signup?ref=${encodeURIComponent(profile.referralCode)}` : null,
       referredBy: profile?.referredBy || null,
       totalReferrals: profile?._count.referrals || 0,
       bonusRate: REFERRAL_BONUS_RATE

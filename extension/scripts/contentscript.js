@@ -2,7 +2,7 @@
 (function () {
   const HOST_ID = "nurai-suggestions-host";
   const POS_KEY = "nurai_panel_pos";
-  const WEB_BASE = "https://www.nurxai.xyz";
+  const WEB_BASE = "https://nurxai.xyz";
   const RUN_ID = `${Date.now()}:${Math.random()}`;
 
   window.__NURAI_ACTIVE_RUN_ID = RUN_ID;

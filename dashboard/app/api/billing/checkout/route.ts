@@ -13,7 +13,7 @@ function getNowPaymentsKey() {
 }
 
 function getPublicUrl() {
-  return (process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://www.nurxai.xyz").replace(/\/+$/, "");
+  return (process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://nurxai.xyz").replace(/\/+$/, "");
 }
 
 export async function POST(req: NextRequest) {

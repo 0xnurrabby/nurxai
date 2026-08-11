@@ -34,12 +34,13 @@
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",
-    "https://www.nurxai.xyz/*"
+    "https://www.nurxai.xyz/*",
+    "https://nurxai.xyz/*"
   ],
   "externally_connectable": {
-    "matches": ["https://www.nurxai.xyz/*"]
+    "matches": ["https://www.nurxai.xyz/*", "https://nurxai.xyz/*"]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://www.nurxai.xyz"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://www.nurxai.xyz https://nurxai.xyz"
   }
 }

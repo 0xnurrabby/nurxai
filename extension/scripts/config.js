@@ -1,7 +1,7 @@
 ﻿// config.js — central configuration constants for NurAi extension
 export const CONFIG = Object.freeze({
-  API_BASE: "https://www.nurxai.xyz/api",
-  WEB_BASE: "https://www.nurxai.xyz",
+  API_BASE: "https://nurxai.xyz/api",
+  WEB_BASE: "https://nurxai.xyz",
   EXTENSION_UPDATE_URL: "https://chromewebstore.google.com/detail/odapbgkbdpalphekkmibliclmedgmlhb",
 
   MAX_TWEET_CONTEXT_LENGTH: 1500,

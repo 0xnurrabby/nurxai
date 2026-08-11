@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.nurxai.xyz"),
+  metadataBase: new URL("https://nurxai.xyz"),
   title: {
     default: "NurAi - AI Reply Generator for X and Twitter",
     template: "%s | NurAi"
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     title: "NurAi - AI Reply Generator for X and Twitter",
     description:
       "Write human-sounding X and Twitter replies in one click. NurAi reads the post, understands context, and helps creators reply faster.",
-    url: "https://www.nurxai.xyz",
+    url: "https://nurxai.xyz",
     siteName: "NurAi",
     type: "website",
     locale: "en_US",

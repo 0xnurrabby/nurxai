@@ -18,6 +18,16 @@
       "id": "2e172f2cd96a497793964797cbebe7a8"
     }
   ],
+  "routes": [
+    {
+      "pattern": "nurxai.xyz/*",
+      "zone_name": "nurxai.xyz"
+    },
+    {
+      "pattern": "www.nurxai.xyz/*",
+      "zone_name": "nurxai.xyz"
+    }
+  ],
   "observability": {
     "enabled": true
   }

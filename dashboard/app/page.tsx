@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Navbar from "./components/Navbar";
 import HeroMotion from "./components/HeroMotion";
 
-const siteUrl = "https://www.nurxai.xyz";
+const siteUrl = "https://nurxai.xyz";
 const chromeStoreUrl =
   "https://chromewebstore.google.com/detail/odapbgkbdpalphekkmibliclmedgmlhb";
 

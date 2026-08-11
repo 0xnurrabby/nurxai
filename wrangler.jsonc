@@ -2,6 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "nurxai",
   "main": "dashboard/.open-next/worker.js",
+  "workers_dev": true,
   "compatibility_date": "2026-08-11",
   "compatibility_flags": [
     "nodejs_compat",
@@ -16,6 +17,16 @@
     {
       "binding": "HYPERDRIVE",
       "id": "2e172f2cd96a497793964797cbebe7a8"
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "nurxai.xyz/*",
+      "zone_name": "nurxai.xyz"
+    },
+    {
+      "pattern": "www.nurxai.xyz/*",
+      "zone_name": "nurxai.xyz"
     }
   ],
   "observability": {
