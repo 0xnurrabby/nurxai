@@ -40,5 +40,11 @@ jobs:
           mkdir -p "$HOME/.config/.wrangler/config"
           printf '%s' "$WRANGLER_CONFIG" > "$HOME/.config/.wrangler/config/github-actions.toml"
 
-      - name: Deploy Worker
+      - name: Deploy application Worker
         run: npx wrangler deploy --profile github-actions
+
+      - name: Deploy paid-plan probe
+        run: npx wrangler deploy --config wrangler.probe.jsonc --profile github-actions
+
+      - name: Deploy production edge router
+        run: npx wrangler deploy --config wrangler.edge.jsonc --profile github-actions

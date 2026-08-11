@@ -100,13 +100,13 @@ npm run cf:build
 npm run deploy
 ```
 
-The `nurxai` Worker uses the `HYPERDRIVE` binding declared in
-`dashboard/wrangler.jsonc`. It is deployed as a preview and disaster-recovery
-target; production traffic for `nurxai.xyz` is served by Vercel behind the
-Cloudflare proxy. Do not attach the production domain to the Worker on the Free
-plan: the OpenNext application exceeds the 10 ms CPU limit during some cold
-starts. Runtime credentials belong in Worker secrets and must never be
-committed.
+The paid `nurxai` Worker uses the `HYPERDRIVE` binding declared in
+`dashboard/wrangler.jsonc`. Production traffic first reaches the lightweight
+`nurxai-edge` Worker. Its KV-backed mode sends traffic to the Cloudflare app
+through a service binding while the paid runtime probe is healthy, or to the
+Vercel standby deployment when the account is on the Free plan. GitHub checks
+the isolated plan probe twice daily; production requests never run that check.
+Runtime credentials belong in Worker secrets and must never be committed.
 
 Admin access is controlled by `ADMIN_EMAILS`; database `isAdmin` is only synced
 for display and cannot grant access by itself.
@@ -123,6 +123,7 @@ nurxai/
   dashboard/             -> Next.js dashboard
   dashboard/app/api/     -> auth, billing, extension, generate APIs
   dashboard/prisma/      -> Prisma schema
+  cloudflare/             -> edge router and isolated plan probe
 ```
 
 ---

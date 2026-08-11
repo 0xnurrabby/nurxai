@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "nurxai-edge",
+  "account_id": "2564510691526e3385480a9a3ac746fe",
+  "main": "cloudflare/edge-router.ts",
+  "workers_dev": true,
+  "compatibility_date": "2026-08-11",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "routes": [
+    { "pattern": "nurxai.xyz/*", "zone_id": "af8829729eb6dcf78cd839cc5b354a53" },
+    { "pattern": "www.nurxai.xyz/*", "zone_id": "af8829729eb6dcf78cd839cc5b354a53" }
+  ],
+  "services": [
+    { "binding": "APP", "service": "nurxai" }
+  ],
+  "kv_namespaces": [
+    { "binding": "ROUTING", "id": "83eef786275a4760ba513c78628b7530" }
+  ],
+  "vars": {
+    "VERCEL_ORIGIN": "https://nurxai.vercel.app"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

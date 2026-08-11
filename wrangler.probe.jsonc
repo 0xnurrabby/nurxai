@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "nurxai-plan-probe",
+  "account_id": "2564510691526e3385480a9a3ac746fe",
+  "main": "cloudflare/plan-probe.ts",
+  "workers_dev": true,
+  "compatibility_date": "2026-08-11",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "limits": {
+    "cpu_ms": 5000
+  },
+  "observability": {
+    "enabled": false
+  }
+}
