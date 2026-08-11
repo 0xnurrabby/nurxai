@@ -6,6 +6,8 @@ node_modules/
 out/
 build/
 dist/
+.open-next/
+.wrangler/
 
 # Environment files (NEVER commit secrets!)
 .env
@@ -27,6 +29,9 @@ Thumbs.db
 
 # Vercel
 .vercel/
+
+# Cloudflare generated output
+cloudflare-env.d.ts
 
 # Prisma
 prisma/dev.db

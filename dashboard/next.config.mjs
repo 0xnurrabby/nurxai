@@ -18,6 +18,7 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
   turbopack: {
     root: rootDir
   },

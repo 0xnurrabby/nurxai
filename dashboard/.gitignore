@@ -6,6 +6,10 @@ node_modules/
 *.log
 .DS_Store
 .vercel
+.open-next
+.wrangler
+cloudflare-env.d.ts
 prisma/dev.db
 .env*
 !.env.example
+.vercel-production.env

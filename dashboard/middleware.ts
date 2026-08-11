@@ -77,7 +77,7 @@ function tooLarge(req: NextRequest, limit: number) {
   return Number.isFinite(length) && length > limit;
 }
 
-export function proxy(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const policy = ratePolicy(pathname, req.method);
 
