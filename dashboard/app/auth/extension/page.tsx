@@ -29,7 +29,10 @@ function ExtensionAuthInner() {
       try {
         const r = await fetch("/api/extension/token", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` }
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-Client-Version": "2.0.17"
+          }
         });
         if (!r.ok) {
           setStatus("Could not verify session. Please sign in again.");

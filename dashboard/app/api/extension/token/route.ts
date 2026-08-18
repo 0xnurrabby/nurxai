@@ -12,6 +12,6 @@ export async function POST(req: NextRequest) {
 
   await prisma.auditLog.create({ data: { userId: user.id, event: "extension_link" } });
 
-  const token = await signToken({ sub: user.id, email: user.email }, "30d");
+  const token = await signToken({ sub: user.id, email: user.email }, "90d");
   return NextResponse.json({ token });
 }
