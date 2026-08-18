@@ -1,8 +1,8 @@
-NurAi is an AI reply assistant for X/Twitter that helps you write sharper, more natural replies without sounding like a bot.
+NurAi is a human-in-the-loop communication copilot for X that helps you prepare sharper, more natural replies without handing account control to a bot.
 
-Open a reply box on X and NurAi gives you 4 short, contextual reply options in seconds. Pick the one that fits, paste it manually, edit if you want, then post when you are ready.
+Open a reply box on X and NurAi gives you 4 short, contextual reply options in seconds. Pick the one that fits, click Use to paste it, edit if you want, then post when you are ready.
 
-Built for creators, marketers, founders, crypto/Web3 communities, and anyone who wants to stay active on X without writing every reply from scratch.
+Built for creators, founders, researchers, product teams, and community professionals who value context and remain accountable for what they publish.
 
 WHY NURAI FEELS DIFFERENT
 
@@ -15,7 +15,7 @@ NurAi is tuned for replies that feel closer to how people actually write on X:
 * avoids common AI openers like "Great point" and "Absolutely"
 * uses natural phrasing, casual rhythm, and human imperfections
 * understands the post before writing
-* keeps you in control with manual paste only
+* keeps you in control with user-initiated paste and final publication
 
 WHAT NURAI CAN DO
 
@@ -42,11 +42,12 @@ HOW IT WORKS
 PLANS
 
 * Free Trial: 3 days, 10 comments per day
-* Starter: $5/month, 28 comments per day, text replies, all styles, custom style note
-* Pro: $10/month, 67 comments per day, image understanding, project contexts
-* Premium: $30/month, 233 comments per day, full GPT + Grok + Gemini context stack
+* Starter: $5 for 30 days, 28 comments per day, text replies, all styles, custom style note
+* Pro: $10 for 30 days, 67 comments per day, image understanding, project contexts
+* Premium: $30 for 30 days, 233 comments per day, full GPT + Grok + Gemini context stack
+* Premium PAYG: the current exact USDC price per generation through x402 on Base, with no daily PAYG quota
 
-Payments are available through NOWPayments crypto checkout and Base Pay.
+Fixed plans support NOWPayments crypto checkout and Base Pay. Premium PAYG uses an app-specific Base Sub Account to authorize the displayed USDC amount and settle through x402 on Base mainnet.
 
 PRIVACY
 
@@ -58,9 +59,9 @@ NurAi does not collect:
 * your DMs or private messages
 * your full browsing history
 * tweets you are not replying to
-* wallet custody information
+* wallet private keys or seed phrases
 
-NurAi uses account email for login, selected tweet context for reply generation, and usage counts for plan limits.
+NurAi uses account email for login, selected public post context for reply generation, usage counts for plan limits, and payment metadata for PAYG settlement and support. NurAi never presses X's final Reply button.
 
 PERMISSIONS
 

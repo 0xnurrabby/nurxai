@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUserFromHeader } from "@/lib/auth-helpers";
 import { PLANS, PlanKey } from "@/lib/plans";
-import { ensureRuntimeSchema } from "@/lib/schema-guard";
+import { ensurePaygSchema, ensureRuntimeSchema } from "@/lib/schema-guard";
 import { getSubscriptionDailyLimit } from "@/lib/subscription-limits";
 import { requireSupportedExtensionVersion } from "@/lib/extension-version";
 import { getCurrentSubscriptionForUser } from "@/lib/billing";
+import { paygRequestHash, verifyPaygGrant } from "@/lib/payg-operation";
 import { google } from "@ai-sdk/google";
 import { gateway, generateText } from "ai";
 import crypto from "crypto";
@@ -33,6 +34,8 @@ const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-4o":      { input: 2.50, output: 10.00 },
   "openai/gpt-5.4-mini": { input: 0.15, output: 0.60 },
   "xai/grok-4.1-fast-reasoning": { input: 0.20, output: 0.60 },
+  "xai/grok-4.20-non-reasoning": { input: 1.25, output: 2.50 },
+  "xai/grok-4.20-reasoning": { input: 1.25, output: 2.50 },
   "google/gemini-3.1-flash-lite": { input: 0.10, output: 0.40 },
   "google/gemini-3.1-flash-lite-preview": { input: 0.10, output: 0.40 }
 };
@@ -169,7 +172,9 @@ async function usageFromGatewayInfo(stage: string, model: string, generationId?:
 async function usageFromOpenAIResponse(stage: string, model: string, data: any): Promise<AiUsage> {
   const rawId = typeof data?.id === "string" && data.id.startsWith("gen_") ? data.id : undefined;
   const generationId = gatewayGenerationId(data?.providerMetadata) || rawId;
-  const fromGateway = await usageFromGatewayInfo(stage, model, generationId);
+  const fromGateway = process.env.AI_GATEWAY_USAGE_LOOKUP === "true"
+    ? await usageFromGatewayInfo(stage, model, generationId)
+    : null;
   if (fromGateway) return fromGateway;
 
   const inputTokens = Number(data?.usage?.prompt_tokens || data?.usage?.input_tokens || 0);
@@ -193,7 +198,9 @@ async function usageFromOpenAIResponse(stage: string, model: string, data: any):
 
 async function usageFromAiSdkResult(stage: string, model: string, result: any): Promise<AiUsage> {
   const generationId = gatewayGenerationId(result?.providerMetadata);
-  const fromGateway = await usageFromGatewayInfo(stage, model, generationId);
+  const fromGateway = process.env.AI_GATEWAY_USAGE_LOOKUP === "true"
+    ? await usageFromGatewayInfo(stage, model, generationId)
+    : null;
   if (fromGateway) return fromGateway;
 
   const usage = result?.totalUsage || result?.usage || {};
@@ -227,10 +234,11 @@ async function enrichContext(tweetText: string, imageParts: ImagePart[], plan: P
   const apiKey = process.env.AI_GATEWAY_API_KEY;
   if (!apiKey) return { text: null, imageUsed: false, searchUsed: false, usage: emptyUsage() };
 
-  const primaryModel = process.env.AI_GATEWAY_MODEL || "xai/grok-4.1-fast-reasoning";
-  const fallbackModel = "xai/grok-4.1-fast-reasoning";
+  const primaryModel = process.env.AI_GATEWAY_MODEL || "xai/grok-4.20-non-reasoning";
+  const fallbackModel = "xai/grok-4.20-reasoning";
   const models = primaryModel === fallbackModel ? [primaryModel] : [primaryModel, fallbackModel];
   const hasImages = imageParts.length > 0;
+  let accumulatedUsage = emptyUsage();
 
   const userContent: any = hasImages
     ? [
@@ -244,9 +252,12 @@ async function enrichContext(tweetText: string, imageParts: ImagePart[], plan: P
 
   let lastStatus = 0;
   let lastBody = "";
+  const deadline = Date.now() + ENRICH_TIMEOUT_MS;
 
-  for (let attempt = 0; attempt < ENRICH_ATTEMPTS; attempt++) {
+  attempts: for (let attempt = 0; attempt < ENRICH_ATTEMPTS; attempt++) {
     for (const model of models) {
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) break attempts;
       try {
         const resp = await fetch(AI_GATEWAY_URL, {
           method: "POST",
@@ -283,7 +294,7 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
             ],
             max_tokens: ENRICH_MAX_TOKENS
           }),
-          signal: AbortSignal.timeout(ENRICH_TIMEOUT_MS)
+          signal: AbortSignal.timeout(remainingMs)
         });
 
         if (!resp.ok) {
@@ -296,12 +307,17 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
         const text: string = data?.choices?.[0]?.message?.content || "";
         const cleaned = text.trim();
         const usage = await usageFromOpenAIResponse("grok-context", model, data);
-        if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) return { text: null, imageUsed: hasImages, searchUsed: true, usage };
+        accumulatedUsage = addUsage(accumulatedUsage, usage);
+        if (/^NO_VERIFIED_CONTEXT\b/i.test(cleaned)) {
+          if (hasImages && model === primaryModel && models.length > 1) continue;
+          return { text: null, imageUsed: hasImages, searchUsed: true, usage: accumulatedUsage };
+        }
         if (cleaned && cleaned.length > 30) {
           console.log("[enrich] got context, length:", text.length, "model:", model, "attempt:", attempt + 1);
-          return { text: cleaned, imageUsed: hasImages, searchUsed: true, usage };
+          return { text: cleaned, imageUsed: hasImages, searchUsed: true, usage: accumulatedUsage };
         }
-        return { text: null, imageUsed: hasImages, searchUsed: true, usage };
+        if (model !== models.at(-1)) continue;
+        return { text: null, imageUsed: hasImages, searchUsed: true, usage: accumulatedUsage };
       } catch (e: any) {
         lastBody = e?.message || "?";
       }
@@ -309,7 +325,7 @@ Return 2-5 short bullets only when they are safe and directly tied to the visibl
   }
 
   console.warn("[enrich] gateway failed after retries", lastStatus, lastBody.slice(0, 300));
-  return { text: null, imageUsed: false, searchUsed: false, usage: emptyUsage() };
+  return { text: null, imageUsed: false, searchUsed: false, usage: accumulatedUsage };
 }
 
 function searchableTweetText(tweetText: string) {
@@ -747,11 +763,33 @@ export async function POST(req: NextRequest) {
   ]);
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   const userId = auth.user.id;
+  const paygGrant = verifyPaygGrant(req.headers.get("x-nurxai-payg-grant"), {
+    userId,
+    requestHash: paygRequestHash(body)
+  });
 
   let context = String(body?.context || "").trim();
   if (!context) return NextResponse.json({ error: "EMPTY_CONTEXT" }, { status: 400 });
   context = context.slice(0, MAX_CTX);
   await ensureRuntimeSchema();
+  if (paygGrant) {
+    await ensurePaygSchema();
+    const operation = await prisma.paygGeneration.findUnique({
+      where: { id: paygGrant.operationId },
+      select: { userId: true, requestHash: true, status: true, leaseToken: true, leaseExpiresAt: true }
+    });
+    if (
+      !operation ||
+      operation.userId !== userId ||
+      operation.requestHash !== paygGrant.requestHash ||
+      operation.status !== "generating" ||
+      operation.leaseToken !== paygGrant.leaseToken ||
+      !operation.leaseExpiresAt ||
+      operation.leaseExpiresAt.getTime() <= Date.now()
+    ) {
+      return NextResponse.json({ error: "INVALID_PAYG_GRANT" }, { status: 403 });
+    }
+  }
 
   const rawImageUrls: string[] = Array.isArray(body?.imageUrls)
     ? body.imageUrls.filter((u: any) => typeof u === "string").slice(0, 4)
@@ -760,22 +798,24 @@ export async function POST(req: NextRequest) {
   const day = new Date().toISOString().slice(0, 10);
   const now = new Date();
   const dbStarted = nowMs();
-  const [sub, usage] = await Promise.all([
-    getCurrentSubscriptionForUser(userId, prisma, now),
-    prisma.usageLog.findUnique({
-      where: { userId_day: { userId, day } },
-      select: { count: true }
-    })
-  ]);
+  const [sub, usage] = paygGrant
+    ? [null, null]
+    : await Promise.all([
+        getCurrentSubscriptionForUser(userId, prisma, now),
+        prisma.usageLog.findUnique({
+          where: { userId_day: { userId, day } },
+          select: { count: true }
+        })
+      ]);
   const dbMs = nowMs() - dbStarted;
-  if (!sub) return NextResponse.json({ error: "NO_SUBSCRIPTION" }, { status: 402 });
+  if (!sub && !paygGrant) return NextResponse.json({ error: "NO_SUBSCRIPTION" }, { status: 402 });
 
-  const plan = PLANS[sub.plan as PlanKey];
+  const plan = paygGrant ? PLANS.premium : PLANS[sub!.plan as PlanKey];
   if (!plan) return NextResponse.json({ error: "BAD_PLAN" }, { status: 402 });
-  const dailyLimit = getSubscriptionDailyLimit(sub);
+  const dailyLimit = paygGrant ? Number.MAX_SAFE_INTEGER : getSubscriptionDailyLimit(sub!);
 
   const usageCount = usage?.count ?? 0;
-  if (usageCount >= dailyLimit) {
+  if (!paygGrant && usageCount >= dailyLimit) {
     return NextResponse.json({ error: "QUOTA_EXCEEDED", limit: dailyLimit }, { status: 429 });
   }
 
@@ -896,39 +936,68 @@ export async function POST(req: NextRequest) {
 
   const ctxHash = crypto.createHash("sha256").update(context).digest("hex").slice(0, 32);
   const aiStack = formatAiStack(aiUsage);
+  const result = {
+    suggestions,
+    usage: paygGrant
+      ? { used: null, limit: null, plan: "payg-premium", unlimited: true }
+      : { used: usageCount + 1, limit: dailyLimit, plan: sub!.plan },
+    aiStack,
+    visionUsed: hadVerifiedImageContext,
+    searchUsed: searchUsedByGrok
+  };
+  const generationData = {
+    userId,
+    contextHash: ctxHash,
+    suggestions: [] as any,
+    usageDetails: {
+      inputTokens: Math.round(aiUsage.inputTokens),
+      outputTokens: Math.round(aiUsage.outputTokens),
+      costUSD: Number(aiUsage.costUSD.toFixed(6)),
+      calls: aiUsage.calls.map((call) => ({
+        ...call,
+        inputTokens: Math.round(call.inputTokens),
+        outputTokens: Math.round(call.outputTokens),
+        costUSD: Number(call.costUSD.toFixed(6))
+      }))
+    } as any,
+    inputTokens: Math.round(aiUsage.inputTokens),
+    outputTokens: Math.round(aiUsage.outputTokens),
+    costUSD: aiUsage.costUSD.toFixed(6),
+    model: aiStack,
+    hadImage: hadVerifiedImageContext
+  };
   const writeStarted = nowMs();
-  await prisma.$transaction(async (tx) => {
-    await tx.generation.create({
-      data: {
-        userId,
-        contextHash: ctxHash,
-        suggestions: [] as any,
-        usageDetails: {
-          inputTokens: Math.round(aiUsage.inputTokens),
-          outputTokens: Math.round(aiUsage.outputTokens),
-          costUSD: Number(aiUsage.costUSD.toFixed(6)),
-          calls: aiUsage.calls.map((call) => ({
-            ...call,
-            inputTokens: Math.round(call.inputTokens),
-            outputTokens: Math.round(call.outputTokens),
-            costUSD: Number(call.costUSD.toFixed(6))
-          }))
-        } as any,
-        inputTokens: Math.round(aiUsage.inputTokens),
-        outputTokens: Math.round(aiUsage.outputTokens),
-        costUSD: aiUsage.costUSD.toFixed(6),
-        model: aiStack,
-        hadImage: hadVerifiedImageContext
-      }
+  if (paygGrant) {
+    await prisma.$transaction(async (tx) => {
+      const advanced = await tx.paygGeneration.updateMany({
+        where: {
+          id: paygGrant.operationId,
+          userId,
+          requestHash: paygGrant.requestHash,
+          status: "generating",
+          leaseToken: paygGrant.leaseToken
+        },
+        data: {
+          status: "ready_to_settle",
+          response: result as any,
+          leaseToken: null,
+          leaseExpiresAt: null,
+          error: null
+        }
+      });
+      if (advanced.count !== 1) throw new Error("PAYG_LEASE_LOST");
+      await tx.generation.create({ data: generationData });
     });
-
-    await tx.usageLog.upsert({
-      where: { userId_day: { userId, day } },
-      create: { userId, day, count: 1 },
-      update: { count: { increment: 1 } }
+  } else {
+    await prisma.$transaction(async (tx) => {
+      await tx.generation.create({ data: generationData });
+      await tx.usageLog.upsert({
+        where: { userId_day: { userId, day } },
+        create: { userId, day, count: 1 },
+        update: { count: { increment: 1 } }
+      });
     });
-
-  });
+  }
   const writeMs = nowMs() - writeStarted;
 
   console.log("[generate]", requestId, "plan=", plan.key, "total=", nowMs() - requestStarted,
@@ -937,13 +1006,7 @@ export async function POST(req: NextRequest) {
     "aiTokens=", aiUsage.inputTokens + aiUsage.outputTokens, "aiCost=", aiUsage.costUSD.toFixed(6),
     "aiCalls=", aiUsage.calls.length);
 
-  return NextResponse.json({
-    suggestions,
-    usage: { used: usageCount + 1, limit: dailyLimit, plan: sub.plan },
-    aiStack,
-    visionUsed: hadVerifiedImageContext,
-    searchUsed: searchUsedByGrok
-  });
+  return NextResponse.json(result);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -39,11 +39,15 @@ function ratePolicy(pathname: string, method: string): RatePolicy {
     return { name: "webhook", windowMs: MINUTE, max: 120, bodyLimitBytes: 256 * 1024 };
   }
   if (pathname.startsWith("/api/auth/")) {
-    return { name: "auth", windowMs: 15 * MINUTE, max: 5, bodyLimitBytes: 32 * 1024 };
+    return { name: "auth", windowMs: 15 * MINUTE, max: 20, bodyLimitBytes: 32 * 1024 };
   }
   if (pathname === "/api/generate") {
     // High enough for multi-tab / multi-user reply bursts. Plan daily quota still gates usage.
     return { name: "ai", windowMs: MINUTE, max: 120, bodyLimitBytes: 256 * 1024, keyByAuth: true };
+  }
+  if (pathname === "/api/payg/generate") {
+    // No business quota: this is only a high abuse ceiling, and each success is paid onchain.
+    return { name: "payg-ai", windowMs: MINUTE, max: 240, bodyLimitBytes: 256 * 1024, keyByAuth: true };
   }
   if (pathname === "/api/chat") {
     return { name: "chat", windowMs: MINUTE, max: 30, bodyLimitBytes: 32 * 1024, keyByAuth: true };

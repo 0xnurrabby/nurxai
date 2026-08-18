@@ -176,7 +176,7 @@ export default function DashboardLiveWidgets({
       fetchAnnouncements();
       if (chatOpen) fetchChat(true);
       else fetchChatSummary();
-    }, 6000);
+    }, 30_000);
     return () => {
       window.clearTimeout(kickoff);
       window.clearInterval(timer);

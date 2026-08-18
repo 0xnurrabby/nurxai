@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAdmin, isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
-import { getWalletSummary } from "@/lib/referrals";
 import { getCurrentSubscriptionForUser } from "@/lib/billing";
 
 export const runtime = "nodejs";
@@ -55,30 +54,91 @@ export async function GET(req: NextRequest) {
 
   // Aggregate per-user token + cost in a single query.
   const userIds = users.map((u) => u.id);
-  const stats =
-    userIds.length === 0
-      ? []
-      : await prisma.generation.groupBy({
+  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const [stats, todayUsage, activeSubscriptions, queuedPaidSubscriptions, walletLedger, withdrawals] = userIds.length === 0
+    ? [[], [], [], [], [], []]
+    : await Promise.all([
+        prisma.generation.groupBy({
           by: ["userId"],
           where: { userId: { in: userIds } },
           _sum: { inputTokens: true, outputTokens: true, costUSD: true }
-        });
-  const statsByUser = new Map(stats.map((s) => [s.userId, s]));
-
-  // Today's per-user usage (from UsageLog).
-  const today = new Date().toISOString().slice(0, 10);
-  const now = new Date();
-  const todayUsage =
-    userIds.length === 0
-      ? []
-      : await prisma.usageLog.findMany({
+        }),
+        prisma.usageLog.findMany({
           where: { userId: { in: userIds }, day: today },
           select: { userId: true, count: true }
-        });
+        }),
+        prisma.subscription.findMany({
+          where: {
+            userId: { in: userIds },
+            status: "active",
+            startsAt: { lte: now },
+            endsAt: { gt: now }
+          },
+          orderBy: { endsAt: "desc" }
+        }),
+        prisma.subscription.findMany({
+          where: {
+            userId: { in: userIds },
+            status: "active",
+            startsAt: { gt: now },
+            endsAt: { gt: now },
+            plan: { in: ["starter", "pro", "premium"] }
+          },
+          select: { userId: true },
+          distinct: ["userId"]
+        }),
+        prisma.walletLedger.groupBy({
+          by: ["userId", "type"],
+          where: { userId: { in: userIds } },
+          _sum: { amountUSD: true }
+        }),
+        prisma.withdrawalRequest.groupBy({
+          by: ["userId", "status"],
+          where: { userId: { in: userIds }, status: { in: ["pending", "paid"] } },
+          _sum: { amountUSD: true }
+        })
+      ]);
+  const statsByUser = new Map(stats.map((s) => [s.userId, s]));
   const todayByUser = new Map(todayUsage.map((u) => [u.userId, u.count]));
-
-  const activeSubs = await Promise.all(userIds.map((userId) => getCurrentSubscriptionForUser(userId, prisma, now)));
-  const activeSubByUser = new Map(userIds.map((userId, index) => [userId, activeSubs[index]]));
+  const activeSubByUser = new Map<string, (typeof activeSubscriptions)[number]>();
+  for (const subscription of activeSubscriptions) {
+    if (!activeSubByUser.has(subscription.userId)) activeSubByUser.set(subscription.userId, subscription);
+  }
+  const queuedPaidUserIds = new Set(queuedPaidSubscriptions.map((subscription) => subscription.userId));
+  const promotableUserIds = userIds.filter((userId) => {
+    const subscription = activeSubByUser.get(userId);
+    return subscription?.plan === "trial" && queuedPaidUserIds.has(userId);
+  });
+  const promotedSubscriptions = await Promise.all(
+    promotableUserIds.map((userId) => getCurrentSubscriptionForUser(userId, prisma, now))
+  );
+  promotableUserIds.forEach((userId, index) => {
+    const subscription = promotedSubscriptions[index];
+    if (subscription) activeSubByUser.set(userId, subscription);
+  });
+  const walletByUser = new Map(userIds.map((userId) => [userId, {
+    balanceUSD: 0,
+    earnedUSD: 0,
+    spentUSD: 0,
+    withdrawnUSD: 0,
+    pendingWithdrawUSD: 0
+  }]));
+  for (const row of walletLedger) {
+    const wallet = walletByUser.get(row.userId);
+    if (!wallet) continue;
+    const amount = Number(row._sum.amountUSD || 0);
+    wallet.balanceUSD += amount;
+    if (row.type === "referral_bonus") wallet.earnedUSD += amount;
+    if (row.type === "subscription_purchase") wallet.spentUSD += Math.abs(amount);
+  }
+  for (const row of withdrawals) {
+    const wallet = walletByUser.get(row.userId);
+    if (!wallet) continue;
+    const amount = Number(row._sum.amountUSD || 0);
+    if (row.status === "paid") wallet.withdrawnUSD = amount;
+    if (row.status === "pending") wallet.pendingWithdrawUSD = amount;
+  }
 
   const enriched = users.map((u) => {
     const s = statsByUser.get(u.id);
@@ -87,6 +147,9 @@ export async function GET(req: NextRequest) {
       ...u,
       isAdmin: isAdminEmail(u.email),
       activeSubscription: activeSub || null,
+      wallet: Object.fromEntries(
+        Object.entries(walletByUser.get(u.id)!).map(([key, value]) => [key, Number(value.toFixed(2))])
+      ),
       gen: {
         total: u._count.generations,
         usedToday: todayByUser.get(u.id) || 0,
@@ -96,9 +159,5 @@ export async function GET(req: NextRequest) {
       }
     };
   });
-
-  const walletRows = await Promise.all(enriched.map((u) => getWalletSummary(u.id)));
-  const withWallet = enriched.map((u, index) => ({ ...u, wallet: walletRows[index] }));
-
-  return NextResponse.json({ users: withWallet });
+  return NextResponse.json({ users: enriched });
 }

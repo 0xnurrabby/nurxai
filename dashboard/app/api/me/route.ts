@@ -18,8 +18,8 @@ export async function GET(req: NextRequest) {
 
   const day = new Date().toISOString().slice(0, 10);
   const now = new Date();
-  await ensureReferralCode(prisma, user.id);
-  const [sub, usage, profile, wallet, withdrawals] = await Promise.all([
+  const [referralCode, sub, usage, profile, wallet, withdrawals] = await Promise.all([
+    ensureReferralCode(prisma, user.id),
     getCurrentSubscriptionForUser(user.id, prisma, now),
     prisma.usageLog.findUnique({
       where: { userId_day: { userId: user.id, day } },
@@ -73,13 +73,26 @@ export async function GET(req: NextRequest) {
         })
       ])
     : [[], null as Awaited<ReturnType<typeof prisma.usageLog.aggregate>> | null];
-  const gifts = await giftsPromise;
+  const [gifts, scheduledSubscription] = await Promise.all([
+    giftsPromise,
+    prisma.subscription.findFirst({
+      where: {
+        userId: user.id,
+        status: "active",
+        startsAt: { gt: now },
+        endsAt: { gt: now }
+      },
+      orderBy: { startsAt: "asc" }
+    })
+  ]);
 
   return NextResponse.json({
     user: { id: user.id, email: user.email, name: profile?.name ?? user.name, avatarUrl: profile?.avatarUrl || null, isAdmin },
     referral: {
-      code: profile?.referralCode || null,
-      link: profile?.referralCode ? `${(process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://nurxai.xyz").replace(/\/+$/, "")}/signup?ref=${encodeURIComponent(profile.referralCode)}` : null,
+      code: referralCode || profile?.referralCode || null,
+      link: referralCode || profile?.referralCode
+        ? `${(process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://nurxai.xyz").replace(/\/+$/, "")}/signup?ref=${encodeURIComponent(referralCode || profile!.referralCode!)}`
+        : null,
       referredBy: profile?.referredBy || null,
       totalReferrals: profile?._count.referrals || 0,
       bonusRate: REFERRAL_BONUS_RATE
@@ -101,6 +114,14 @@ export async function GET(req: NextRequest) {
           startsAt: sub.startsAt.toISOString(),
           endsAt: sub.endsAt.toISOString(),
           dailyLimit: getSubscriptionDailyLimit(sub)
+        }
+      : null,
+    scheduledSubscription: scheduledSubscription
+      ? {
+          plan: scheduledSubscription.plan,
+          startsAt: scheduledSubscription.startsAt.toISOString(),
+          endsAt: scheduledSubscription.endsAt.toISOString(),
+          dailyLimit: getSubscriptionDailyLimit(scheduledSubscription)
         }
       : null,
     usageToday: usage?.count ?? 0,

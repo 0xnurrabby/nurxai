@@ -96,6 +96,14 @@ type Stats = {
     monthlyUSD: number;
     totalUSD: number;
   };
+  paygRevenue: {
+    todayCount: number;
+    monthlyCount: number;
+    totalCount: number;
+    todayUSD: number;
+    monthlyUSD: number;
+    totalUSD: number;
+  };
 };
 
 type AdminAnnouncement = {
@@ -119,6 +127,16 @@ type AdminWithdrawal = {
   createdAt: string;
 };
 
+type AdminPaygPricing = {
+  regularPriceUSD: string;
+  currentPriceUSD: string;
+  amountAtomic: string;
+  discountPercent: number;
+  discounted: boolean;
+  revision: number;
+  updatedAt: string;
+};
+
 const PLAN_OPTIONS = ["trial", "starter", "pro", "premium"];
 const PLAN_PRICE: Record<string, number> = { trial: 0, starter: 5, pro: 10, premium: 30 };
 
@@ -136,6 +154,10 @@ function daysRemaining(value?: string | null) {
 
 function money(value: string | number | undefined | null, digits = 2) {
   return Number(value || 0).toFixed(digits);
+}
+
+function compactMoney(value: string) {
+  return value.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
 }
 
 function isCurrentlyActive(sub?: Subscription | null) {
@@ -172,6 +194,10 @@ export default function AdminPage() {
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [announcementBusy, setAnnouncementBusy] = useState(false);
+  const [paygPricing, setPaygPricing] = useState<AdminPaygPricing | null>(null);
+  const [regularPaygPrice, setRegularPaygPrice] = useState("0.009000");
+  const [currentPaygPrice, setCurrentPaygPrice] = useState("0.009000");
+  const [pricingBusy, setPricingBusy] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const router = useRouter();
 
@@ -232,6 +258,15 @@ export default function AdminPage() {
     }
   }
 
+  async function fetchPaygPricing() {
+    const r = await apiFetch("/api/admin/payg-pricing", { cache: "no-store" });
+    if (!r.ok) return;
+    const data = await r.json();
+    setPaygPricing(data);
+    setRegularPaygPrice(data.regularPriceUSD);
+    setCurrentPaygPrice(data.currentPriceUSD);
+  }
+
   async function fetchDetail(userId: string) {
     setSelectedId(userId);
     setDetail(null);
@@ -245,17 +280,24 @@ export default function AdminPage() {
   }
 
   async function refreshAll() {
-    await Promise.all([fetchUsers(search), fetchStats(), fetchAnnouncements(), fetchWithdrawals()]);
+    await Promise.all([fetchUsers(search), fetchStats(), fetchAnnouncements(), fetchWithdrawals(), fetchPaygPricing()]);
     if (selectedId) await fetchDetail(selectedId);
   }
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
+      const secondary = Promise.all([
+        fetchStats(),
+        fetchAnnouncements(),
+        fetchWithdrawals(),
+        fetchPaygPricing()
+      ]).catch(() => {});
       try {
-        await Promise.all([fetchUsers(""), fetchStats(), fetchAnnouncements(), fetchWithdrawals()]);
+        await fetchUsers("");
       } finally {
         setLoading(false);
       }
+      await secondary;
     })();
   }, []);
 
@@ -390,6 +432,35 @@ export default function AdminPage() {
     }
   }
 
+  async function savePaygPricing() {
+    if (!confirm(`Set PAYG price to $${currentPaygPrice} (regular $${regularPaygPrice}) for all new payments?`)) return;
+    setPricingBusy(true);
+    try {
+      const r = await apiFetch("/api/admin/payg-pricing", {
+        method: "PATCH",
+        body: JSON.stringify({
+          regularPriceUSD: regularPaygPrice,
+          currentPriceUSD: currentPaygPrice,
+          revision: paygPricing?.revision
+        })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        showToast(data.message || data.error || "Pricing update failed.", "error");
+        if (r.status === 409) await fetchPaygPricing();
+        return;
+      }
+      setPaygPricing(data);
+      setRegularPaygPrice(data.regularPriceUSD);
+      setCurrentPaygPrice(data.currentPriceUSD);
+      showToast(`PAYG price is now $${compactMoney(data.currentPriceUSD)}`);
+    } catch (error: any) {
+      showToast(error?.message || "Pricing update failed.", "error");
+    } finally {
+      setPricingBusy(false);
+    }
+  }
+
   async function deleteAnnouncement(id: string) {
     if (!confirm("Delete this announcement for everyone?")) return;
     const r = await apiFetch(`/api/admin/announcements?id=${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -436,7 +507,7 @@ export default function AdminPage() {
     <>
       <Navbar />
       <main className="max-w-7xl mx-auto px-5 py-8">
-        {toast && <div className={`premium-toast ${toast.type === "error" ? "premium-toast-error" : ""}`}>{toast.text}</div>}
+        {toast && <div role={toast.type === "error" ? "alert" : "status"} className={`premium-toast ${toast.type === "error" ? "premium-toast-error" : ""}`}>{toast.text}</div>}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="font-display font-black text-4xl">Admin Panel</h1>
@@ -472,8 +543,84 @@ export default function AdminPage() {
                 sub={`${stats.commentCost.totalComments.toLocaleString()} lifetime comments`}
               />
             </div>
+
+            <div className="grid md:grid-cols-3 gap-4 mt-4">
+              <StatCard
+                label="PAYG Revenue Today"
+                value={`$${money(stats.paygRevenue.todayUSD, 3)}`}
+                sub={`${stats.paygRevenue.todayCount.toLocaleString()} completed payments`}
+                color="var(--accent2)"
+              />
+              <StatCard
+                label="PAYG Revenue 30d"
+                value={`$${money(stats.paygRevenue.monthlyUSD, 3)}`}
+                sub={`${stats.paygRevenue.monthlyCount.toLocaleString()} completed payments`}
+                color="var(--accent2)"
+              />
+              <StatCard
+                label="PAYG Revenue Total"
+                value={`$${money(stats.paygRevenue.totalUSD, 3)}`}
+                sub={`${stats.paygRevenue.totalCount.toLocaleString()} completed payments`}
+                color="var(--accent2)"
+              />
+            </div>
           </>
         )}
+
+        <div className="nb-card p-5 mt-6 overflow-hidden relative" style={{ background: "var(--accent2)" }}>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-display font-black text-2xl">PAYG live pricing</h2>
+                {paygPricing?.discounted && (
+                  <span className="payg-discount-badge">{paygPricing.discountPercent}% OFF LIVE</span>
+                )}
+              </div>
+              <p className="text-sm opacity-75 mt-1">
+                Updates the website and all new Base x402 payment quotes. In-flight payments retain their quoted amount.
+              </p>
+            </div>
+            {paygPricing && (
+              <div className="text-right">
+                <div className="text-xs font-bold opacity-60">CURRENT PUBLIC PRICE</div>
+                <div className="flex items-baseline justify-end gap-2">
+                  {paygPricing.discounted && (
+                    <span className="line-through font-black opacity-50">${compactMoney(paygPricing.regularPriceUSD)}</span>
+                  )}
+                  <strong className={paygPricing.discounted ? "payg-discount-price" : "font-display text-3xl"}>
+                    ${compactMoney(paygPricing.currentPriceUSD)}
+                  </strong>
+                </div>
+                <div className="text-xs opacity-60">revision {paygPricing.revision} | {paygPricing.amountAtomic} atomic USDC</div>
+              </div>
+            )}
+          </div>
+          <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3 mt-5 items-end">
+            <label className="grid gap-1 text-sm font-bold">
+              Regular price (USD)
+              <input
+                className="nb-input"
+                inputMode="decimal"
+                value={regularPaygPrice}
+                onChange={(e) => setRegularPaygPrice(e.target.value)}
+                placeholder="0.009"
+              />
+            </label>
+            <label className="grid gap-1 text-sm font-bold">
+              Current price (USD)
+              <input
+                className="nb-input"
+                inputMode="decimal"
+                value={currentPaygPrice}
+                onChange={(e) => setCurrentPaygPrice(e.target.value)}
+                placeholder="0.004"
+              />
+            </label>
+            <button className="nb-btn nb-btn-primary" onClick={savePaygPricing} disabled={pricingBusy}>
+              {pricingBusy ? "Publishing..." : "Publish price"}
+            </button>
+          </div>
+        </div>
 
         {withdrawals.length > 0 && (
           <div className="nb-card p-5 mt-6" style={{ background: "var(--accent3)" }}>

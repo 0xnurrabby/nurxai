@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pricing - X and Twitter AI Reply Plans",
+  title: "Pricing - Plans and Base x402 PAYG",
   description:
-    "Compare NurAi Trial, Starter, Pro, and Premium plans for AI-generated X and Twitter replies. Start free with 10 comments per day for 3 days.",
+    "Compare NurAi's free trial, fixed-duration plans, and Base x402 USDC PAYG for human-controlled, context-aware X drafting.",
   alternates: {
     canonical: "/pricing"
   }

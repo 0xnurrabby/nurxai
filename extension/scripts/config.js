@@ -21,7 +21,12 @@ export const CONFIG = Object.freeze({
     PANEL_POS: "nurai_panel_pos",
     SUGGESTION_CACHE: "nurai_suggestion_cache",
     LIVE_SUMMARY_CACHE: "nurai_live_summary_cache",
-    AUDIT_LOG: "nurai_audit_log"
+    AUDIT_LOG: "nurai_audit_log",
+    PAYG_SESSION: "nurai_payg_session_v1",
+    PAYG_OWNER: "nurai_payg_owner_v1",
+    PAYG_RECONNECT_REQUIRED: "nurai_payg_reconnect_required_v1",
+    PAYG_ENABLED: "nurai_payg_enabled_v1",
+    EXTENSION_ENABLED: "nurai_extension_enabled_v1"
   },
 
   SUGGESTION_CACHE_TTL_MS: 5 * 60 * 1000,

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>NurAi</title>
+    <link rel="stylesheet" href="styles/popup.css" />
+  </head>
+  <body>
+    <main>
+      <header class="topbar">
+        <div class="brand">
+          <img src="icons/icon-38.png" alt="" />
+          <div>
+            <strong>NurAi</strong>
+            <span id="version"></span>
+          </div>
+        </div>
+        <span id="state" class="state"><i></i> Active</span>
+      </header>
+
+      <section class="control">
+        <div>
+          <p class="eyebrow">X REPLY ASSISTANT</p>
+          <h1 id="headline">Suggestions are on</h1>
+          <p id="status">NurAi appears when you open an X reply.</p>
+        </div>
+        <label class="switch" aria-label="Enable NurAi suggestions">
+          <input id="enabled" type="checkbox" />
+          <span class="track"><span class="thumb"></span></span>
+        </label>
+      </section>
+
+      <section class="wallet-card account-card">
+        <div class="wallet-copy">
+          <span>Website account</span>
+          <strong id="account-status" role="status" aria-live="polite">Checking connection...</strong>
+        </div>
+        <button id="connect-web" class="text-button" type="button">Connect</button>
+      </section>
+
+      <section class="wallet-card">
+        <div class="wallet-copy">
+          <span>PAYG wallet</span>
+          <strong id="wallet-status" role="status" aria-live="polite">Checking status...</strong>
+        </div>
+        <button id="wallet" class="text-button" type="button">Manage</button>
+      </section>
+
+      <div class="actions">
+        <button id="dashboard" class="primary" type="button">Open dashboard</button>
+        <button id="open-x" class="secondary" type="button">Open X</button>
+      </div>
+      <p class="privacy">OFF means no panel, polling, or generation requests.</p>
+    </main>
+    <script type="module" src="scripts/popup.js"></script>
+  </body>
+</html>

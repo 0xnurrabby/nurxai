@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>NurAi Onchain PAYG</title>
+    <link rel="stylesheet" href="styles/payg.css" />
+  </head>
+  <body>
+    <main>
+      <span class="tag">BASE MAINNET</span>
+      <h1>NurAi Onchain PAYG</h1>
+      <p>Create an app-specific, self-custodial Base account. One approval enables local background x402 signing for up to 30 days.</p>
+      <div id="price-card" class="card">
+        <span id="discount" class="discount" hidden></span>
+        <div class="price-line">
+          <del id="regular-price" hidden></del>
+          <strong id="current-price" aria-live="polite">Loading live price...</strong>
+        </div>
+        <small>USDC per Premium generation</small>
+        <span>Four Premium replies with GPT, Grok, Gemini, image understanding, styles and project context.</span>
+      </div>
+      <button id="setup">Create or connect wallet</button>
+      <p id="status" role="status"></p>
+      <section id="wallet" hidden>
+        <label>PAYG wallet</label>
+        <code id="address"></code>
+        <p>Send USDC using the Base network only. The 30-day window is a local enablement period; manage wallet owners and funds in Base Account.</p>
+        <a href="https://account.base.app" target="_blank" rel="noopener noreferrer">Manage or withdraw in Base Account</a>
+      </section>
+    </main>
+    <script type="module" src="scripts/payg-setup.js"></script>
+  </body>
+</html>

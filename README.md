@@ -71,6 +71,10 @@ AI_GATEWAY_GENERATION_MODEL=your_gpt_model_id
 BASE_PAY_RECIPIENT=0x_your_usdc_receiver
 NOWPAYMENTS_API_KEY=
 NOWPAYMENTS_IPN_SECRET=
+# Optional: required to discover hosted invoice payments after a missed webhook
+NOWPAYMENTS_EMAIL=
+NOWPAYMENTS_PASSWORD=
+BILLING_RECONCILE_SECRET=
 ADMIN_EMAILS=owner@example.com,second-admin@example.com
 MIN_EXTENSION_VERSION=2.0.15
 EXTENSION_UPDATE_URL=https://chromewebstore.google.com/detail/odapbgkbdpalphekkmibliclmedgmlhb
@@ -106,6 +110,9 @@ The paid `nurxai` Worker uses the `HYPERDRIVE` binding declared in
 through a service binding while the paid runtime probe is healthy, or to the
 Vercel standby deployment when the account is on the Free plan. GitHub checks
 the isolated plan probe twice daily; production requests never run that check.
+All `/api/*` requests use Vercel as the single stateful authority. Static pages
+stay Cloudflare-primary, while auth, database, AI, and billing avoid
+cross-runtime retries and JWT/transaction drift during a mode switch.
 Runtime credentials belong in Worker secrets and must never be committed.
 
 Admin access is controlled by `ADMIN_EMAILS`; database `isAdmin` is only synced

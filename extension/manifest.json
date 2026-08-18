@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "NurXai - AI Reply for X",
   "version": "2.0.17",
-  "description": "Human-sounding AI reply suggestions for X with context, images, styles, and manual paste control.",
+  "minimum_chrome_version": "116",
+  "description": "Human-controlled X communication copilot with contextual drafts and Base x402 PAYG access.",
   "default_locale": "en",
   "icons": {
     "16": "icons/icon-16.png",
@@ -11,6 +12,7 @@
     "128": "icons/icon-128.png"
   },
   "action": {
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "19": "icons/icon-19.png",
@@ -28,19 +30,26 @@
       "js": ["scripts/contentscript.js"],
       "css": ["styles/nurai.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://nurxai.xyz/*", "https://www.nurxai.xyz/*"],
+      "js": ["scripts/dashboard-bridge.js"],
+      "run_at": "document_start"
     }
   ],
-  "permissions": ["storage", "scripting", "activeTab", "clipboardRead", "clipboardWrite"],
+  "permissions": ["storage", "scripting", "activeTab", "clipboardRead", "clipboardWrite", "offscreen"],
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",
     "https://www.nurxai.xyz/*",
-    "https://nurxai.xyz/*"
+    "https://nurxai.xyz/*",
+    "https://mainnet.base.org/*",
+    "https://chain-proxy.wallet.coinbase.com/*"
   ],
   "externally_connectable": {
     "matches": ["https://www.nurxai.xyz/*", "https://nurxai.xyz/*"]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://www.nurxai.xyz https://nurxai.xyz"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://www.nurxai.xyz https://nurxai.xyz https://mainnet.base.org https://chain-proxy.wallet.coinbase.com"
   }
 }

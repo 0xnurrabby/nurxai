@@ -938,7 +938,7 @@ body {
   }
 
   .hero-title {
-    max-width: 7em;
+    max-width: 9.4em;
     font-size: clamp(2rem, 9.3vw, 2.45rem);
     line-height: 1.08;
   }
@@ -947,6 +947,18 @@ body {
     max-width: min(100%, 18rem);
     font-size: 1rem;
     line-height: 1.55;
+  }
+
+  .hero-guardrails {
+    max-width: 320px;
+    margin-inline: auto;
+    gap: 8px;
+  }
+
+  .hero-guardrails .nb-card {
+    padding: 7px 10px;
+    font-size: 11px;
+    line-height: 1.2;
   }
 
   .hero-actions {
@@ -1202,4 +1214,40 @@ body {
     scroll-behavior: auto !important;
     transition-duration: .001ms !important;
   }
+}
+@keyframes payg-price-pop {
+  0%, 100% { transform: translateY(0) scale(1); filter: brightness(1); }
+  50% { transform: translateY(-1px) scale(1.045); filter: brightness(1.12); }
+}
+
+.payg-discount-price {
+  display: inline-block;
+  color: #075f35;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.55rem;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+  animation: payg-price-pop 1.8s ease-in-out infinite;
+}
+
+.payg-discount-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #075f35;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  animation: payg-price-pop 1.8s ease-in-out infinite reverse;
+}
+
+.dark .payg-discount-price { color: #041d0e; }
+.dark .payg-discount-badge { background: #f0fdf4; color: #052e16; }
+
+@media (prefers-reduced-motion: reduce) {
+  .payg-discount-price,
+  .payg-discount-badge { animation: none; }
 }

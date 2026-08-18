@@ -99,8 +99,12 @@ export async function POST(req: NextRequest) {
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
-          providerPaymentId: checkout.id || null,
-          raw: paymentRawWithQuote(checkout, quote) as any
+          providerPaymentId: null,
+          raw: paymentRawWithQuote({
+            ...checkout,
+            invoiceId: checkout.id || null,
+            checkoutType: "invoice"
+          }, quote) as any
         }
       });
 

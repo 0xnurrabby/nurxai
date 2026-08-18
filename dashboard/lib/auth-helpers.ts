@@ -13,8 +13,9 @@ export async function getSessionFromCookies() {
 
 export async function getSessionFromAuthHeader(req: NextRequest) {
   const a = req.headers.get("authorization") || "";
-  if (!a.startsWith("Bearer ")) return null;
-  return await verifyToken(a.slice(7));
+  const token = a.startsWith("Bearer ") ? a.slice(7).trim() : req.cookies.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return await verifyToken(token);
 }
 
 export async function getAuthUserFromHeader(req: NextRequest) {

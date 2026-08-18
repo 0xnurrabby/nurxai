@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import ThemeToggle from "./ThemeToggle";
+import { clearBrowserSession, restoreBrowserSession } from "@/lib/client-session";
 
 export default function Navbar() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -20,6 +21,13 @@ export default function Navbar() {
       const u = JSON.parse(localStorage.getItem("nurxai_user") || "null");
       setIsAdmin(!!u?.isAdmin);
     } catch {}
+    if (!token) {
+      void restoreBrowserSession().then((session) => {
+        if (!session) return;
+        setLoggedIn(true);
+        setIsAdmin(Boolean(session.user.isAdmin));
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -44,9 +52,8 @@ export default function Navbar() {
     };
   }, []);
 
-  function logout() {
-    localStorage.removeItem("nurxai_jwt");
-    localStorage.removeItem("nurxai_user");
+  async function logout() {
+    await clearBrowserSession();
     window.location.href = "/";
   }
 

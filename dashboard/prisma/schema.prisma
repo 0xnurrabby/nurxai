@@ -37,6 +37,7 @@ model User {
   subscriptionGifts SubscriptionGift[]
   walletLedger    WalletLedger[]
   withdrawals     WithdrawalRequest[]
+  paygGenerations PaygGeneration[]
 
   @@index([referredById])
 }
@@ -97,11 +98,13 @@ model Payment {
   payerAddr  String?  // sender address (basepay only)
   raw        Json?
   createdAt  DateTime @default(now())
+  lastReconciledAt DateTime?
   user       User     @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@index([txHash])
   @@index([providerPaymentId])
+  @@index([provider, status, lastReconciledAt])
 }
 
 model Project {
@@ -225,4 +228,44 @@ model WithdrawalRequest {
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([noticeClearAt])
+}
+
+model PaygGeneration {
+  id             String   @id
+  userId         String
+  requestHash    String
+  status         String
+  authorizationId String? @unique
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+  settlementStartBlock BigInt?
+  pricingRevision Int      @default(1)
+  quotedRegularPriceUSD Decimal @default(0.009) @db.Decimal(12, 6)
+  quotedCurrentPriceUSD Decimal @default(0.009) @db.Decimal(12, 6)
+  quotedAmountAtomic String @default("9000")
+  quotedNetwork  String   @default("eip155:8453")
+  quotedAsset    String   @default("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
+  quotedPayTo    String   @default("0xe8Bda2Ed9d2FC622D900C8a76dc455A3e79B041f")
+  payer          String?
+  transactionHash String?  @unique
+  settlement     Json?
+  response       Json?
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, updatedAt])
+  @@index([status, leaseExpiresAt])
+}
+
+model PaygPricing {
+  id              String   @id
+  regularPriceUSD Decimal  @db.Decimal(12, 6)
+  currentPriceUSD Decimal  @db.Decimal(12, 6)
+  revision        Int      @default(1)
+  updatedById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

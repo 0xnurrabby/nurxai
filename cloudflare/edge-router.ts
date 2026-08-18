@@ -10,10 +10,12 @@ type Env = {
   APP: AppService;
   ROUTING: RoutingStore;
   VERCEL_ORIGIN: string;
+  BILLING_RECONCILE_SECRET: string;
 };
 
 type WorkerContext = {
   passThroughOnException(): void;
+  waitUntil(promise: Promise<unknown>): void;
 };
 
 const MODE_KEY = "production-mode";
@@ -65,6 +67,24 @@ export default {
     // If the lightweight router itself fails, Cloudflare can still reach the DNS origin.
     ctx.passThroughOnException();
 
+    const url = new URL(request.url);
+    const isApi = url.pathname.startsWith("/api/");
+    const isGoogleBridge = url.pathname === "/auth/google-bridge";
+    if (url.hostname === "www.nurxai.xyz" && !isApi && !isGoogleBridge) {
+      url.hostname = "nurxai.xyz";
+      return Response.redirect(url.toString(), 308);
+    }
+    if (isApi) {
+      try {
+        return await fetchVercel(request, env);
+      } catch {
+        return Response.json(
+          { error: "API_TEMPORARILY_UNAVAILABLE", message: "Please retry this request shortly." },
+          { status: 503, headers: { "Retry-After": "5", "x-nurxai-origin": "vercel" } }
+        );
+      }
+    }
+
     if (await routingMode(env) !== "cloudflare") {
       return fetchVercel(request, env);
     }
@@ -82,5 +102,16 @@ export default {
         { status: 503, headers: { "Retry-After": "5", "x-nurxai-origin": "cloudflare" } }
       );
     }
+  },
+
+  async scheduled(_controller: unknown, env: Env, ctx: WorkerContext) {
+    ctx.waitUntil((async () => {
+      const request = new Request("https://nurxai.xyz/api/billing/reconcile", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.BILLING_RECONCILE_SECRET}` }
+      });
+      const response = await fetchVercel(request, env);
+      if (!response.ok) throw new Error(`Payment reconciliation failed with HTTP ${response.status}.`);
+    })());
   }
 };

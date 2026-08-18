@@ -8,6 +8,7 @@ build/
 dist/
 .open-next/
 .wrangler/
+*.tsbuildinfo
 
 # Environment files (NEVER commit secrets!)
 .env

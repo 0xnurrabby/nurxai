@@ -1,0 +1,73 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  width: 360px;
+  margin: 0;
+  background: #f6f8fc;
+  color: #172033;
+}
+main { padding: 18px; }
+.topbar, .brand, .control, .wallet-card, .actions { display: flex; align-items: center; }
+.topbar { justify-content: space-between; }
+.brand { gap: 10px; }
+.brand img { width: 36px; height: 36px; border-radius: 11px; box-shadow: 0 0 0 1px #d8e0ed, 0 5px 14px #1e3a5f18; }
+.brand div { display: grid; gap: 2px; }
+.brand strong { font-size: 19px; line-height: 1; letter-spacing: -.35px; }
+.brand span { color: #708096; font-size: 10px; font-weight: 750; }
+.state {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 9px; border: 1px solid #bce7cc; border-radius: 999px;
+  background: #effcf4; color: #167344; font-size: 10px; font-weight: 850;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.state i { width: 6px; height: 6px; border-radius: 50%; background: #22a65a; box-shadow: 0 0 0 3px #22a65a1f; }
+.control {
+  justify-content: space-between; gap: 16px; margin-top: 18px; padding: 18px;
+  border: 1px solid #dbe3ef; border-radius: 16px; background: #fff;
+  box-shadow: 0 12px 28px #29476612;
+}
+.control > div { min-width: 0; }
+.eyebrow { margin: 0 0 5px; color: #2563eb; font-size: 9px; font-weight: 900; letter-spacing: .13em; }
+h1 { margin: 0; color: #111827; font-size: 19px; letter-spacing: -.4px; }
+#status { margin: 5px 0 0; color: #66758b; font-size: 12px; line-height: 1.45; }
+.switch { flex: 0 0 auto; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.track {
+  display: block; width: 54px; height: 32px; padding: 3px;
+  border: 1px solid #c7d1df; border-radius: 999px; background: #e3e8ef;
+  transition: background .18s ease, border-color .18s ease;
+}
+.thumb {
+  display: block; width: 24px; height: 24px; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 7px #33415535;
+  transition: transform .18s ease;
+}
+.switch input:checked + .track { background: #2563eb; border-color: #2563eb; }
+.switch input:checked + .track .thumb { transform: translateX(22px); }
+.switch input:focus-visible + .track { outline: 2px solid #93c5fd; outline-offset: 3px; }
+.wallet-card {
+  justify-content: space-between; gap: 12px; margin-top: 11px; padding: 12px 14px;
+  border: 1px solid #dbe3ef; border-radius: 13px; background: #fff;
+}
+.account-card { margin-top: 14px; }
+.account-card + .wallet-card { margin-top: 8px; }
+.wallet-copy { display: grid; gap: 2px; }
+.wallet-copy span { color: #78879b; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.wallet-copy strong { color: #263246; font-size: 12px; }
+button { font: inherit; cursor: pointer; }
+.text-button { border: 0; background: transparent; color: #2563eb; font-size: 12px; font-weight: 850; }
+.actions { gap: 9px; margin-top: 14px; }
+.actions button { flex: 1; padding: 10px 12px; border-radius: 11px; font-size: 12px; font-weight: 850; }
+.primary { border: 1px solid #2563eb; background: #2563eb; color: #fff; box-shadow: 0 7px 16px #2563eb20; }
+.primary:hover { background: #1d4ed8; }
+.secondary { border: 1px solid #cdd7e5; background: #fff; color: #30415a; }
+.secondary:hover { background: #eef4ff; border-color: #b8c8df; }
+.privacy { margin: 11px 0 0; text-align: center; color: #8a98aa; font-size: 10px; }
+body.disabled .state { border-color: #d7dde6; background: #edf0f4; color: #758195; }
+body.disabled .state i { background: #94a3b8; box-shadow: none; }
+body.disabled .control { background: #f9fafb; box-shadow: none; }
+body.disabled .eyebrow { color: #78879b; }

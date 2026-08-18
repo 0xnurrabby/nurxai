@@ -8,9 +8,28 @@ export default function Pricing() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [endsAt, setEndsAt] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [paygPricing, setPaygPricing] = useState<{
+    currentPrice: string;
+    regularPrice: string;
+    discounted: boolean;
+    discountPercent: number;
+  } | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
+    void fetch("/api/payg/config", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!data?.currentPrice) return;
+        setPaygPricing({
+          currentPrice: data.currentPrice,
+          regularPrice: data.regularPrice,
+          discounted: Boolean(data.discounted),
+          discountPercent: Number(data.discountPercent || 0)
+        });
+      })
+      .catch(() => null);
+
     (async () => {
       const token = localStorage.getItem("nurxai_jwt");
       if (!token) return;
@@ -73,10 +92,10 @@ export default function Pricing() {
           Pick your plan
         </h1>
         <p className="mt-3 text-center max-w-2xl mx-auto">
-          Start with a free 3-day trial. Paid plans support{" "}
+          Start with a free 3-day trial, buy 30 days of predictable access, or
+          use Base x402 PAYG for one Premium generation at a time. Fixed plans support{" "}
           <strong>Base Pay</strong> for one-tap USDC or{" "}
-          <strong>NowPayments</strong> for BTC, ETH, USDT and 100+ other coins.
-          Cancel anytime, subscription simply ends.
+          <strong>NOWPayments</strong> for other supported assets and never auto-renew.
         </p>
 
         {currentPlan && (
@@ -118,6 +137,29 @@ export default function Pricing() {
           ))}
         </div>
 
+        <div className="mt-10 nb-card overflow-hidden">
+          <div className="grid md:grid-cols-[1fr_auto] items-center gap-6 p-6 md:p-8 bg-[#0052ff] text-white">
+            <div>
+              <div className="text-xs font-black tracking-widest">BASE x402 PAYG</div>
+              <h2 className="mt-2 font-display font-black text-3xl">Premium access without a daily PAYG quota</h2>
+              <p className="mt-3 max-w-3xl text-white/85">
+                Choose PAYG in the extension, review the exact quote, and authorize only that USDC amount from an app-specific Base Sub Account. The result is returned after settlement succeeds on Base mainnet.
+              </p>
+            </div>
+            <div className="min-w-[220px] rounded-xl border-2 border-white bg-white p-5 text-[#07142b]">
+              <div className="text-xs font-black tracking-widest">LIVE PRICE</div>
+              <div className="mt-2 flex items-baseline gap-2">
+                {paygPricing?.discounted && <span className="font-black opacity-50 line-through">{paygPricing.regularPrice}</span>}
+                <strong className="font-display text-4xl">{paygPricing?.currentPrice || "Live quote"}</strong>
+              </div>
+              {paygPricing?.discounted && (
+                <div className="mt-2 font-black text-green-700">{paygPricing.discountPercent}% below regular price</div>
+              )}
+              <div className="mt-2 text-sm font-bold">USDC / Premium generation</div>
+            </div>
+          </div>
+        </div>
+
         {/* Base Pay marketing block */}
         <div
           className="mt-10 nb-card p-6"
@@ -129,17 +171,16 @@ export default function Pricing() {
                 Why pay with Base?
               </h3>
               <p className="mt-3 text-sm leading-relaxed">
-                Base Pay is the fastest way to pay online with crypto. One
-                tap. USDC settles in under 2 seconds on the Base chain. Zero
-                gas for you, gas is sponsored. Zero card fees, zero FX, zero
-                chargebacks. Pay directly from your Base Account or Coinbase
-                Account, the full amount goes to NurAi, no middleman skimming.
+                Base Pay provides a direct USDC checkout for fixed-duration
+                plans. Review the amount in your Base or Coinbase Account,
+                authorize it yourself, and wait for onchain confirmation before
+                NurAi activates access.
               </p>
               <ul className="mt-4 text-sm space-y-1">
                 <li>+ One-tap checkout, no card numbers, no copying addresses</li>
-                <li>+ USDC = always 1 dollar, no volatility while paying</li>
-                <li>+ Instant: most payments confirm in under 2 seconds</li>
-                <li>+ You keep custody, NurAi never touches your wallet</li>
+                <li>+ Exact USDC amount shown before authorization</li>
+                <li>+ Onchain payment confirmation on Base</li>
+                <li>+ You keep control of the account used to pay</li>
               </ul>
             </div>
             <div className="flex-1 min-w-[220px]">

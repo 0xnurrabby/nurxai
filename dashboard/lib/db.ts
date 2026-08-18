@@ -19,21 +19,47 @@ function resolveDatabaseUrl() {
     // Local Next.js runs outside the Cloudflare request context.
   }
 
-  return [
-    process.env.POSTGRES_PRISMA_URL,
+  const candidates = [
     process.env.POSTGRES_URL,
+    process.env.POSTGRES_PRISMA_URL,
     process.env.DATABASE_URL
-  ].find((value) => value && value.trim().length > 0);
+  ].filter((value): value is string => Boolean(value?.trim()));
+  const databaseUrl = process.env.VERCEL
+    ? candidates.find((value) => {
+        try { return new URL(value).port === "6543"; } catch { return false; }
+      }) || candidates[0]
+    : candidates[0];
+  if (!databaseUrl || !process.env.VERCEL) return databaseUrl;
+
+  try {
+    const parsed = new URL(databaseUrl);
+    if (parsed.hostname.endsWith(".pooler.supabase.com") && parsed.port === "5432") {
+      parsed.port = "6543";
+    }
+    return parsed.toString();
+  } catch {
+    return databaseUrl;
+  }
 }
 
 function createPrismaClient() {
   const databaseUrl = resolveDatabaseUrl();
   if (!databaseUrl) throw new Error("Database connection URL is not configured.");
 
-  const pool = new Pool({ connectionString: databaseUrl, maxUses: 1 });
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    max: 1,
+    connectionTimeoutMillis: 10_000,
+    idleTimeoutMillis: process.env.VERCEL ? 2_000 : 10_000,
+    allowExitOnIdle: true
+  });
   return new PrismaClient({
     adapter: new PrismaPg(pool),
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    transactionOptions: {
+      maxWait: 10_000,
+      timeout: 30_000
+    }
   });
 }
 

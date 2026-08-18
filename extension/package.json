@@ -1,0 +1,21 @@
+{
+  "name": "nurxai-extension-wallet",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/payg-wallet.js --bundle --format=esm --platform=browser --target=chrome120 --outfile=scripts/payg-wallet.bundle.js"
+  },
+  "dependencies": {
+    "@base-org/account": "2.5.9",
+    "@x402/core": "2.22.0",
+    "@x402/evm": "2.22.0",
+    "@x402/extensions": "2.22.0",
+    "viem": "2.55.13"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9"
+  },
+  "overrides": {
+    "axios": "1.19.0"
+  }
+}

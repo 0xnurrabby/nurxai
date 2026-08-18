@@ -5,6 +5,13 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 
+function loginError(data: any) {
+  if (data?.error === "USE_GOOGLE_LOGIN") return "This account uses Google sign-in.";
+  if (data?.error === "INVALID") return "Invalid email or password.";
+  if (data?.error === "RATE_LIMITED") return data.message || "Too many attempts. Wait a moment and try again.";
+  return data?.message || "Could not sign in. Please try again.";
+}
+
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +41,7 @@ function LoginForm() {
       });
       const d = await r.json();
       if (!r.ok) {
-        setErr(d.error === "USE_GOOGLE_LOGIN" ? "This account uses Google sign-in." : d.error || "Invalid credentials");
+        setErr(loginError(d));
         return;
       }
       finishAuth(d.token, d.user);

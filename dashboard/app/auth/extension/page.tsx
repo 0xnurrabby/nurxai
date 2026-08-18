@@ -2,6 +2,9 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
+import { restoreBrowserSession } from "@/lib/client-session";
+
+const NURAI_EXTENSION_ID = "odapbgkbdpalphekkmibliclmedgmlhb";
 
 function ExtensionAuthInner() {
   const params = useSearchParams();
@@ -11,7 +14,11 @@ function ExtensionAuthInner() {
 
   useEffect(() => {
     (async () => {
-      const token = localStorage.getItem("nurxai_jwt");
+      if (extId && extId !== NURAI_EXTENSION_ID) {
+        setStatus("This connection link is not for the NurAi extension.");
+        return;
+      }
+      const token = localStorage.getItem("nurxai_jwt") || (await restoreBrowserSession())?.token;
       if (!token) {
         const next = encodeURIComponent(
           window.location.pathname + window.location.search
@@ -31,20 +38,31 @@ function ExtensionAuthInner() {
         const data = await r.json();
         const user = JSON.parse(localStorage.getItem("nurxai_user") || "null");
 
-        if (extId && (window as any).chrome?.runtime?.sendMessage) {
-          await new Promise<void>((resolve) => {
+        if (extId === NURAI_EXTENSION_ID && (window as any).chrome?.runtime?.sendMessage) {
+          const connected = await new Promise<boolean>((resolve) => {
+            let settled = false;
+            const finish = (value: boolean) => {
+              if (settled) return;
+              settled = true;
+              resolve(value);
+            };
             try {
               (window as any).chrome.runtime.sendMessage(
-                extId,
+                NURAI_EXTENSION_ID,
                 { type: "NURAI_SET_TOKEN", token: data.token, user },
-                () => resolve()
+                (response: any) => {
+                  if ((window as any).chrome.runtime.lastError) return finish(false);
+                  finish(response?.ok === true);
+                }
               );
-              setTimeout(resolve, 1500);
+              setTimeout(() => finish(false), 1500);
             } catch {
-              resolve();
+              finish(false);
             }
           });
-          setStatus("✓ Connected! You can close this tab and return to X.");
+          setStatus(connected
+            ? "Connected! You can close this tab and return to X."
+            : "Could not reach the extension. Reload it, then try Connect again.");
         } else {
           setStatus("Signed in. Open the NurAi extension to continue.");
         }

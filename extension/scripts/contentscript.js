@@ -2,13 +2,16 @@
 (function () {
   const HOST_ID = "nurai-suggestions-host";
   const POS_KEY = "nurai_panel_pos";
+  const ENABLED_KEY = "nurai_extension_enabled_v1";
   const WEB_BASE = "https://nurxai.xyz";
   const RUN_ID = `${Date.now()}:${Math.random()}`;
+  let extensionEnabled = false;
 
   window.__NURAI_ACTIVE_RUN_ID = RUN_ID;
   document.getElementById(HOST_ID)?.remove();
 
-  const isActiveRun = () => window.__NURAI_ACTIVE_RUN_ID === RUN_ID;
+  const isCurrentRun = () => window.__NURAI_ACTIVE_RUN_ID === RUN_ID;
+  const isActiveRun = () => isCurrentRun() && extensionEnabled;
 
   const isVisible = (node) => {
     if (!node) return false;
@@ -235,7 +238,8 @@
   }
 
 
-  let host, shadow, panel, listEl, statusBar;
+  let host, shadow, panel, listEl, statusBar, paygBtn, paygStatus;
+  let paygMode = false;
   let liveSummaryTimer = 0;
   let liveSummaryInFlight = false;
   let statusState = {
@@ -276,7 +280,15 @@
       clearInterval(liveSummaryTimer);
       liveSummaryTimer = 0;
     }
-    if (panel) { panel.remove(); panel = null; listEl = null; statusBar = null; }
+    if (panel) {
+      panel.remove();
+      panel = null;
+      listEl = null;
+      statusBar = null;
+      paygBtn = null;
+      paygStatus = null;
+      paygMode = false;
+    }
   }
   async function loadPos() {
     const r = await chrome.storage.local.get(POS_KEY);
@@ -460,7 +472,7 @@
   function startLiveSummaryPolling() {
     if (liveSummaryTimer) return;
     fetchLiveSummary();
-    liveSummaryTimer = setInterval(fetchLiveSummary, 5000);
+    liveSummaryTimer = setInterval(fetchLiveSummary, 30_000);
   }
 
   async function buildPanelShell() {
@@ -493,11 +505,40 @@
 
     // Right: action buttons
     const actions = el("div", { class: "actions" });
+    paygBtn = el("button", { class: "mode-btn", title: "Switch payment mode", "aria-label": "Switch payment mode" }, "Plan");
+    paygStatus = await chrome.runtime.sendMessage({ type: "NURAI_PAYG_STATUS" }).catch(() => null);
+    paygMode = paygStatus?.enabled === true;
+    paygBtn.textContent = paygMode ? `PAYG${paygStatus?.currentPrice ? ` ${paygStatus.currentPrice}` : ""}` : "Plan";
+    paygBtn.classList.toggle("active", paygMode);
+    if (paygMode) {
+      chrome.runtime.sendMessage({ type: "NURAI_PAYG_QUOTE" }).then((quote) => {
+        if (!isActiveRun() || !quote?.ok) return;
+        paygStatus = quote;
+        paygBtn.textContent = `PAYG ${quote.currentPrice}`;
+      }).catch(() => null);
+    }
+    paygBtn.addEventListener("click", async () => {
+      if (paygMode) {
+        paygMode = false;
+        await chrome.runtime.sendMessage({ type: "NURAI_SET_PAYG_MODE", enabled: false });
+      } else {
+        paygStatus = await chrome.runtime.sendMessage({ type: "NURAI_PAYG_QUOTE" }).catch(() => null);
+        if (!paygStatus?.ready) {
+          await chrome.runtime.sendMessage({ type: "NURAI_OPEN_PAYG_SETUP" });
+          return;
+        }
+        paygMode = true;
+        await chrome.runtime.sendMessage({ type: "NURAI_SET_PAYG_MODE", enabled: true });
+      }
+      paygBtn.textContent = paygMode ? `PAYG${paygStatus?.currentPrice ? ` ${paygStatus.currentPrice}` : ""}` : "Plan";
+      paygBtn.classList.toggle("active", paygMode);
+    });
+    paygBtn.dataset.payg = paygMode ? "1" : "0";
     const refreshBtn = el("button", { class: "icon", title: "Regenerate", "aria-label": "Regenerate" }, "↻");
     refreshBtn.addEventListener("click", () => { if (isActiveRun()) generateAndShow(true); });
     const closeBtn = el("button", { class: "icon", title: "Close", "aria-label": "Close" }, "✕");
-    closeBtn.addEventListener("click", () => { if (isActiveRun()) removePanel(); });
-    actions.append(refreshBtn, closeBtn);
+    closeBtn.addEventListener("click", () => { if (isActiveRun()) dismissCurrentPanel(); });
+    actions.append(paygBtn, refreshBtn, closeBtn);
     head.appendChild(actions);
 
     panel.appendChild(head);
@@ -552,6 +593,10 @@
     } else if (action === "update") {
       const b = el("button", { class: "primary-btn" }, "Update extension");
       b.addEventListener("click", () => chrome.runtime.sendMessage({ type: "NURAI_OPEN_EXTENSION_UPDATE" }));
+      box.appendChild(b);
+    } else if (action === "payg") {
+      const b = el("button", { class: "primary-btn" }, "Set up onchain PAYG");
+      b.addEventListener("click", () => chrome.runtime.sendMessage({ type: "NURAI_OPEN_PAYG_SETUP" }));
       box.appendChild(b);
     }
     listEl.appendChild(box);
@@ -777,6 +822,7 @@
   let generationId = 0; // increments every new generation; stale results are discarded
   let activeContextKey = "";
   let lastContextKey = "";
+  let dismissedComposer = null;
   let generationTimer = 0;
 
   async function generateAndShow(force = false) {
@@ -818,12 +864,51 @@
 
       const isRegenerate = regenerate && lastSuggestions.length > 0 && activeContextKey === requestContextKey;
 
+      let modeStatus = paygStatus;
+      if (paygMode) {
+        modeStatus = await chrome.runtime.sendMessage({ type: "NURAI_PAYG_QUOTE" }).catch(() => null);
+        if (!modeStatus?.ok) {
+          showError("Live PAYG price is temporarily unavailable. Try again shortly.");
+          return;
+        }
+        if (!modeStatus.enabled || !modeStatus.ready) {
+          showError("Connect and enable your PAYG wallet before generating.");
+          return;
+        }
+      }
+      if (
+        paygMode &&
+        modeStatus?.enabled &&
+        modeStatus?.ready &&
+        (!modeStatus.currentPrice || !modeStatus.amount || !modeStatus.pricingRevision || !modeStatus.payTo)
+      ) {
+        showError("Live PAYG price is temporarily unavailable. Try again shortly.");
+        return;
+      }
+      if (
+        paygMode &&
+        modeStatus?.enabled &&
+        modeStatus?.ready &&
+        modeStatus.currentPrice &&
+        paygStatus?.currentPrice &&
+        modeStatus.currentPrice !== paygStatus?.currentPrice
+      ) {
+        paygStatus = modeStatus;
+        paygBtn.textContent = `PAYG ${modeStatus.currentPrice}`;
+        showError(`PAYG price updated to ${modeStatus.currentPrice}. Click Generate again.`);
+        return;
+      }
+      if (modeStatus) {
+        paygStatus = modeStatus;
+        if (paygMode && modeStatus.currentPrice) paygBtn.textContent = `PAYG ${modeStatus.currentPrice}`;
+      }
       const resp = await chrome.runtime.sendMessage({
-        type: "NURAI_GENERATE",
+        type: paygMode ? "NURAI_PAYG_GENERATE" : "NURAI_GENERATE",
         context: text,
         imageUrls,
         regenerate: isRegenerate,
-        previousSuggestions: isRegenerate ? lastSuggestions : []
+        previousSuggestions: isRegenerate ? lastSuggestions : [],
+        pricing: modeStatus
       });
 
       // If the user already closed this dialog and opened another post,
@@ -853,9 +938,23 @@
           BAD_RESPONSE:     ["Server returned an unexpected response.", null],
           UPSTREAM:         ["AI service error. Try again in a moment.", null],
           EMPTY_SUGGESTIONS:["No good suggestions returned. Try again.", null],
+          PAYG_SETUP_REQUIRED:["Connect your Base wallet once to use onchain PAYG.", "payg"],
+          PAYG_NOT_READY:    ["Onchain PAYG is being configured. Your plan mode still works.", null],
+          PAYMENT_FAILED:    [resp?.message || "Onchain payment could not be completed. No new payment will be created on retry.", null],
+          PAYMENT_SETTLEMENT_PENDING:["Base payment is confirming. NurAi will safely resume this request.", null],
+          GENERATION_PENDING:["Payment confirmed. Premium replies are still generating.", null],
+          PAYG_OPERATION_ACTIVE:["Another PAYG request is still active. Try again shortly.", null],
+          PAYG_PRICE_CHANGED:   ["PAYG price changed before payment. Click Generate again to confirm the updated price.", null],
+          PAYG_PAYMENT_COOLDOWN:["A failed payment is cooling down. Retry this same post shortly.", null],
+          X402_UNAVAILABLE:["Base payment service is temporarily unavailable. Try again shortly.", null],
+          SERVER_ERROR:["NurAi server could not complete this request. Try again shortly.", null],
+          BAD_PAYMENT_CHALLENGE:["Invalid payment request blocked for your safety.", null],
           EXTENSION_UPDATE_REQUIRED: [updateMessage, "update"]
         };
-        const [m, action] = map[resp?.error] || ["Could not generate suggestions.", null];
+        const [m, action] = map[resp?.error] || [
+          resp?.error ? `Could not generate suggestions (${resp.error}).` : "Could not generate suggestions.",
+          null
+        ];
         showError(m, action);
         renderStatusBar({ hasImage, imageUsed: false, searchUsed: false });
         return;
@@ -893,13 +992,43 @@
     }, 150);
   }
 
+  function dismissCurrentPanel() {
+    dismissedComposer = findComposer();
+    removePanel();
+    lastHad = Boolean(dismissedComposer);
+  }
+
+  function applyExtensionEnabled(value) {
+    extensionEnabled = value;
+    if (!extensionEnabled) {
+      dismissedComposer = null;
+      removePanel();
+      lastHad = false;
+      return;
+    }
+    dismissedComposer = null;
+    lastHad = false;
+    if (findComposer()) scheduleGenerate();
+  }
+
   const obs = new MutationObserver(() => {
-    if (!isActiveRun()) {
+    if (!isCurrentRun()) {
       obs.disconnect();
       return;
     }
-    const has = !!findComposer();
+    if (!extensionEnabled) {
+      if (panel) removePanel();
+      lastHad = false;
+      return;
+    }
+    const composer = findComposer();
+    const has = Boolean(composer);
     if (has) {
+      if (dismissedComposer === composer) {
+        lastHad = true;
+        return;
+      }
+      if (dismissedComposer && dismissedComposer !== composer) dismissedComposer = null;
       const { text, imageUrls } = getTweetContext();
       const contextKey = contextKeyFor(text, imageUrls);
       if (contextKey && (!lastHad || contextKey !== lastContextKey)) {
@@ -912,13 +1041,28 @@
         scheduleGenerate();
       }
     }
-    if (!has && lastHad) removePanel();
+    if (!has && lastHad) {
+      dismissedComposer = null;
+      removePanel();
+    }
     lastHad = has;
   });
   obs.observe(document.body, { subtree: true, childList: true });
 
-  document.addEventListener("keydown", (e) => { if (isActiveRun() && e.key === "Escape") removePanel(); });
-  if (findComposer()) scheduleGenerate();
+  document.addEventListener("keydown", (e) => { if (isActiveRun() && e.key === "Escape") dismissCurrentPanel(); });
+  chrome.storage.local.get(ENABLED_KEY).then((stored) => {
+    if (!isCurrentRun()) return;
+    applyExtensionEnabled(stored[ENABLED_KEY] !== false);
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[ENABLED_KEY] || !isCurrentRun()) return;
+    applyExtensionEnabled(changes[ENABLED_KEY].newValue !== false);
+  });
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type !== "NURAI_EXTENSION_TOGGLE" || !isCurrentRun()) return false;
+    applyExtensionEnabled(message.enabled === true);
+    return false;
+  });
 
   const STYLES = `
     :host, * { box-sizing: border-box; }
@@ -977,6 +1121,12 @@
     @keyframes alertPulse { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.08); } }
 
     .actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .mode-btn {
+      height: 28px; padding: 0 8px; border-radius: 8px;
+      border: 2px solid #0f1419; background: #fff; cursor: pointer;
+      font-size: 10px; font-weight: 900;
+    }
+    .mode-btn.active { background: #0052ff; color: #fff; }
     .icon {
       width: 28px; height: 28px; border-radius: 8px;
       border: 2px solid #0f1419; background: #fff; cursor: pointer;
@@ -1014,10 +1164,17 @@
     }
     .primary-btn:hover { background: #9dd0f5; }
 
+    @media (prefers-reduced-motion: reduce) {
+      .panel, .status-alert, .dot { animation: none !important; }
+      .status-icon, .use { transition: none !important; }
+    }
+
     @media (prefers-color-scheme: dark) {
       .panel { background: #1a1a1a; color: #f3f3f5; border-color: #f3f3f5; }
       .head { background: #4a4a1a; border-bottom-color: #f3f3f5; }
       .icon { background: #2a2a2a; border-color: #f3f3f5; color: #f3f3f5; }
+      .mode-btn { background: #2a2a2a; border-color: #f3f3f5; color: #f3f3f5; }
+      .mode-btn.active { background: #0052ff; }
       .icon:hover { background: #3a3a3a; }
       .item { background: #222; border-color: #f3f3f5; color: #f3f3f5; }
       .item:hover { background: #2a2a2a; }

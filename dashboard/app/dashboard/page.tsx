@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import DashboardLiveWidgets from "../components/DashboardLiveWidgets";
+import PaygWalletCard from "../components/PaygWalletCard";
+import { clearBrowserSession, restoreBrowserSession } from "@/lib/client-session";
 
 type Me = {
   user: { id: string; email: string; name: string | null; avatarUrl?: string | null; isAdmin?: boolean };
@@ -12,6 +14,12 @@ type Me = {
     endsAt: string;
     dailyLimit: number;
     startsAt?: string;
+  } | null;
+  scheduledSubscription?: {
+    plan: string;
+    startsAt: string;
+    endsAt: string;
+    dailyLimit: number;
   } | null;
   usageToday: number;
   usageHistory?: Array<{ day: string; count: number }>;
@@ -112,10 +120,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     (async () => {
-      const token = localStorage.getItem("nurxai_jwt");
+      let token = localStorage.getItem("nurxai_jwt");
       if (!token) {
-        router.push("/login");
-        return;
+        token = (await restoreBrowserSession())?.token || null;
+        if (!token) {
+          router.push("/login");
+          return;
+        }
       }
       try {
         const cached = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY) || "null");
@@ -125,13 +136,25 @@ export default function Dashboard() {
         }
       } catch {}
       try {
-        const r = await fetch("/api/me", {
+        let r = await fetch("/api/me", {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (r.status === 401) {
           localStorage.removeItem("nurxai_jwt");
-          router.push("/login");
-          return;
+          const restored = await restoreBrowserSession();
+          if (!restored) {
+            router.push("/login");
+            return;
+          }
+          token = restored.token;
+          r = await fetch("/api/me", {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store"
+          });
+          if (!r.ok) {
+            router.push("/login");
+            return;
+          }
         }
         const d = await r.json();
         setData(d);
@@ -158,13 +181,65 @@ export default function Dashboard() {
   }, [router]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get("order");
+    if (params.get("paid") !== "1" || !orderId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const token = localStorage.getItem("nurxai_jwt") || (await restoreBrowserSession())?.token;
+      if (!token || cancelled) return;
+      setToast("Payment received. Waiting for blockchain confirmation...");
+      for (let attempt = 0; attempt < 60 && !cancelled; attempt += 1) {
+        try {
+          const response = await fetch(`/api/billing/status?order=${encodeURIComponent(orderId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store"
+          });
+          const status = await response.json().catch(() => ({}));
+          if (response.ok && status.status === "confirmed") {
+            const meResponse = await fetch("/api/me", {
+              headers: { Authorization: `Bearer ${token}` },
+              cache: "no-store"
+            });
+            if (meResponse.ok) {
+              const next = await meResponse.json();
+              setData(next);
+              try { localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(next)); } catch {}
+            }
+            setToast(status.message || "Payment confirmed. Your subscription is ready.");
+            window.history.replaceState({}, "", "/dashboard");
+            return;
+          }
+          if (response.ok && status.status === "failed") {
+            setToast(status.message || "Payment was not completed. Contact support if funds were deducted.");
+            window.history.replaceState({}, "", "/dashboard");
+            return;
+          }
+          if (response.ok && status.providerStatus === "processing") {
+            setToast("Payment received. Final confirmation is in progress...");
+          }
+        } catch {}
+        await new Promise((resolve) => window.setTimeout(resolve, 5000));
+      }
+      if (!cancelled) {
+        setToast("Payment is still processing. Your plan will activate automatically after confirmation.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!data?.withdrawalNotices?.length) return;
     data.withdrawalNotices.forEach((notice) => markWithdrawalSeen(notice.id));
   }, [data?.withdrawalNotices?.map((notice) => notice.id).join(",")]);
 
-  function logout() {
-    localStorage.removeItem("nurxai_jwt");
-    localStorage.removeItem("nurxai_user");
+  async function logout() {
+    await clearBrowserSession();
     localStorage.removeItem(DASHBOARD_CACHE_KEY);
     router.push("/");
   }
@@ -240,6 +315,7 @@ export default function Dashboard() {
       <Navbar />
       <main className="max-w-5xl mx-auto px-5 py-10">
         {toast && <div className="premium-toast">{toast}</div>}
+        <PaygWalletCard />
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div>
             <h1 className="font-display font-black text-4xl">
@@ -325,6 +401,12 @@ export default function Dashboard() {
                   <li>✓ {daysLeft} days remaining</li>
                   {sub.plan === "premium" && <li>✓ Premium-quality generation</li>}
                 </ul>
+                {data.scheduledSubscription && (
+                  <div className="mt-4 rounded-xl border-2 border-ink dark:border-nightInk p-3 text-sm">
+                    <strong>{data.scheduledSubscription.plan.toUpperCase()}</strong> is purchased and scheduled for{" "}
+                    {new Date(data.scheduledSubscription.startsAt).toLocaleDateString()}.
+                  </div>
+                )}
                 {showCta && (
                   <Link href="/pricing" className={`nb-btn ${ctaStyle} mt-5 inline-block`}>
                     {ctaText}

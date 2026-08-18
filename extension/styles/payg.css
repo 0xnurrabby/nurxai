@@ -1,0 +1,21 @@
+:root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #fff8dc; color: #111827; }
+main { width: min(560px, calc(100vw - 40px)); background: #fff; border: 3px solid #111827; border-radius: 18px; padding: 30px; box-shadow: 8px 8px 0 #111827; }
+h1 { margin: 12px 0 8px; font-size: clamp(30px, 7vw, 48px); line-height: 1; }
+.tag { display: inline-block; padding: 5px 9px; border: 2px solid #111827; border-radius: 999px; background: #b8e1ff; font-weight: 900; font-size: 12px; }
+.card { display: grid; gap: 5px; margin: 22px 0; padding: 16px; border: 2px solid #111827; border-radius: 12px; background: #c4f0c2; }
+.price-line { display: flex; align-items: baseline; gap: 10px; }
+.price-line strong { font-size: 24px; }
+.price-line del { opacity: .55; font-weight: 900; }
+.discount { justify-self: start; padding: 4px 8px; border: 2px solid #075f35; border-radius: 999px; background: #dcfce7; color: #075f35; font-size: 11px; font-weight: 950; letter-spacing: .08em; }
+.card.discounted .price-line strong, .card.discounted .discount { animation: price-pop 1.8s ease-in-out infinite; }
+@keyframes price-pop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+button { width: 100%; padding: 13px 18px; border: 3px solid #111827; border-radius: 10px; background: #0052ff; color: #fff; font: inherit; font-weight: 900; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+#status { min-height: 24px; font-weight: 700; }
+section { padding: 16px; border: 2px solid #111827; border-radius: 12px; background: #fff89c; }
+code { display: block; margin-top: 7px; overflow-wrap: anywhere; }
+a { color: #0052ff; font-weight: 900; }
+@media (prefers-color-scheme: dark) { body { background: #121212; color: #f4f4f5; } main { background: #1f2937; border-color: #f4f4f5; box-shadow: 8px 8px 0 #0052ff; } .card, section { color: #111827; } button { border-color: #f4f4f5; } }
+@media (prefers-reduced-motion: reduce) { .card.discounted .price-line strong, .card.discounted .discount { animation: none; } }

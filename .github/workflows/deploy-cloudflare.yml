@@ -48,3 +48,10 @@ jobs:
 
       - name: Deploy production edge router
         run: npx wrangler deploy --config wrangler.edge.jsonc --profile github-actions
+
+      - name: Configure billing reconciliation secret
+        env:
+          BILLING_RECONCILE_SECRET: ${{ secrets.BILLING_RECONCILE_SECRET }}
+        run: |
+          test -n "$BILLING_RECONCILE_SECRET"
+          printf '%s' "$BILLING_RECONCILE_SECRET" | npx wrangler secret put BILLING_RECONCILE_SECRET --config wrangler.edge.jsonc --profile github-actions

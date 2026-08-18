@@ -20,9 +20,11 @@ type Props = {
   referralCode?: string;
   onSuccess: (token: string, user: any) => void;
   onError: (message: string) => void;
+  forceDirect?: boolean;
 };
 
 const SCRIPT_ID = "google-identity-services";
+const GOOGLE_BRIDGE_ORIGIN = "https://www.nurxai.xyz";
 
 function loadGoogleScript() {
   return new Promise<void>((resolve, reject) => {
@@ -47,11 +49,43 @@ function loadGoogleScript() {
   });
 }
 
-export default function GoogleSignInButton({ label = "continue_with", referralCode, onSuccess, onError }: Props) {
+export default function GoogleSignInButton({ label = "continue_with", referralCode, onSuccess, onError, forceDirect = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [configured, setConfigured] = useState(true);
+  const [useBridge, setUseBridge] = useState<boolean | null>(forceDirect ? false : null);
 
   useEffect(() => {
+    if (forceDirect) return;
+    setUseBridge(window.location.hostname === "nurxai.xyz" || window.location.hostname === "www.nurxai.xyz");
+  }, [forceDirect]);
+
+  useEffect(() => {
+    if (!useBridge) return;
+    function receiveGoogleSession(event: MessageEvent) {
+      if (event.origin !== GOOGLE_BRIDGE_ORIGIN || event.data?.type !== "NURXAI_GOOGLE_SESSION") return;
+      if (event.data.error) {
+        onError(event.data.error);
+        return;
+      }
+      if (typeof event.data.token !== "string" || !event.data.user) return;
+      void fetch("/api/auth/session", {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${event.data.token}` }
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("Could not establish your NurAi session.");
+          const session = await response.json();
+          onSuccess(session.token, session.user);
+        })
+        .catch((error) => onError(error?.message || "Google sign-in could not be completed."));
+    }
+    window.addEventListener("message", receiveGoogleSession);
+    return () => window.removeEventListener("message", receiveGoogleSession);
+  }, [onError, onSuccess, useBridge]);
+
+  useEffect(() => {
+    if (useBridge !== false) return;
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!clientId) {
       setConfigured(false);
@@ -73,7 +107,7 @@ export default function GoogleSignInButton({ label = "continue_with", referralCo
               });
               const d = await r.json().catch(() => ({}));
               if (!r.ok) {
-                onError(d.error || "Google login failed.");
+                onError(d.message || "Google sign-in could not be completed. Please try again.");
                 return;
               }
               onSuccess(d.token, d.user);
@@ -98,7 +132,32 @@ export default function GoogleSignInButton({ label = "continue_with", referralCo
     return () => {
       cancelled = true;
     };
-  }, [label, onError, onSuccess, referralCode]);
+  }, [label, onError, onSuccess, referralCode, useBridge]);
+
+  if (useBridge === null) return <div className="min-h-[44px]" />;
+
+  if (useBridge) {
+    const buttonText = label === "signup_with" ? "Sign up with Google" : "Sign in with Google";
+    return (
+      <button
+        type="button"
+        className="nb-btn w-full min-h-[44px] flex items-center justify-center gap-3"
+        onClick={() => {
+          const params = new URLSearchParams({ return_origin: window.location.origin });
+          if (referralCode) params.set("ref", referralCode);
+          const popup = window.open(
+            `${GOOGLE_BRIDGE_ORIGIN}/auth/google-bridge?${params}`,
+            "nurxai-google-signin",
+            "popup=yes,width=520,height=700"
+          );
+          if (!popup) onError("Allow popups for NurAi, then try Google sign-in again.");
+        }}
+      >
+        <span className="font-black" aria-hidden="true">G</span>
+        {buttonText}
+      </button>
+    );
+  }
 
   if (!configured) {
     return (

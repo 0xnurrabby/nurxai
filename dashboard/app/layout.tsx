@@ -4,41 +4,31 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://nurxai.xyz"),
   title: {
-    default: "NurAi - AI Reply Generator for X and Twitter",
+    default: "NurAi - Human-in-the-Loop X Copilot on Base",
     template: "%s | NurAi"
   },
   description:
-    "NurAi is a Chrome extension that writes human-sounding AI replies and comments for X / Twitter in one click. Built for creators, crypto builders, founders, marketers, and growth teams.",
+    "NurAi is a human-in-the-loop communication copilot for X with context-aware drafting and x402 USDC pay-per-use access on Base.",
   applicationName: "NurAi",
   authors: [{ name: "NurAi" }],
   creator: "NurAi",
   publisher: "NurAi",
-  category: "AI browser extension",
+  category: "Communication software",
   keywords: [
     "NurAi",
     "NurXAI",
-    "AI reply generator",
-    "X reply generator",
-    "Twitter reply generator",
-    "AI Twitter reply generator",
-    "AI reply generator for X",
-    "Twitter comment generator",
-    "X comment generator",
-    "AI comment generator",
-    "AI comments for Twitter",
-    "AI comments for X",
-    "human AI replies",
-    "X engagement tool",
-    "Twitter engagement tool",
-    "Chrome extension for X replies",
-    "Chrome extension Twitter AI",
-    "AI tweet reply",
-    "AI social media reply",
-    "crypto Twitter reply tool",
-    "Web3 Twitter growth tool",
-    "ai reply for x",
-    "x.com reply ai",
-    "twitter reply ai"
+    "human-in-the-loop AI",
+    "X communication copilot",
+    "context-aware drafting",
+    "professional communication assistant",
+    "Base x402 application",
+    "x402 payments",
+    "USDC micropayments",
+    "Base Account",
+    "onchain AI payments",
+    "pay per use AI",
+    "self-custodial app account",
+    "Chrome copilot for X"
   ],
   robots: {
     index: true,
@@ -57,9 +47,9 @@ export const metadata: Metadata = {
     apple: "/icon.png"
   },
   openGraph: {
-    title: "NurAi - AI Reply Generator for X and Twitter",
+    title: "NurAi - Human-in-the-Loop X Copilot on Base",
     description:
-      "Write human-sounding X and Twitter replies in one click. NurAi reads the post, understands context, and helps creators reply faster.",
+      "Context-aware communication assistance with human approval and x402 USDC access on Base.",
     url: "https://nurxai.xyz",
     siteName: "NurAi",
     type: "website",
@@ -69,15 +59,15 @@ export const metadata: Metadata = {
         url: "/product/reply-panel-context.webp",
         width: 1280,
         height: 709,
-        alt: "NurAi AI reply generator working inside X"
+        alt: "NurAi human-in-the-loop communication copilot working beside X"
       }
     ]
   },
   twitter: {
     card: "summary_large_image",
-    title: "NurAi - AI Reply Generator for X",
+    title: "NurAi - Human-in-the-Loop X Copilot on Base",
     description:
-      "Human-sounding AI comments for X / Twitter in one click.",
+      "Human-approved drafting with Base-native x402 USDC access.",
     images: ["/product/reply-panel-context.webp"]
   }
 };
@@ -86,6 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta name="base:app_id" content="6a842b93abf0a9eb2b3c722a" />
         <script
           // Set theme before paint (no flash). Inline is allowed by default Next CSP for /_next/.
           dangerouslySetInnerHTML={{

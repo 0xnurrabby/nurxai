@@ -6,6 +6,7 @@ import { isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { createTrialSubscription } from "@/lib/trial";
 import { applyReferralCode, ensureReferralCode } from "@/lib/referrals";
+import { setSessionCookie } from "@/lib/session-cookie";
 
 export const runtime = "nodejs";
 
@@ -48,10 +49,10 @@ export async function POST(req: NextRequest) {
     });
 
     const token = await signToken({ sub: user.id, email: user.email });
-    return NextResponse.json({
+    return setSessionCookie(NextResponse.json({
       token,
       user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl || null, isAdmin }
-    });
+    }), token);
   } catch (error) {
     console.error("Signup failed:", error);
     return NextResponse.json({ error: "SERVER_ERROR", message: "Could not create account right now." }, { status: 500 });

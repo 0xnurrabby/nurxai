@@ -1,0 +1,24 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthUserFromHeader } from "@/lib/auth-helpers";
+import { signToken } from "@/lib/jwt";
+import { isAdminEmail } from "@/lib/admin";
+import { setSessionCookie } from "@/lib/session-cookie";
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  const auth = await getAuthUserFromHeader(req);
+  if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+
+  const user = auth.user;
+  const token = await signToken({ sub: user.id, email: user.email });
+  return setSessionCookie(NextResponse.json({
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isAdmin: isAdminEmail(user.email)
+    }
+  }), token);
+}

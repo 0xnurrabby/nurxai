@@ -7,6 +7,14 @@ import GoogleSignInButton from "../components/GoogleSignInButton";
 
 const REF_STORAGE_KEY = "nurxai_referral_code";
 
+function signupError(data: any) {
+  if (data?.error === "EMAIL_TAKEN") return "An account with this email already exists. Sign in instead.";
+  if (data?.error === "BAD_EMAIL") return "Enter a valid email address.";
+  if (data?.error === "WEAK_PASSWORD") return "Password must be at least 8 characters.";
+  if (data?.error === "RATE_LIMITED") return data.message || "Too many attempts. Wait a moment and try again.";
+  return data?.message || "Could not create your account. Please try again.";
+}
+
 function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,7 +56,7 @@ function SignupForm() {
       });
       const d = await r.json();
       if (!r.ok) {
-        setErr(d.error || "Could not sign up");
+        setErr(signupError(d));
         return;
       }
       finishAuth(d.token, d.user);
