@@ -11,13 +11,14 @@ export async function GET(_req: NextRequest) {
   if (!auth?.user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   const user = auth.user;
-  const token = await signToken({ sub: user.id, email: user.email });
+  const token = await signToken({ sub: user.id, email: user.email, sv: user.sessionVersion });
   return setSessionCookie(NextResponse.json({
     token,
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl,
       isAdmin: isAdminEmail(user.email)
     }
   }), token);

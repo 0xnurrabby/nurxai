@@ -1,8 +1,9 @@
 "use client";
-import { useState, Suspense, useCallback } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
+import AuthShell from "../components/AuthShell";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 
 function loginError(data: any) {
@@ -12,6 +13,19 @@ function loginError(data: any) {
   return data?.message || "Could not sign in. Please try again.";
 }
 
+function safeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f]/.test(value)) {
+    return "/dashboard";
+  }
+  try {
+    const decoded = decodeURIComponent(value);
+    if (decoded.startsWith("//") || decoded.includes("\\")) return "/dashboard";
+  } catch {
+    return "/dashboard";
+  }
+  return value;
+}
+
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,14 +33,14 @@ function LoginForm() {
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/dashboard";
+  const next = safeNextPath(params.get("next"));
 
   const finishAuth = useCallback((token: string, user: any) => {
     try {
       localStorage.setItem("nurxai_jwt", token);
       localStorage.setItem("nurxai_user", JSON.stringify(user));
     } catch {}
-    router.push(next);
+    router.replace(next);
   }, [next, router]);
 
   async function submit(e: React.FormEvent) {
@@ -34,93 +48,48 @@ function LoginForm() {
     setErr("");
     setBusy(true);
     try {
-      const r = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
       });
-      const d = await r.json();
-      if (!r.ok) {
-        setErr(loginError(d));
-        return;
-      }
-      finishAuth(d.token, d.user);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return setErr(loginError(data));
+      finishAuth(data.token, data.user);
     } catch {
-      setErr("Network error.");
+      setErr("Network error. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="nb-card p-7">
-      <h1 className="font-display font-black text-3xl">Welcome back</h1>
-      <p className="mt-2 text-sm opacity-70">
-        Sign in to manage your NurAi account, billing and extension.
-      </p>
+    <AuthShell mode="login">
+      <div className="nb-card border-0 p-1 sm:p-3">
+        <span className="nb-tag">SECURE ACCESS</span>
+        <h1 className="mt-5 font-display text-4xl font-black tracking-tight">Welcome back.</h1>
+        <p className="mt-2 text-sm leading-relaxed opacity-70">Open your reply workspace, billing, and extension controls.</p>
 
-      <div className="mt-6">
-        <GoogleSignInButton
-          label="signin_with"
-          onSuccess={finishAuth}
-          onError={setErr}
-        />
-      </div>
-
-      <div className="my-6 flex items-center gap-3 text-xs font-bold opacity-60">
-        <div className="h-px flex-1 bg-ink/30 dark:bg-nightInk/30" />
-        <span>OR EMAIL</span>
-        <div className="h-px flex-1 bg-ink/30 dark:bg-nightInk/30" />
-      </div>
-
-      <form onSubmit={submit} className="space-y-4">
-        <div>
-          <label className="font-semibold text-sm">Email</label>
-          <input
-            type="email"
-            required
-            className="nb-input mt-1"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+        <div className="mt-7">
+          <GoogleSignInButton label="signin_with" onSuccess={finishAuth} onError={setErr} />
         </div>
-        <div>
-          <label className="font-semibold text-sm">Password</label>
-          <input
-            type="password"
-            required
-            className="nb-input mt-1"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+        <div className="my-6 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50">
+          <div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" />
         </div>
-        {err && <p className="text-sm font-semibold" style={{ color: "#b00020" }}>{err}</p>}
-        <button className="nb-btn nb-btn-primary w-full" disabled={busy}>
-          {busy ? "Signing in..." : "Sign in with email"}
-        </button>
-      </form>
 
-      <div className="mt-4 flex justify-between items-center text-sm">
-        <Link href="/forgot-password" className="opacity-70 hover:opacity-100 underline">
-          Forgot password?
-        </Link>
-        <Link href="/signup" className="font-bold underline">
-          Create account
-        </Link>
+        <form onSubmit={submit} className="space-y-4">
+          <div><label className="text-sm font-bold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div><div className="flex items-center justify-between"><label className="text-sm font-bold">Password</label><Link href="/forgot-password" className="text-xs font-bold underline">Reset it</Link></div><input type="password" required autoComplete="current-password" className="nb-input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+          {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
+          <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy}>{busy ? "Signing in..." : "Enter workspace"}</button>
+        </form>
+
+        <p className="mt-6 border-t-2 border-ink/10 pt-5 text-sm dark:border-nightInk/10">New here? <Link href="/signup" className="font-black underline">Create your account</Link></p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 
 export default function Login() {
-  return (
-    <>
-      <Navbar />
-      <main className="max-w-md mx-auto px-5 py-12">
-        <Suspense fallback={<div className="nb-card p-7">Loading...</div>}>
-          <LoginForm />
-        </Suspense>
-      </main>
-    </>
-  );
+  return <><Navbar /><Suspense fallback={<main className="grid min-h-[70vh] place-items-center font-black">Loading secure access...</main>}><LoginForm /></Suspense></>;
 }

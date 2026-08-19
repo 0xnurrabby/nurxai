@@ -1330,9 +1330,7 @@ function MiniList({ title, children }: { title: string; children: React.ReactNod
 }
 
 function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () => void }) {
-  const [mode, setMode] = useState<"plain" | "hash">("plain");
   const [newPassword, setNewPassword] = useState("");
-  const [passwordHash, setPasswordHash] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -1341,21 +1339,10 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
     setMsg("");
     try {
       const token = localStorage.getItem("nurxai_jwt");
-      const body: any = { userId: user.id };
-      if (mode === "plain") {
-        if (newPassword.length < 6) {
-          setMsg("Password must be at least 6 characters.");
-          setBusy(false);
-          return;
-        }
-        body.newPassword = newPassword;
-      } else {
-        if (!passwordHash.startsWith("$2") || passwordHash.length < 50) {
-          setMsg("Hash must start with $2 and be at least 50 chars.");
-          setBusy(false);
-          return;
-        }
-        body.passwordHash = passwordHash.trim();
+      if (newPassword.length < 8) {
+        setMsg("Password must be at least 8 characters.");
+        setBusy(false);
+        return;
       }
       const r = await fetch("/api/admin/reset-password", {
         method: "POST",
@@ -1363,7 +1350,7 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ userId: user.id, newPassword })
       });
       const d = await r.json().catch(() => ({}));
       if (r.ok) {
@@ -1385,22 +1372,10 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
         <h2 className="font-display font-black text-2xl">Reset password</h2>
         <p className="text-sm opacity-70 mt-1">For: <strong>{user.email}</strong></p>
 
-        <div className="mt-4 flex gap-2 text-sm">
-          <button className={`nb-btn flex-1 ${mode === "plain" ? "nb-btn-primary" : ""}`} onClick={() => setMode("plain")}>New password</button>
-          <button className={`nb-btn flex-1 ${mode === "hash" ? "nb-btn-primary" : ""}`} onClick={() => setMode("hash")}>Bcrypt hash</button>
+        <div className="mt-4">
+          <label className="font-semibold text-sm">New password (min 8 chars)</label>
+          <input type="password" className="nb-input mt-1" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
         </div>
-
-        {mode === "plain" ? (
-          <div className="mt-4">
-            <label className="font-semibold text-sm">New password (min 6 chars)</label>
-            <input type="text" className="nb-input mt-1" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="newPass123" />
-          </div>
-        ) : (
-          <div className="mt-4">
-            <label className="font-semibold text-sm">Bcrypt hash</label>
-            <textarea className="nb-input mt-1 font-mono text-xs" rows={3} value={passwordHash} onChange={(e) => setPasswordHash(e.target.value)} placeholder="$2a$10$..." />
-          </div>
-        )}
 
         {msg && <p className="mt-3 text-sm font-semibold" style={{ color: msg.toLowerCase().includes("reset") ? "#0a7d2e" : "#b00020" }}>{msg}</p>}
 

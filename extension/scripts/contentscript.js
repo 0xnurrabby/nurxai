@@ -46,7 +46,7 @@
   function getTweetContext() {
     const dlg = findDialog();
     const article = dlg?.querySelector("article");
-    if (!article) return { text: "", imageUrls: [] };
+    if (!article) return { text: "", imageUrls: [], sourceLanguage: null };
 
     const parts = [];
     const quotedArticles = Array.from(article.querySelectorAll("article"));
@@ -57,6 +57,7 @@
 
     // 1. Primary: lang-attributed divs (main tweet text)
     const mainText = collectLangText(article, d => !isQuotedNode(d));
+    const sourceLanguage = collectPrimaryLanguage(article, d => !isQuotedNode(d));
     if (mainText) parts.push("Tweet text:\n" + mainText);
 
     const links = collectArticleLinks(article);
@@ -159,7 +160,7 @@
     // Deduplicate and limit
     const imageUrls = [...new Set(rawImgs)].slice(0, 4);
 
-    return { text, imageUrls };
+    return { text, imageUrls, sourceLanguage };
   }
 
   function normalizeVisibleText(text) {
@@ -177,6 +178,23 @@
         return true;
       })
       .join("\n\n");
+  }
+
+  function canonicalSourceLanguage(value) {
+    if (typeof value !== "string" || !value.trim() || value.length > 35) return null;
+    try {
+      const language = Intl.getCanonicalLocales(value.trim().replace(/_/g, "-"))[0];
+      return language && language.toLowerCase() !== "und" ? language : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function collectPrimaryLanguage(root, filter = () => true) {
+    const node = Array.from(root?.querySelectorAll("div[lang]") || [])
+      .filter(filter)
+      .find(d => normalizeVisibleText(d.innerText));
+    return canonicalSourceLanguage(node?.getAttribute("lang"));
   }
 
   function getArticleAuthor(article) {
@@ -225,10 +243,10 @@
       }) || null;
   }
 
-  function contextKeyFor(text, imageUrls = []) {
+  function contextKeyFor(text, imageUrls = [], sourceLanguage = null) {
     const normalizedText = normalizeVisibleText(text).replace(/\s+/g, " ").toLowerCase();
     if (!normalizedText && !imageUrls.length) return "";
-    const src = normalizedText + "|" + imageUrls.join("|");
+    const src = normalizedText + "|" + imageUrls.join("|") + (sourceLanguage ? "|" + sourceLanguage : "");
 
     let hash = 0;
     for (let i = 0; i < src.length; i++) {
@@ -827,8 +845,8 @@
 
   async function generateAndShow(force = false) {
     if (!isActiveRun()) return;
-    const { text, imageUrls } = getTweetContext();
-    const contextKey = contextKeyFor(text, imageUrls);
+    const { text, imageUrls, sourceLanguage } = getTweetContext();
+    const contextKey = contextKeyFor(text, imageUrls, sourceLanguage);
     let regenerate = !!force;
 
     if (contextKey && activeContextKey !== contextKey) {
@@ -906,6 +924,7 @@
         type: paygMode ? "NURAI_PAYG_GENERATE" : "NURAI_GENERATE",
         context: text,
         imageUrls,
+        sourceLanguage,
         regenerate: isRegenerate,
         previousSuggestions: isRegenerate ? lastSuggestions : [],
         pricing: modeStatus
@@ -917,7 +936,7 @@
       if (requestContextKey && activeContextKey !== requestContextKey) return;
 
       const latest = getTweetContext();
-      if (requestContextKey && contextKeyFor(latest.text, latest.imageUrls) !== requestContextKey) return;
+      if (requestContextKey && contextKeyFor(latest.text, latest.imageUrls, latest.sourceLanguage) !== requestContextKey) return;
 
       if (!resp || !resp.ok) {
         const updateMessage = resp?.message || (
@@ -1029,8 +1048,8 @@
         return;
       }
       if (dismissedComposer && dismissedComposer !== composer) dismissedComposer = null;
-      const { text, imageUrls } = getTweetContext();
-      const contextKey = contextKeyFor(text, imageUrls);
+      const { text, imageUrls, sourceLanguage } = getTweetContext();
+      const contextKey = contextKeyFor(text, imageUrls, sourceLanguage);
       if (contextKey && (!lastHad || contextKey !== lastContextKey)) {
         lastContextKey = contextKey;
         activeContextKey = contextKey;

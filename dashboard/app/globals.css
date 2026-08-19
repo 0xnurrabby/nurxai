@@ -41,6 +41,84 @@ body {
   overflow-x: hidden;
 }
 
+.auth-stage {
+  min-height: calc(100vh - 72px);
+  background:
+    linear-gradient(135deg, transparent 48%, rgba(15, 20, 25, .055) 48%, rgba(15, 20, 25, .055) 52%, transparent 52%),
+    var(--paper);
+  background-size: 32px 32px;
+}
+
+.auth-grid {
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: 12px 12px 0 var(--border);
+  animation: auth-enter .45s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.auth-manifest {
+  background: var(--accent3);
+  color: #0f1419;
+  border-right: 2px solid #0f1419;
+}
+
+.auth-kicker {
+  display: inline-flex;
+  padding: 7px 11px;
+  border: 2px solid #0f1419;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+
+.auth-signal {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 2px solid #0f1419;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .58);
+  backdrop-filter: blur(5px);
+}
+
+.auth-signal span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: #0f1419;
+  color: #fff;
+}
+
+.auth-orbit {
+  position: absolute;
+  border: 3px solid #0f1419;
+  border-radius: 50%;
+  opacity: .12;
+}
+
+.auth-orbit-one { width: 310px; height: 310px; right: -120px; top: 120px; }
+.auth-orbit-two { width: 170px; height: 170px; right: 55px; top: 190px; }
+
+.auth-panel .nb-card:hover { transform: none; box-shadow: none; }
+
+@keyframes auth-enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1023px) {
+  .auth-grid { max-width: 520px; box-shadow: 8px 8px 0 var(--border); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-grid { animation: none; }
+}
+
 @layer components {
   .nb-card {
     background: var(--card);

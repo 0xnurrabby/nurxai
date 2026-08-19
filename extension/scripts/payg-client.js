@@ -15,6 +15,16 @@ async function fingerprint(body) {
   return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function canonicalSourceLanguage(value) {
+  if (typeof value !== "string" || !value.trim() || value.length > 35) return null;
+  try {
+    const language = Intl.getCanonicalLocales(value.trim().replace(/_/g, "-"))[0];
+    return language && language.toLowerCase() !== "und" ? language : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchPaygConfig(apiBase, force = false) {
   const cached = await chrome.storage.local.get(CONFIG_KEY);
   if (!force && cached[CONFIG_KEY]?.expiresAt > Date.now()) return cached[CONFIG_KEY].value;
@@ -229,11 +239,13 @@ export async function paygGenerate({
   sessionGuard,
   signPayment
 }) {
+  const sourceLanguage = canonicalSourceLanguage(requestBody.sourceLanguage);
   const baseBody = {
     context: requestBody.context,
     imageUrls: requestBody.imageUrls || [],
     regenerate: Boolean(requestBody.regenerate),
-    previousSuggestions: requestBody.previousSuggestions || []
+    previousSuggestions: requestBody.previousSuggestions || [],
+    ...(sourceLanguage ? { sourceLanguage } : {})
   };
   const requestFingerprint = await fingerprint(baseBody);
   const inFlightKey = `${accountId}:${requestFingerprint}`;

@@ -108,6 +108,7 @@ async function createServer(config: ReturnType<typeof getPaygConfig>, terms: Pay
       imageUrls: [],
       regenerate: false,
       previousSuggestions: [],
+      sourceLanguage: "en",
       operationId: "payg_unique_operation_id"
     },
     inputSchema: {
@@ -116,6 +117,7 @@ async function createServer(config: ReturnType<typeof getPaygConfig>, terms: Pay
         imageUrls: { type: "array", maxItems: 4, items: { type: "string", format: "uri" } },
         regenerate: { type: "boolean" },
         previousSuggestions: { type: "array", maxItems: 12, items: { type: "string" } },
+        sourceLanguage: { type: "string", minLength: 2, maxLength: 35 },
         operationId: { type: "string", minLength: 16, maxLength: 128 }
       },
       required: ["context", "operationId"]

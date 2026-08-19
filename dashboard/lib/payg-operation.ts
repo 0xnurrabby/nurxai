@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { canonicalSourceLanguage } from "@/lib/generation-language";
 
 const OPERATION_PATTERN = /^[a-zA-Z0-9_-]{16,128}$/;
 
@@ -7,6 +8,7 @@ export function isPaygOperationId(value: unknown): value is string {
 }
 
 export function paygRequestHash(body: any) {
+  const sourceLanguage = canonicalSourceLanguage(body?.sourceLanguage);
   const normalized = {
     context: String(body?.context || "").trim().slice(0, 1500),
     imageUrls: Array.isArray(body?.imageUrls)
@@ -15,7 +17,8 @@ export function paygRequestHash(body: any) {
     regenerate: Boolean(body?.regenerate),
     previousSuggestions: Array.isArray(body?.previousSuggestions)
       ? body.previousSuggestions.filter((value: unknown) => typeof value === "string").slice(0, 12)
-      : []
+      : [],
+    ...(sourceLanguage ? { sourceLanguage } : {})
   };
   return crypto.createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
 }

@@ -138,6 +138,15 @@ function sanitizeContext(t) {
   if (typeof t !== "string") return "";
   return t.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim().slice(0, CONFIG.MAX_TWEET_CONTEXT_LENGTH);
 }
+function sanitizeSourceLanguage(value) {
+  if (typeof value !== "string" || !value.trim() || value.length > 35) return null;
+  try {
+    const language = Intl.getCanonicalLocales(value.trim().replace(/_/g, "-"))[0];
+    return language && language.toLowerCase() !== "und" ? language : null;
+  } catch {
+    return null;
+  }
+}
 function validateSuggestions(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.filter(s => typeof s === "string" && s.trim())
@@ -152,7 +161,7 @@ function cleanSuggestion(s) {
 }
 
 /* ---------- Backend call ---------- */
-async function callGenerate(context, imageUrls, regenerate, previousSuggestions) {
+async function callGenerate(context, imageUrls, sourceLanguage, regenerate, previousSuggestions) {
   const token = await getToken();
   if (!token) return { ok: false, error: "NOT_LOGGED_IN" };
 
@@ -167,7 +176,13 @@ async function callGenerate(context, imageUrls, regenerate, previousSuggestions)
         "X-Install-Id": installId,
         "X-Client-Version": chrome.runtime.getManifest().version
       },
-      body: JSON.stringify({ context, imageUrls, regenerate, previousSuggestions })
+      body: JSON.stringify({
+        context,
+        imageUrls,
+        regenerate,
+        previousSuggestions,
+        ...(sourceLanguage ? { sourceLanguage } : {})
+      })
     });
   } catch (e) {
     log.error("network", e);
@@ -276,7 +291,7 @@ async function getLiveSummary() {
   return { ok: true, ...summary };
 }
 
-async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions) {
+async function handleGenerate(rawCtx, imageUrls, sourceLanguage, regenerate, previousSuggestions) {
   if (!await extensionIsEnabled()) return { ok: false, error: "EXTENSION_DISABLED" };
   const ctx = sanitizeContext(rawCtx);
   if (!ctx) return { ok: false, error: "EMPTY_CONTEXT" };
@@ -284,13 +299,19 @@ async function handleGenerate(rawCtx, imageUrls, regenerate, previousSuggestions
 
   // Grounding must run on every generation. Do not serve cached suggestions,
   // because stale cache skips Grok search/image checks and can mix old context.
-  const result = await callGenerate(ctx, imageUrls || [], !!regenerate, previousSuggestions || []);
+  const result = await callGenerate(
+    ctx,
+    imageUrls || [],
+    sanitizeSourceLanguage(sourceLanguage),
+    !!regenerate,
+    previousSuggestions || []
+  );
   if (result.ok) await audit("generate_ok", { count: result.suggestions.length, regen: regenerate });
   else await audit("generate_fail", { error: result.error });
   return result;
 }
 
-async function handlePaygGenerate(rawCtx, imageUrls, regenerate, previousSuggestions, pricing) {
+async function handlePaygGenerate(rawCtx, imageUrls, sourceLanguage, regenerate, previousSuggestions, pricing) {
   if (!await extensionIsEnabled()) return { ok: false, error: "EXTENSION_DISABLED" };
   const ctx = sanitizeContext(rawCtx);
   if (!ctx) return { ok: false, error: "EMPTY_CONTEXT" };
@@ -320,6 +341,7 @@ async function handlePaygGenerate(rawCtx, imageUrls, regenerate, previousSuggest
       imageUrls: imageUrls || [],
       regenerate: !!regenerate,
       previousSuggestions: previousSuggestions || [],
+      sourceLanguage: sanitizeSourceLanguage(sourceLanguage),
       pricing
     },
     accountId: user.id,
@@ -358,6 +380,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       handleGenerate(
         msg.context || "",
         msg.imageUrls || [],
+        msg.sourceLanguage || null,
         !!msg.regenerate,
         msg.previousSuggestions || []
       ).then(sendResponse);
@@ -367,6 +390,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       handlePaygGenerate(
         msg.context || "",
         msg.imageUrls || [],
+        msg.sourceLanguage || null,
         !!msg.regenerate,
         msg.previousSuggestions || [],
         msg.pricing || null

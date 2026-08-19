@@ -35,6 +35,13 @@ jobs:
       - name: Build Worker
         run: npm run cf:build
 
+      - name: Apply database migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          npm --prefix dashboard run migrate:deploy
+
       - name: Deploy application Worker
         run: npx wrangler deploy
 

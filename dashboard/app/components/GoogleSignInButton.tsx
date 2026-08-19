@@ -15,7 +15,6 @@ declare global {
 }
 
 type Props = {
-  next?: string;
   label?: "signin_with" | "signup_with" | "continue_with";
   referralCode?: string;
   onSuccess: (token: string, user: any) => void;
@@ -51,28 +50,32 @@ function loadGoogleScript() {
 
 export default function GoogleSignInButton({ label = "continue_with", referralCode, onSuccess, onError, forceDirect = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<Window | null>(null);
+  const bridgeStateRef = useRef("");
   const [configured, setConfigured] = useState(true);
   const [useBridge, setUseBridge] = useState<boolean | null>(forceDirect ? false : null);
 
   useEffect(() => {
     if (forceDirect) return;
-    setUseBridge(window.location.hostname === "nurxai.xyz" || window.location.hostname === "www.nurxai.xyz");
+    const productionHost = window.location.hostname === "nurxai.xyz" || window.location.hostname === "www.nurxai.xyz";
+    setUseBridge(productionHost && process.env.NEXT_PUBLIC_GOOGLE_DIRECT_AUTH !== "true");
   }, [forceDirect]);
 
   useEffect(() => {
     if (!useBridge) return;
     function receiveGoogleSession(event: MessageEvent) {
-      if (event.origin !== GOOGLE_BRIDGE_ORIGIN || event.data?.type !== "NURXAI_GOOGLE_SESSION") return;
+      if (
+        event.origin !== GOOGLE_BRIDGE_ORIGIN
+        || event.source !== popupRef.current
+        || event.data?.type !== "NURXAI_GOOGLE_SESSION"
+        || event.data?.state !== bridgeStateRef.current
+      ) return;
       if (event.data.error) {
         onError(event.data.error);
         return;
       }
       if (typeof event.data.token !== "string" || !event.data.user) return;
-      void fetch("/api/auth/session", {
-        credentials: "include",
-        cache: "no-store",
-        headers: { Authorization: `Bearer ${event.data.token}` }
-      })
+      void fetch("/api/auth/session", { credentials: "include", cache: "no-store" })
         .then(async (response) => {
           if (!response.ok) throw new Error("Could not establish your NurAi session.");
           const session = await response.json();
@@ -98,6 +101,8 @@ export default function GoogleSignInButton({ label = "continue_with", referralCo
         if (cancelled || !ref.current || !window.google?.accounts?.id) return;
         window.google.accounts.id.initialize({
           client_id: clientId,
+          ux_mode: "popup",
+          auto_select: false,
           callback: async (response: any) => {
             try {
               const r = await fetch("/api/auth/google", {
@@ -137,24 +142,25 @@ export default function GoogleSignInButton({ label = "continue_with", referralCo
   if (useBridge === null) return <div className="min-h-[44px]" />;
 
   if (useBridge) {
-    const buttonText = label === "signup_with" ? "Sign up with Google" : "Sign in with Google";
     return (
       <button
         type="button"
-        className="nb-btn w-full min-h-[44px] flex items-center justify-center gap-3"
+        className="nb-btn min-h-[44px] w-full gap-3"
         onClick={() => {
-          const params = new URLSearchParams({ return_origin: window.location.origin });
+          const state = crypto.randomUUID();
+          bridgeStateRef.current = state;
+          const params = new URLSearchParams({ return_origin: window.location.origin, state });
           if (referralCode) params.set("ref", referralCode);
-          const popup = window.open(
+          popupRef.current = window.open(
             `${GOOGLE_BRIDGE_ORIGIN}/auth/google-bridge?${params}`,
             "nurxai-google-signin",
             "popup=yes,width=520,height=700"
           );
-          if (!popup) onError("Allow popups for NurAi, then try Google sign-in again.");
+          if (!popupRef.current) onError("Allow popups for NurAi, then try Google sign-in again.");
         }}
       >
         <span className="font-black" aria-hidden="true">G</span>
-        {buttonText}
+        {label === "signup_with" ? "Sign up with Google" : "Sign in with Google"}
       </button>
     );
   }
@@ -167,5 +173,5 @@ export default function GoogleSignInButton({ label = "continue_with", referralCo
     );
   }
 
-  return <div ref={ref} className="min-h-[44px] grid place-items-center" />;
+  return <div ref={ref} className="min-h-[44px] w-full grid place-items-center overflow-hidden" />;
 }

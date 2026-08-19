@@ -7,6 +7,11 @@ import { getSubscriptionDailyLimit } from "@/lib/subscription-limits";
 import { requireSupportedExtensionVersion } from "@/lib/extension-version";
 import { getCurrentSubscriptionForUser } from "@/lib/billing";
 import { paygRequestHash, verifyPaygGrant } from "@/lib/payg-operation";
+import {
+  languageLabel,
+  resolveSourceLanguage,
+  suggestionMatchesLanguage
+} from "@/lib/generation-language";
 import { google } from "@ai-sdk/google";
 import { gateway, generateText } from "ai";
 import crypto from "crypto";
@@ -639,9 +644,11 @@ function buildSystemPrompt(
   projectsContext: string,
   hasImage: boolean,
   grokContext: string | null,
-  webContext: string | null
+  webContext: string | null,
+  targetLanguage: string | null
 ): string {
   const masterpiece = qualityTier === "masterpiece";
+  const targetLanguageLabel = languageLabel(targetLanguage);
 
   return `You write public X/Twitter replies as a real person with taste.
 
@@ -653,8 +660,8 @@ ${masterpiece
     : "You know the internet well. You react with a clean personal take, not a report."}
 
 LANGUAGE
-- Detect the language(s) of the original post.
-- Write every reply in that same language.
+- Target reply language: ${targetLanguageLabel}.
+- Write every reply in the target language. Do not choose a language from author, card, link, or quoted-post text.
 - If the post mixes languages, match the dominant public-facing language and keep proper nouns/handles as written.
 - Preserve the post's register: casual stays casual, sharp stays sharp, technical stays technical.
 - Never translate into English unless the post is English.
@@ -747,7 +754,7 @@ ${projectsContext}` : ""}
 OUTPUT
 Return JSON only:
 {"suggestions": ["reply 1", "reply 2", "reply 3", "reply 4"]}
-4 distinct human replies. Same language as the post. No explanation.`;
+4 distinct human replies. Target language: ${targetLanguageLabel}. No explanation.`;
 }
 
 // ─── Main Route ───────────────────────────────────────────────────────────────
@@ -771,6 +778,7 @@ export async function POST(req: NextRequest) {
   let context = String(body?.context || "").trim();
   if (!context) return NextResponse.json({ error: "EMPTY_CONTEXT" }, { status: 400 });
   context = context.slice(0, MAX_CTX);
+  const targetLanguage = resolveSourceLanguage(context, body?.sourceLanguage);
   await ensureRuntimeSchema();
   if (paygGrant) {
     await ensurePaygSchema();
@@ -859,7 +867,7 @@ export async function POST(req: NextRequest) {
   // ── Project contexts ──────────────────────────────────────────────────────
   const systemPrompt = buildSystemPrompt(
     plan.qualityTier, style, customNote,
-    projectsContext, hadVerifiedImageContext, enrichedContext, webContext
+    projectsContext, hadVerifiedImageContext, enrichedContext, webContext, targetLanguage
   );
 
   // ── Build user message ────────────────────────────────────────────────────
@@ -869,7 +877,7 @@ export async function POST(req: NextRequest) {
 
   const userMessage = {
     role: "user",
-    content: `Tweet:\n"""\n${context}\n"""${regenerateNote}`
+    content: `Target reply language: ${languageLabel(targetLanguage)}.\n\nTweet:\n"""\n${context}\n"""${regenerateNote}`
   };
 
   // ── Call OpenAI ───────────────────────────────────────────────────────────
@@ -914,7 +922,7 @@ export async function POST(req: NextRequest) {
   const generationUsage = await usageFromOpenAIResponse("gpt-reply", model, data);
   aiUsage = addUsage(aiUsage, generationUsage);
 
-  let suggestions = sanitizeSuggestions(parseSuggestions(raw), context);
+  let suggestions = sanitizeSuggestions(parseSuggestions(raw), context, targetLanguage);
   if (suggestions.length < MIN_REPLY_COUNT) {
     const repair = await repairSuggestions({
       apiKey,
@@ -922,13 +930,14 @@ export async function POST(req: NextRequest) {
       context,
       rawSuggestions: parseSuggestions(raw),
       previousSuggestions,
-      isRegenerate
+      isRegenerate,
+      targetLanguage
     });
     suggestions = repair.suggestions;
     aiUsage = addUsage(aiUsage, repair.usage);
   }
   if (suggestions.length < MIN_REPLY_COUNT) {
-    suggestions = sanitizeSuggestions(parseSuggestions(raw).map(forceShortReply), context);
+    suggestions = sanitizeSuggestions(parseSuggestions(raw).map(forceShortReply), context, targetLanguage);
   }
   if (!suggestions.length) {
     return NextResponse.json({ error: "EMPTY_SUGGESTIONS" }, { status: 502 });
@@ -1040,12 +1049,13 @@ function isShortHumanReply(reply: string, context: string) {
   return true;
 }
 
-function sanitizeSuggestions(list: string[], context: string): string[] {
+function sanitizeSuggestions(list: string[], context: string, targetLanguage: string | null): string[] {
   const cleaned = list
     .map(stripEmojis)
     .map(cleanReply)
     .filter((s) => isShortHumanReply(s, context))
-    .filter((s) => isAllowedReply(s, context));
+    .filter((s) => isAllowedReply(s, context))
+    .filter((s) => suggestionMatchesLanguage(s, targetLanguage));
 
   return dedupeReplyOpeners(cleaned).slice(0, 4);
 }
@@ -1063,7 +1073,8 @@ async function repairSuggestions({
   context,
   rawSuggestions,
   previousSuggestions,
-  isRegenerate
+  isRegenerate,
+  targetLanguage
 }: {
   apiKey: string;
   model: string;
@@ -1071,7 +1082,9 @@ async function repairSuggestions({
   rawSuggestions: string[];
   previousSuggestions: string[];
   isRegenerate: boolean;
+  targetLanguage: string | null;
 }): Promise<RepairResult> {
+  const targetLanguageLabel = languageLabel(targetLanguage);
   try {
     const resp = await fetch(AI_GATEWAY_URL, {
       method: "POST",
@@ -1084,7 +1097,8 @@ async function repairSuggestions({
             content: `Rewrite bad X replies into 4 short human replies.
 
 Rules:
-- match the original post language exactly
+- target language: ${targetLanguageLabel}
+- write every reply in the target language; ignore languages in author, card, link, and quoted-post text
 - each reply under ${MAX_REPLY_CHARS} chars, aim 6-16 words
 - one sentence each unless a clean two-line contrast is better
 - no bullets, no lists, no explanation
@@ -1095,7 +1109,7 @@ Rules:
           },
           {
             role: "user",
-            content: `Tweet:\n"""\n${context}\n"""\n\nBad/long replies:\n${rawSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}${isRegenerate && previousSuggestions.length ? `\n\nAvoid these previous replies:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}` : ""}\n\nReturn JSON only: {"suggestions":["...","...","...","..."]}`
+            content: `Target reply language: ${targetLanguageLabel}.\n\nTweet:\n"""\n${context}\n"""\n\nBad/long replies:\n${rawSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}${isRegenerate && previousSuggestions.length ? `\n\nAvoid these previous replies:\n${previousSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}` : ""}\n\nReturn JSON only: {"suggestions":["...","...","...","..."]}`
           }
         ],
         temperature: 0.7,
@@ -1107,7 +1121,7 @@ Rules:
     const data = await resp.json().catch(() => null);
     const raw = data?.choices?.[0]?.message?.content || "";
     const usage = await usageFromOpenAIResponse("gpt-repair", model, data);
-    return { suggestions: sanitizeSuggestions(parseSuggestions(raw), context), usage };
+    return { suggestions: sanitizeSuggestions(parseSuggestions(raw), context, targetLanguage), usage };
   } catch {
     return { suggestions: [], usage: emptyUsage() };
   }
@@ -1127,7 +1141,10 @@ function stripWrappingQuotes(s: string): string {
 }
 
 function normalizeForCompare(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9@$]+/g, " ").replace(/\s+/g, " ").trim();
+  return s.normalize("NFKC").toLocaleLowerCase("und")
+    .replace(/[^\p{L}\p{N}@$]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isAllowedReply(reply: string, context: string): boolean {

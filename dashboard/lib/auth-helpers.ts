@@ -2,13 +2,13 @@ import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { decodeJwt } from "jose";
 import { prisma } from "./db";
-import { verifyToken } from "./jwt";
+import { verifyToken, type SessionToken } from "./jwt";
 
 export const COOKIE_NAME = "nurxai_session";
 const LEGACY_STORE_VERSION = "2.0.17";
 const LEGACY_AUTH_CHECK_URL = "https://nurxai.nurw3b.workers.dev/api/announcements";
 
-type Session = { sub: string; email: string };
+type Session = SessionToken;
 
 declare global {
   // eslint-disable-next-line no-var
@@ -89,7 +89,7 @@ export async function getSessionFromCookies() {
   return await verifyToken(c.value);
 }
 
-export async function getSessionFromAuthHeader(req: NextRequest) {
+async function getUncheckedSessionFromAuthHeader(req: NextRequest) {
   const a = req.headers.get("authorization") || "";
   const token = a.startsWith("Bearer ") ? a.slice(7).trim() : "";
   if (!token) return null;
@@ -97,25 +97,23 @@ export async function getSessionFromAuthHeader(req: NextRequest) {
 }
 
 async function getAuthUserFromSession(session: Session | null) {
-  if (!session?.sub && !session?.email) return null;
-  const select = { id: true, email: true, name: true, isAdmin: true };
-
-  if (session.sub) {
-    const user = await prisma.user.findUnique({ where: { id: session.sub }, select });
-    if (user) return { session, user };
-  }
-
-  const email = session.email?.toLowerCase().trim();
-  if (!email) return null;
-
-  const user = await prisma.user.findUnique({ where: { email }, select });
+  if (!session?.sub) return null;
+  const select = { id: true, email: true, name: true, avatarUrl: true, isAdmin: true, sessionVersion: true };
+  const user = await prisma.user.findUnique({ where: { id: session.sub }, select });
   if (!user) return null;
+  const tokenVersion = Number.isInteger(session.sv) ? Number(session.sv) : 0;
+  if (tokenVersion !== user.sessionVersion) return null;
 
   return { session, user };
 }
 
 export async function getAuthUserFromHeader(req: NextRequest) {
-  return getAuthUserFromSession(await getSessionFromAuthHeader(req));
+  return getAuthUserFromSession(await getUncheckedSessionFromAuthHeader(req));
+}
+
+export async function getSessionFromAuthHeader(req: NextRequest) {
+  const auth = await getAuthUserFromHeader(req);
+  return auth?.session || null;
 }
 
 export async function getAuthUserFromCookies() {

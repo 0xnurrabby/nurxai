@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
     const displayName = payload.name || payload.given_name || null;
     const avatarUrl = payload.picture || null;
     const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing?.googleId && existing.googleId !== googleId) {
+      return NextResponse.json({ error: "GOOGLE_ACCOUNT_MISMATCH" }, { status: 409 });
+    }
     const user = existing
       ? await prisma.user.update({
           where: { id: existing.id },
@@ -90,7 +93,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const token = await signToken({ sub: user.id, email: user.email });
+    const token = await signToken({ sub: user.id, email: user.email, sv: user.sessionVersion });
     return setSessionCookie(NextResponse.json({
       token,
       user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl || null, isAdmin }

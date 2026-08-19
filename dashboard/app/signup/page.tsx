@@ -3,16 +3,24 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
+import AuthShell from "../components/AuthShell";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 
 const REF_STORAGE_KEY = "nurxai_referral_code";
 
-function signupError(data: any) {
+function authError(data: any) {
   if (data?.error === "EMAIL_TAKEN") return "An account with this email already exists. Sign in instead.";
   if (data?.error === "BAD_EMAIL") return "Enter a valid email address.";
-  if (data?.error === "WEAK_PASSWORD") return "Password must be at least 8 characters.";
-  if (data?.error === "RATE_LIMITED") return data.message || "Too many attempts. Wait a moment and try again.";
-  return data?.message || "Could not create your account. Please try again.";
+  if (data?.error === "WEAK_PASSWORD") return "Use 8 or more characters and keep the password under 72 UTF-8 bytes.";
+  if (data?.error === "INVALID_OTP") return "That code is invalid, expired, or has already been used.";
+  if (data?.error === "RATE_LIMITED") return data.message || "Too many attempts. Try again later.";
+  return data?.message || "Could not complete signup. Please try again.";
+}
+
+function maskEmail(email: string) {
+  const [name, domain] = email.split("@");
+  if (!domain) return email;
+  return `${name.slice(0, 1)}${"*".repeat(Math.min(4, Math.max(1, name.length - 1)))}@${domain}`;
 }
 
 function SignupForm() {
@@ -20,6 +28,9 @@ function SignupForm() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  const [otp, setOtp] = useState("");
+  const [phase, setPhase] = useState<"details" | "code">("details");
+  const [countdown, setCountdown] = useState(0);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const router = useRouter();
@@ -27,7 +38,7 @@ function SignupForm() {
 
   useEffect(() => {
     const fromUrl = (params.get("ref") || params.get("r") || "").replace(/[^a-z0-9]/gi, "").toUpperCase();
-    const saved = typeof window !== "undefined" ? localStorage.getItem(REF_STORAGE_KEY) || "" : "";
+    const saved = localStorage.getItem(REF_STORAGE_KEY) || "";
     const code = fromUrl || saved;
     if (code) {
       setReferralCode(code);
@@ -35,111 +46,98 @@ function SignupForm() {
     }
   }, [params]);
 
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = window.setInterval(() => setCountdown((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [countdown]);
+
   const finishAuth = useCallback((token: string, user: any) => {
     try {
       localStorage.setItem("nurxai_jwt", token);
       localStorage.setItem("nurxai_user", JSON.stringify(user));
       localStorage.removeItem(REF_STORAGE_KEY);
     } catch {}
-    router.push("/dashboard");
+    router.replace("/dashboard");
   }, [router]);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function requestCode() {
     setErr("");
     setBusy(true);
     try {
-      const r = await fetch("/api/auth/signup", {
+      const response = await fetch("/api/auth/otp/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, referralCode })
+        body: JSON.stringify({ email, purpose: "signup" })
       });
-      const d = await r.json();
-      if (!r.ok) {
-        setErr(signupError(d));
-        return;
-      }
-      finishAuth(d.token, d.user);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return setErr(authError(data));
+      setPhase("code");
+      setCountdown(Number(data.resendAfter) || 60);
     } catch {
-      setErr("Network error.");
+      setErr("Network error. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitDetails(event: React.FormEvent) {
+    event.preventDefault();
+    await requestCode();
+  }
+
+  async function completeSignup(event: React.FormEvent) {
+    event.preventDefault();
+    setErr("");
+    setBusy(true);
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name, referralCode, otp })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return setErr(authError(data));
+      finishAuth(data.token, data.user);
+    } catch {
+      setErr("Network error. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="max-w-md mx-auto px-5 py-12">
-        <div className="nb-card p-7">
-          <h1 className="font-display font-black text-3xl">Create account</h1>
-          <p className="mt-2 text-sm opacity-70">
-            Create an account and your free 3-day trial starts automatically.
-          </p>
+    <AuthShell mode="signup">
+      <div className="nb-card border-0 p-1 sm:p-3">
+        <div className="flex items-center justify-between gap-4"><span className="nb-tag">3-DAY TRIAL</span><span className="text-xs font-black opacity-50">STEP {phase === "details" ? "1" : "2"} / 2</span></div>
+        <h1 className="mt-5 font-display text-4xl font-black tracking-tight">Build your edge.</h1>
+        <p className="mt-2 text-sm leading-relaxed opacity-70">Verify your email, then your reply workspace is ready.</p>
 
-          <div className="mt-6">
-            <GoogleSignInButton
-              label="signup_with"
-              referralCode={referralCode}
-              onSuccess={finishAuth}
-              onError={setErr}
-            />
-          </div>
-
-          <div className="my-6 flex items-center gap-3 text-xs font-bold opacity-60">
-            <div className="h-px flex-1 bg-ink/30 dark:bg-nightInk/30" />
-            <span>OR EMAIL</span>
-            <div className="h-px flex-1 bg-ink/30 dark:bg-nightInk/30" />
-          </div>
-
-          <form onSubmit={submit} className="space-y-4">
-            <div>
-              <label className="font-semibold text-sm">Name</label>
-              <input className="nb-input mt-1" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div>
-              <label className="font-semibold text-sm">Email</label>
-              <input type="email" required className="nb-input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div>
-              <label className="font-semibold text-sm">Password (min 8 chars)</label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                className="nb-input mt-1"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-sm">Referral code (optional)</label>
-              <input
-                className="nb-input mt-1 uppercase"
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())}
-                placeholder="FRIENDCODE"
-              />
-            </div>
-            {err && <p className="text-sm font-semibold" style={{ color: "#b00020" }}>{err}</p>}
-            <button className="nb-btn nb-btn-primary w-full" disabled={busy}>
-              {busy ? "Creating..." : "Create with email"}
-            </button>
+        {phase === "details" ? <>
+          <div className="mt-7"><GoogleSignInButton label="signup_with" referralCode={referralCode} onSuccess={finishAuth} onError={setErr} /></div>
+          <div className="my-6 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50"><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR VERIFIED EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /></div>
+          <form onSubmit={submitDetails} className="space-y-4">
+            <div><label className="text-sm font-bold">Name</label><input className="nb-input mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+            <div><label className="text-sm font-bold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+            <div><label className="text-sm font-bold">Password</label><input type="password" required minLength={8} maxLength={128} autoComplete="new-password" className="nb-input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /><p className="mt-1 text-xs opacity-55">Minimum 8 characters.</p></div>
+            <div><label className="text-sm font-bold">Referral code <span className="opacity-50">(optional)</span></label><input className="nb-input mt-1 uppercase" value={referralCode} onChange={(e) => setReferralCode(e.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())} placeholder="FRIENDCODE" /></div>
+            {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
+            <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy}>{busy ? "Sending secure code..." : "Verify email"}</button>
           </form>
+        </> : <form onSubmit={completeSignup} className="mt-7 space-y-5">
+          <div className="rounded-xl border-2 border-ink bg-[var(--accent3)] p-4 text-sm text-ink"><strong>Code sent if eligible</strong><p className="mt-1 opacity-75">Check {maskEmail(email)}. The code expires in 10 minutes.</p></div>
+          <div><label className="text-sm font-bold">6-digit code</label><input autoFocus required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} className="nb-input mt-1 text-center font-mono text-2xl font-black tracking-[.35em]" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} /></div>
+          {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
+          <button className="nb-btn nb-btn-success min-h-[48px] w-full" disabled={busy || otp.length !== 6}>{busy ? "Verifying..." : "Verify and create account"}</button>
+          <div className="flex items-center justify-between gap-3 text-sm"><button type="button" className="font-bold underline" onClick={() => { setPhase("details"); setOtp(""); setErr(""); }}>Edit details</button><button type="button" className="font-bold underline disabled:opacity-40" disabled={busy || countdown > 0} onClick={requestCode}>{countdown > 0 ? `Resend in ${countdown}s` : "Resend code"}</button></div>
+        </form>}
 
-          <p className="mt-4 text-sm">
-            Already have one? <Link href="/login" className="font-bold underline">Sign in</Link>
-          </p>
-        </div>
-      </main>
-    </>
+        <p className="mt-6 border-t-2 border-ink/10 pt-5 text-sm dark:border-nightInk/10">Already operating? <Link href="/login" className="font-black underline">Sign in</Link></p>
+      </div>
+    </AuthShell>
   );
 }
 
 export default function Signup() {
-  return (
-    <Suspense fallback={<><Navbar /><main className="p-10 text-center">Loading...</main></>}>
-      <SignupForm />
-    </Suspense>
-  );
+  return <><Navbar /><Suspense fallback={<main className="grid min-h-[70vh] place-items-center font-black">Preparing secure signup...</main>}><SignupForm /></Suspense></>;
 }
