@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NurXai - AI Reply for X",
-  "version": "2.0.17",
+  "version": "3.0.1",
   "minimum_chrome_version": "116",
   "description": "Human-controlled X communication copilot with contextual drafts and Base x402 PAYG access.",
   "default_locale": "en",
