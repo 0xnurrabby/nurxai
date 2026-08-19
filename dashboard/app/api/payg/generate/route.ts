@@ -578,24 +578,6 @@ export async function POST(req: NextRequest) {
     }
   });
   await reconcileStaleSettlement({ userId: auth.user.id, payer: authorization.payer });
-  if (!operation.response) {
-    const recentFailedPayment = await prisma.paygGeneration.findFirst({
-      where: {
-        id: { not: operation.id },
-        userId: auth.user.id,
-        status: "generated",
-        error: { startsWith: "SETTLEMENT_FAILED:" },
-        updatedAt: { gt: new Date(Date.now() - 10 * 60 * 1000) }
-      },
-      select: { id: true }
-    });
-    if (recentFailedPayment) {
-      return NextResponse.json(
-        { error: "PAYG_PAYMENT_COOLDOWN", retryable: true },
-        { status: 429, headers: { "Retry-After": "600" } }
-      );
-    }
-  }
   let settlementStartBlock: bigint;
   try {
     settlementStartBlock = await getBaseClient().getBlockNumber();
