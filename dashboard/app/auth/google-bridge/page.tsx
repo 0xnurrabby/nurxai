@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import GoogleSignInButton from "../../components/GoogleSignInButton";
 
 const ALLOWED_RETURN_ORIGINS = new Set(["https://nurxai.xyz", "https://www.nurxai.xyz"]);
+const GOOGLE_CALLBACK_URL = "https://nurxai.xyz/auth/google-bridge/callback";
 
 function GoogleBridgeInner() {
   const params = useSearchParams();
@@ -13,23 +13,7 @@ function GoogleBridgeInner() {
     const requested = params.get("return_origin") || "";
     return ALLOWED_RETURN_ORIGINS.has(requested) ? requested : "https://nurxai.xyz";
   }, [params]);
-  const referralCode = params.get("ref") || undefined;
-  const state = params.get("state") || "";
-
-  const finish = useCallback((token: string, user: any) => {
-    if (!window.opener || !state) {
-      setMessage("Open Google sign-in from nurxai.xyz and try again.");
-      return;
-    }
-    window.opener.postMessage({ type: "NURXAI_GOOGLE_SESSION", token, user, state }, returnOrigin);
-    setMessage("Signed in. This window will close now.");
-    window.setTimeout(() => window.close(), 400);
-  }, [returnOrigin, state]);
-
-  const fail = useCallback((error: string) => {
-    setMessage(error);
-    window.opener?.postMessage({ type: "NURXAI_GOOGLE_SESSION", error, state }, returnOrigin);
-  }, [returnOrigin, state]);
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   return (
     <main className="auth-stage grid min-h-screen place-items-center px-5 py-12">
@@ -38,13 +22,29 @@ function GoogleBridgeInner() {
         <h1 className="mt-5 font-display text-3xl font-black">Sign in to NurAi</h1>
         <p className="mt-3 text-sm opacity-70">{message}</p>
         <div className="mt-6">
-          <GoogleSignInButton
-            forceDirect
-            label="continue_with"
-            referralCode={referralCode}
-            onSuccess={finish}
-            onError={fail}
-          />
+          <button
+            type="button"
+            className="nb-btn min-h-[44px] w-full gap-3"
+            disabled={!clientId}
+            onClick={() => {
+              const state = crypto.randomUUID();
+              const oauthState = btoa(JSON.stringify({ nonce: state, returnOrigin, referralCode: params.get("ref") || "" }))
+                .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+              const oauth = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+              oauth.search = new URLSearchParams({
+                client_id: clientId || "",
+                redirect_uri: GOOGLE_CALLBACK_URL,
+                response_type: "code",
+                scope: "openid email profile",
+                state: oauthState,
+                prompt: "select_account"
+              }).toString();
+              window.location.assign(oauth.toString());
+            }}
+          >
+            <span className="font-black" aria-hidden="true">G</span>
+            Continue with Google
+          </button>
         </div>
       </div>
     </main>

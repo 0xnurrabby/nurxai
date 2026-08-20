@@ -23,7 +23,12 @@ type Props = {
 };
 
 const SCRIPT_ID = "google-identity-services";
-const GOOGLE_BRIDGE_ORIGIN = "https://www.nurxai.xyz";
+const GOOGLE_BRIDGE_ORIGIN = "https://nurxai.xyz";
+const GOOGLE_CALLBACK_PATH = "/auth/google-bridge/callback";
+
+function encodeOAuthState(value: Record<string, string>) {
+  return btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
 
 function loadGoogleScript() {
   return new Promise<void>((resolve, reject) => {
@@ -147,14 +152,30 @@ export default function GoogleSignInButton({ label = "continue_with", referralCo
         type="button"
         className="nb-btn min-h-[44px] w-full gap-3"
         onClick={() => {
-          const state = crypto.randomUUID();
-          bridgeStateRef.current = state;
-          const params = new URLSearchParams({ return_origin: window.location.origin, state });
-          if (referralCode) params.set("ref", referralCode);
-          popupRef.current = window.open(
-            `${GOOGLE_BRIDGE_ORIGIN}/auth/google-bridge?${params}`,
-            "nurxai-google-signin",
-            "popup=yes,width=520,height=700"
+           const state = crypto.randomUUID();
+           bridgeStateRef.current = state;
+           const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+           if (!clientId) {
+             onError("Google login is not configured.");
+             return;
+           }
+           const oauthState = encodeOAuthState({
+             nonce: state,
+             returnOrigin: window.location.origin,
+             referralCode: referralCode || ""
+           });
+           const params = new URLSearchParams({
+             client_id: clientId,
+             redirect_uri: `${GOOGLE_BRIDGE_ORIGIN}${GOOGLE_CALLBACK_PATH}`,
+             response_type: "code",
+             scope: "openid email profile",
+             state: oauthState,
+             prompt: "select_account"
+           });
+           popupRef.current = window.open(
+             `https://accounts.google.com/o/oauth2/v2/auth?${params}`,
+             "nurxai-google-signin",
+             "popup=yes,width=520,height=700"
           );
           if (!popupRef.current) onError("Allow popups for NurAi, then try Google sign-in again.");
         }}

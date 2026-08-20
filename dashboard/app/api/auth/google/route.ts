@@ -22,21 +22,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "GOOGLE_NOT_CONFIGURED" }, { status: 500 });
     }
 
-    const { credential, referralCode } = await req.json().catch(() => ({}));
-    if (typeof credential !== "string" || !credential) {
+const { credential, code, referralCode } = await req.json().catch(() => ({}));
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    let ticket;
+    if (typeof code === "string" && code) {
+      if (!clientSecret) {
+        console.error("Google auth failed: GOOGLE_CLIENT_SECRET is not configured.");
+        return NextResponse.json({ error: "GOOGLE_NOT_CONFIGURED", message: "Google sign-in is not configured correctly on the server. Please check GOOGLE_CLIENT_SECRET." }, { status: 500 });
+      }
+      const client = new OAuth2Client(clientId, clientSecret, "https://nurxai.xyz/auth/google-bridge/callback");
+      const { tokens } = await client.getToken(code);
+      if (!tokens.id_token) return NextResponse.json({ error: "GOOGLE_AUTH_FAILED", message: "Google did not return a verified identity." }, { status: 401 });
+      ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: clientId });
+    } else if (typeof credential === "string" && credential) {
+      const client = new OAuth2Client(clientId);
+      ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
+    } else {
       return NextResponse.json({ error: "MISSING_CREDENTIAL" }, { status: 400 });
     }
-
-    const client = new OAuth2Client(clientId);
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: clientId
-    });
     const payload = ticket.getPayload();
     const email = payload?.email?.toLowerCase().trim();
     const googleId = payload?.sub;
     if (!email || !googleId || !payload?.email_verified) {
-      return NextResponse.json({ error: "GOOGLE_EMAIL_NOT_VERIFIED" }, { status: 401 });
+      return NextResponse.json({ error: "GOOGLE_EMAIL_NOT_VERIFIED", message: "Google could not verify this email address." }, { status: 401 });
     }
 
     const isAdmin = isAdminEmail(email);

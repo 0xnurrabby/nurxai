@@ -69,7 +69,7 @@ export default {
 
     const url = new URL(request.url);
     const isApi = url.pathname.startsWith("/api/");
-    const isGoogleBridge = url.pathname === "/auth/google-bridge";
+    const isGoogleBridge = url.pathname.startsWith("/auth/google-bridge");
     if (url.hostname === "www.nurxai.xyz" && !isApi && !isGoogleBridge) {
       url.hostname = "nurxai.xyz";
       return Response.redirect(url.toString(), 308);
