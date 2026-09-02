@@ -5,8 +5,9 @@ import { prisma } from "./db";
 import { verifyToken, type SessionToken } from "./jwt";
 
 export const COOKIE_NAME = "nurxai_session";
-const LEGACY_STORE_VERSION = "2.0.17";
-const LEGACY_AUTH_CHECK_URL = "https://nurxai.nurw3b.workers.dev/api/announcements";
+const LEGACY_STORE_VERSION = process.env.LEGACY_STORE_VERSION?.trim() || "2.0.17";
+const LEGACY_AUTH_CHECK_URL = process.env.LEGACY_AUTH_CHECK_URL?.trim()
+  || "https://nurxai.nurw3b.workers.dev/api/announcements";
 
 type Session = SessionToken;
 
@@ -36,8 +37,17 @@ async function tokenFingerprint(token: string) {
 }
 
 async function verifyLegacyStoreExtensionToken(req: NextRequest, token: string): Promise<Session | null> {
-  if (process.env.VERCEL !== "1" || req.headers.get("x-client-version") !== LEGACY_STORE_VERSION) return null;
+  if (process.env.LEGACY_AUTH_FALLBACK_ENABLED !== "true") return null;
+  if (req.headers.get("x-client-version") !== LEGACY_STORE_VERSION) return null;
   if (!req.headers.get("authorization")?.startsWith("Bearer ")) return null;
+
+  let authority: URL;
+  try {
+    authority = new URL(LEGACY_AUTH_CHECK_URL);
+    if (authority.protocol !== "https:" || authority.origin === new URL(req.url).origin) return null;
+  } catch {
+    return null;
+  }
 
   const cacheKey = await tokenFingerprint(token);
   const cached = legacySessions.get(cacheKey);
@@ -59,7 +69,7 @@ async function verifyLegacyStoreExtensionToken(req: NextRequest, token: string):
   }
 
   try {
-    const response = await fetch(LEGACY_AUTH_CHECK_URL, {
+    const response = await fetch(authority, {
       headers: {
         Authorization: `Bearer ${token}`,
         "X-Client-Version": LEGACY_STORE_VERSION

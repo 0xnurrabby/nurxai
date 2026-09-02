@@ -23,7 +23,7 @@ export const maxDuration = 30;
  *   - The same txHash has not already been used to confirm any other payment
  */
 
-const BASE_RPC = "https://mainnet.base.org";
+const BASE_RPC = process.env.BASE_RPC_URL?.trim() || "https://mainnet.base.org";
 const USDC_BASE = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 // keccak256("Transfer(address,address,uint256)")
 const TRANSFER_TOPIC =

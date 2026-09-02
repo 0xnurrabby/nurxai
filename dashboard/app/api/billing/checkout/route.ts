@@ -5,15 +5,12 @@ import { PLANS, PlanKey } from "@/lib/plans";
 import { prisma } from "@/lib/db";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { getCurrentSubscription, getUpgradeQuote, paymentRawWithQuote } from "@/lib/billing";
+import { getPublicAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
 function getNowPaymentsKey() {
   return process.env.NOWPAYMENTS_API_KEY || process.env.NOWPAYMENTS_KEY;
-}
-
-function getPublicUrl() {
-  return (process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://nurxai.xyz").replace(/\/+$/, "");
 }
 
 export async function POST(req: NextRequest) {
@@ -41,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `nurxai_${session.sub}_${plan}_${Date.now()}`;
-    const baseUrl = getPublicUrl();
+    const baseUrl = getPublicAppUrl();
     const apiKey = getNowPaymentsKey();
 
     if (!apiKey) {

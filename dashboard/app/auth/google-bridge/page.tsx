@@ -3,15 +3,21 @@
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-const ALLOWED_RETURN_ORIGINS = new Set(["https://nurxai.xyz", "https://www.nurxai.xyz"]);
-const GOOGLE_CALLBACK_URL = "https://nurxai.xyz/auth/google-bridge/callback";
+function configuredOrigin(value: string | undefined, fallback: string) {
+  try { return new URL(value || fallback).origin; } catch { return fallback; }
+}
+
+const APP_ORIGIN = configuredOrigin(process.env.NEXT_PUBLIC_APP_URL, "https://nurxai.xyz");
+const BRIDGE_ORIGIN = configuredOrigin(process.env.NEXT_PUBLIC_GOOGLE_BRIDGE_ORIGIN, APP_ORIGIN);
+const ALLOWED_RETURN_ORIGINS = new Set([APP_ORIGIN, BRIDGE_ORIGIN]);
+const GOOGLE_CALLBACK_URL = `${BRIDGE_ORIGIN}/auth/google-bridge/callback`;
 
 function GoogleBridgeInner() {
   const params = useSearchParams();
   const [message, setMessage] = useState("Choose the Google account you want to use.");
   const returnOrigin = useMemo(() => {
     const requested = params.get("return_origin") || "";
-    return ALLOWED_RETURN_ORIGINS.has(requested) ? requested : "https://nurxai.xyz";
+    return ALLOWED_RETURN_ORIGINS.has(requested) ? requested : APP_ORIGIN;
   }, [params]);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 

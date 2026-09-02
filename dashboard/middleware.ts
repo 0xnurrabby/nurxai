@@ -27,7 +27,7 @@ function clientIp(req: NextRequest) {
 }
 
 function authKey(req: NextRequest) {
-  if (req.headers.get("x-client-version") === "2.0.17") {
+  if (req.headers.get("x-client-version") === (process.env.LEGACY_STORE_VERSION?.trim() || "2.0.17")) {
     return `legacy:${clientIp(req)}`;
   }
   const auth = req.headers.get("authorization") || "";

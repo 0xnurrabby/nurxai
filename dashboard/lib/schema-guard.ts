@@ -4,198 +4,352 @@ let schemaReady: Promise<void> | null = null;
 let paygSchemaReady: Promise<void> | null = null;
 
 async function verifyRuntimeSchema() {
-  const [schema] = await prisma.$queryRawUnsafe<Array<{ ready: boolean }>>(`
-    SELECT (
-      (SELECT COUNT(*) = 3
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'User'
-          AND column_name IN ('chatReadAt', 'referralCode', 'referredById'))
-      AND to_regclass('public."ChatMessage"') IS NOT NULL
-      AND to_regclass('public."AnnouncementRead"') IS NOT NULL
-      AND to_regclass('public."SubscriptionGift"') IS NOT NULL
-      AND to_regclass('public."WalletLedger"') IS NOT NULL
-      AND to_regclass('public."WithdrawalRequest"') IS NOT NULL
-      AND EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'Payment' AND column_name = 'lastReconciledAt'
+  const [schema] = await prisma.$queryRaw<Array<{ missing: string[] }>>`
+    WITH required_tables(table_name) AS (
+      VALUES
+        ('User'),
+        ('Payment'),
+        ('Subscription'),
+        ('Generation'),
+        ('Announcement'),
+        ('AnnouncementRead'),
+        ('ChatMessage'),
+        ('SubscriptionGift'),
+        ('WalletLedger'),
+        ('WithdrawalRequest')
+    ),
+    required_columns(table_name, column_name, data_type, not_null) AS (
+      VALUES
+        ('User', 'passwordHash', 'text', false),
+        ('User', 'googleId', 'text', false),
+        ('User', 'authProvider', 'text', true),
+        ('User', 'avatarUrl', 'text', false),
+        ('User', 'chatReadAt', 'timestamp(3) without time zone', false),
+        ('User', 'referralCode', 'text', false),
+        ('User', 'referredById', 'text', false),
+        ('User', 'referredAt', 'timestamp(3) without time zone', false),
+        ('Payment', 'providerPaymentId', 'text', false),
+        ('Payment', 'raw', 'jsonb', false),
+        ('Payment', 'lastReconciledAt', 'timestamp(3) without time zone', false),
+        ('Subscription', 'dailyLimit', 'integer', false),
+        ('Generation', 'usageDetails', 'jsonb', false),
+        ('Announcement', 'id', 'text', true),
+        ('Announcement', 'title', 'text', false),
+        ('Announcement', 'body', 'text', true),
+        ('Announcement', 'createdAt', 'timestamp(3) without time zone', true),
+        ('Announcement', 'createdBy', 'text', false),
+        ('AnnouncementRead', 'id', 'text', true),
+        ('AnnouncementRead', 'announcementId', 'text', true),
+        ('AnnouncementRead', 'userId', 'text', true),
+        ('AnnouncementRead', 'readAt', 'timestamp(3) without time zone', true),
+        ('ChatMessage', 'id', 'text', true),
+        ('ChatMessage', 'userId', 'text', true),
+        ('ChatMessage', 'body', 'text', true),
+        ('ChatMessage', 'createdAt', 'timestamp(3) without time zone', true),
+        ('SubscriptionGift', 'id', 'text', true),
+        ('SubscriptionGift', 'userId', 'text', true),
+        ('SubscriptionGift', 'subscriptionId', 'text', true),
+        ('SubscriptionGift', 'adminId', 'text', false),
+        ('SubscriptionGift', 'days', 'integer', true),
+        ('SubscriptionGift', 'note', 'text', false),
+        ('SubscriptionGift', 'active', 'boolean', true),
+        ('SubscriptionGift', 'createdAt', 'timestamp(3) without time zone', true),
+        ('SubscriptionGift', 'updatedAt', 'timestamp(3) without time zone', true),
+        ('WalletLedger', 'id', 'text', true),
+        ('WalletLedger', 'userId', 'text', true),
+        ('WalletLedger', 'amountUSD', 'numeric(65,30)', true),
+        ('WalletLedger', 'type', 'text', true),
+        ('WalletLedger', 'sourceType', 'text', false),
+        ('WalletLedger', 'sourceId', 'text', false),
+        ('WalletLedger', 'note', 'text', false),
+        ('WalletLedger', 'adminId', 'text', false),
+        ('WalletLedger', 'createdAt', 'timestamp(3) without time zone', true),
+        ('WithdrawalRequest', 'id', 'text', true),
+        ('WithdrawalRequest', 'userId', 'text', true),
+        ('WithdrawalRequest', 'amountUSD', 'numeric(65,30)', true),
+        ('WithdrawalRequest', 'network', 'text', true),
+        ('WithdrawalRequest', 'address', 'text', true),
+        ('WithdrawalRequest', 'status', 'text', true),
+        ('WithdrawalRequest', 'userNote', 'text', false),
+        ('WithdrawalRequest', 'adminNote', 'text', false),
+        ('WithdrawalRequest', 'txHash', 'text', false),
+        ('WithdrawalRequest', 'paidAt', 'timestamp(3) without time zone', false),
+        ('WithdrawalRequest', 'rejectedAt', 'timestamp(3) without time zone', false),
+        ('WithdrawalRequest', 'noticeSeenAt', 'timestamp(3) without time zone', false),
+        ('WithdrawalRequest', 'noticeClearAt', 'timestamp(3) without time zone', false),
+        ('WithdrawalRequest', 'createdAt', 'timestamp(3) without time zone', true),
+        ('WithdrawalRequest', 'updatedAt', 'timestamp(3) without time zone', true)
+    ),
+    required_indexes(table_name, index_name, is_unique, column_names, has_predicate) AS (
+      VALUES
+        ('User', 'User_googleId_key', true, ARRAY['googleId'], false),
+        ('User', 'User_referralCode_key', true, ARRAY['referralCode'], false),
+        ('User', 'User_referredById_idx', false, ARRAY['referredById'], false),
+        ('Payment', 'Payment_providerPaymentId_idx', false, ARRAY['providerPaymentId'], false),
+        ('Payment', 'Payment_provider_status_lastReconciledAt_idx', false, ARRAY['provider', 'status', 'lastReconciledAt'], false),
+        ('Announcement', 'Announcement_createdAt_idx', false, ARRAY['createdAt'], false),
+        ('AnnouncementRead', 'AnnouncementRead_announcementId_userId_key', true, ARRAY['announcementId', 'userId'], false),
+        ('AnnouncementRead', 'AnnouncementRead_userId_readAt_idx', false, ARRAY['userId', 'readAt'], false),
+        ('ChatMessage', 'ChatMessage_createdAt_idx', false, ARRAY['createdAt'], false),
+        ('ChatMessage', 'ChatMessage_userId_createdAt_idx', false, ARRAY['userId', 'createdAt'], false),
+        ('SubscriptionGift', 'SubscriptionGift_userId_createdAt_idx', false, ARRAY['userId', 'createdAt'], false),
+        ('SubscriptionGift', 'SubscriptionGift_subscriptionId_idx', false, ARRAY['subscriptionId'], false),
+        ('SubscriptionGift', 'SubscriptionGift_active_createdAt_idx', false, ARRAY['active', 'createdAt'], false),
+        ('WalletLedger', 'WalletLedger_userId_createdAt_idx', false, ARRAY['userId', 'createdAt'], false),
+        ('WalletLedger', 'WalletLedger_type_createdAt_idx', false, ARRAY['type', 'createdAt'], false),
+        ('WalletLedger', 'WalletLedger_sourceType_sourceId_key', true, ARRAY['sourceType', 'sourceId'], false),
+        ('WithdrawalRequest', 'WithdrawalRequest_userId_createdAt_idx', false, ARRAY['userId', 'createdAt'], false),
+        ('WithdrawalRequest', 'WithdrawalRequest_status_createdAt_idx', false, ARRAY['status', 'createdAt'], false),
+        ('WithdrawalRequest', 'WithdrawalRequest_noticeClearAt_idx', false, ARRAY['noticeClearAt'], false)
+    ),
+    required_constraints(table_name, constraint_name, constraint_type) AS (
+      VALUES
+        ('User', 'User_referredById_fkey', 'f'),
+        ('Announcement', 'Announcement_pkey', 'p'),
+        ('AnnouncementRead', 'AnnouncementRead_pkey', 'p'),
+        ('AnnouncementRead', 'AnnouncementRead_announcementId_fkey', 'f'),
+        ('AnnouncementRead', 'AnnouncementRead_userId_fkey', 'f'),
+        ('ChatMessage', 'ChatMessage_pkey', 'p'),
+        ('ChatMessage', 'ChatMessage_userId_fkey', 'f'),
+        ('SubscriptionGift', 'SubscriptionGift_pkey', 'p'),
+        ('SubscriptionGift', 'SubscriptionGift_userId_fkey', 'f'),
+        ('SubscriptionGift', 'SubscriptionGift_subscriptionId_fkey', 'f'),
+        ('WalletLedger', 'WalletLedger_pkey', 'p'),
+        ('WalletLedger', 'WalletLedger_userId_fkey', 'f'),
+        ('WithdrawalRequest', 'WithdrawalRequest_pkey', 'p'),
+        ('WithdrawalRequest', 'WithdrawalRequest_userId_fkey', 'f')
+    ),
+    missing AS (
+      SELECT format('table public.%I', required.table_name) AS object
+      FROM required_tables required
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_class table_class
+        JOIN pg_namespace namespace ON namespace.oid = table_class.relnamespace
+        WHERE namespace.nspname = 'public'
+          AND table_class.relname::text = required.table_name
+          AND table_class.relkind IN ('r', 'p')
       )
-    ) AS ready
-  `);
-  if (!schema?.ready) throw new Error("Runtime schema is incomplete");
+      UNION ALL
+      SELECT format(
+        'column public.%I.%I (%s, %s)',
+        required.table_name,
+        required.column_name,
+        required.data_type,
+        CASE WHEN required.not_null THEN 'required' ELSE 'nullable' END
+      )
+      FROM required_columns required
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_attribute attribute
+        JOIN pg_class table_class ON table_class.oid = attribute.attrelid
+        JOIN pg_namespace namespace ON namespace.oid = table_class.relnamespace
+        WHERE namespace.nspname = 'public'
+          AND table_class.relname::text = required.table_name
+          AND attribute.attname::text = required.column_name
+          AND attribute.attnum > 0
+          AND NOT attribute.attisdropped
+          AND format_type(attribute.atttypid, attribute.atttypmod) = required.data_type
+          AND attribute.attnotnull = required.not_null
+      )
+      UNION ALL
+      SELECT format('index public.%I on %I', required.index_name, required.table_name)
+      FROM required_indexes required
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_class index_class
+        JOIN pg_namespace namespace ON namespace.oid = index_class.relnamespace
+        JOIN pg_index index_details ON index_details.indexrelid = index_class.oid
+        JOIN pg_class table_class ON table_class.oid = index_details.indrelid
+        WHERE namespace.nspname = 'public'
+          AND index_class.relname::text = required.index_name
+          AND table_class.relname::text = required.table_name
+          AND index_details.indisvalid
+          AND index_details.indisready
+          AND index_details.indisunique = required.is_unique
+          AND (index_details.indpred IS NOT NULL) = required.has_predicate
+          AND (
+            SELECT array_agg(attribute.attname::text ORDER BY key.ordinality)
+            FROM unnest(index_details.indkey) WITH ORDINALITY AS key(attnum, ordinality)
+            JOIN pg_attribute attribute
+              ON attribute.attrelid = table_class.oid
+             AND attribute.attnum = key.attnum
+          ) = required.column_names
+      )
+      UNION ALL
+      SELECT format('constraint public.%I.%I', required.table_name, required.constraint_name)
+      FROM required_constraints required
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint constraint_details
+        JOIN pg_class table_class ON table_class.oid = constraint_details.conrelid
+        JOIN pg_namespace namespace ON namespace.oid = table_class.relnamespace
+        WHERE namespace.nspname = 'public'
+          AND table_class.relname::text = required.table_name
+          AND constraint_details.conname::text = required.constraint_name
+          AND constraint_details.contype = required.constraint_type::"char"
+          AND constraint_details.convalidated
+      )
+    )
+    SELECT COALESCE(array_agg(object ORDER BY object), ARRAY[]::text[]) AS missing
+    FROM missing
+  `;
+
+  if (schema.missing.length > 0) {
+    throw new Error(
+      `Runtime schema verification failed. Run Prisma migrations before serving requests. Missing or mismatched: ${schema.missing.join(", ")}`
+    );
+  }
 }
 
 async function verifyPaygSchema() {
-  const [schema] = await prisma.$queryRawUnsafe<Array<{ ready: boolean }>>(`
-    SELECT (
-      to_regclass('public."PaygGeneration"') IS NOT NULL
-      AND (SELECT COUNT(*) = 4
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'PaygGeneration'
-          AND column_name IN ('authorizationId', 'leaseToken', 'leaseExpiresAt', 'settlementStartBlock'))
-      AND EXISTS (SELECT 1 FROM pg_indexes
-        WHERE schemaname = 'public' AND tablename = 'PaygGeneration'
-          AND indexname = 'PaygGeneration_authorizationId_key'
-          AND indexdef LIKE 'CREATE UNIQUE INDEX%authorizationId%')
-      AND EXISTS (SELECT 1 FROM pg_indexes
-        WHERE schemaname = 'public' AND tablename = 'PaygGeneration'
-          AND indexname = 'PaygGeneration_transactionHash_key'
-          AND indexdef LIKE 'CREATE UNIQUE INDEX%transactionHash%')
-       AND to_regclass('public."PaygGeneration_status_leaseExpiresAt_idx"') IS NOT NULL
-       AND to_regclass('public."PaygGeneration_activeUser_key"') IS NOT NULL
-       AND to_regclass('public."PaygGeneration_activePayer_key"') IS NOT NULL
-       AND to_regclass('public."PaygPricing"') IS NOT NULL
-       AND (SELECT COUNT(*) = 7
-         FROM information_schema.columns
-         WHERE table_schema = 'public'
-           AND table_name = 'PaygGeneration'
-           AND column_name IN (
-             'pricingRevision', 'quotedRegularPriceUSD', 'quotedCurrentPriceUSD', 'quotedAmountAtomic',
-             'quotedNetwork', 'quotedAsset', 'quotedPayTo'
-           ))
-       AND EXISTS (SELECT 1 FROM "PaygPricing" WHERE "id" = 'default')
-       AND EXISTS (SELECT 1 FROM pg_constraint
-         WHERE conrelid = 'public."PaygPricing"'::regclass
-           AND contype = 'c' AND conname = 'PaygPricing_valid_prices')
-       AND EXISTS (SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'public."PaygGeneration"'::regclass
-          AND contype = 'f' AND conname = 'PaygGeneration_userId_fkey')
-    ) AS ready
-  `);
-  if (!schema?.ready) throw new Error("PAYG schema migration is required");
-}
+  const [schema] = await prisma.$queryRaw<Array<{ missing: string[] }>>`
+    WITH required_tables(table_name) AS (
+      VALUES ('PaygGeneration'), ('PaygPricing')
+    ),
+    required_columns(table_name, column_name, data_type, not_null) AS (
+      VALUES
+        ('PaygGeneration', 'id', 'text', true),
+        ('PaygGeneration', 'userId', 'text', true),
+        ('PaygGeneration', 'requestHash', 'text', true),
+        ('PaygGeneration', 'status', 'text', true),
+        ('PaygGeneration', 'authorizationId', 'text', false),
+        ('PaygGeneration', 'leaseToken', 'text', false),
+        ('PaygGeneration', 'leaseExpiresAt', 'timestamp(3) without time zone', false),
+        ('PaygGeneration', 'settlementStartBlock', 'bigint', false),
+        ('PaygGeneration', 'pricingRevision', 'integer', true),
+        ('PaygGeneration', 'quotedRegularPriceUSD', 'numeric(12,6)', true),
+        ('PaygGeneration', 'quotedCurrentPriceUSD', 'numeric(12,6)', true),
+        ('PaygGeneration', 'quotedAmountAtomic', 'text', true),
+        ('PaygGeneration', 'quotedNetwork', 'text', true),
+        ('PaygGeneration', 'quotedAsset', 'text', true),
+        ('PaygGeneration', 'quotedPayTo', 'text', true),
+        ('PaygGeneration', 'payer', 'text', false),
+        ('PaygGeneration', 'transactionHash', 'text', false),
+        ('PaygGeneration', 'settlement', 'jsonb', false),
+        ('PaygGeneration', 'response', 'jsonb', false),
+        ('PaygGeneration', 'error', 'text', false),
+        ('PaygGeneration', 'createdAt', 'timestamp(3) without time zone', true),
+        ('PaygGeneration', 'updatedAt', 'timestamp(3) without time zone', true),
+        ('PaygPricing', 'id', 'text', true),
+        ('PaygPricing', 'regularPriceUSD', 'numeric(12,6)', true),
+        ('PaygPricing', 'currentPriceUSD', 'numeric(12,6)', true),
+        ('PaygPricing', 'revision', 'integer', true),
+        ('PaygPricing', 'updatedById', 'text', false),
+        ('PaygPricing', 'createdAt', 'timestamp(3) without time zone', true),
+        ('PaygPricing', 'updatedAt', 'timestamp(3) without time zone', true)
+    ),
+    required_indexes(table_name, index_name, is_unique, column_names, has_predicate) AS (
+      VALUES
+        ('PaygGeneration', 'PaygGeneration_transactionHash_key', true, ARRAY['transactionHash'], false),
+        ('PaygGeneration', 'PaygGeneration_authorizationId_key', true, ARRAY['authorizationId'], false),
+        ('PaygGeneration', 'PaygGeneration_userId_createdAt_idx', false, ARRAY['userId', 'createdAt'], false),
+        ('PaygGeneration', 'PaygGeneration_status_updatedAt_idx', false, ARRAY['status', 'updatedAt'], false),
+        ('PaygGeneration', 'PaygGeneration_status_leaseExpiresAt_idx', false, ARRAY['status', 'leaseExpiresAt'], false),
+        ('PaygGeneration', 'PaygGeneration_activeUser_key', true, ARRAY['userId'], true),
+        ('PaygGeneration', 'PaygGeneration_activePayer_key', true, ARRAY['payer'], true)
+    ),
+    required_constraints(table_name, constraint_name, constraint_type) AS (
+      VALUES
+        ('PaygGeneration', 'PaygGeneration_pkey', 'p'),
+        ('PaygGeneration', 'PaygGeneration_userId_fkey', 'f'),
+        ('PaygPricing', 'PaygPricing_pkey', 'p'),
+        ('PaygPricing', 'PaygPricing_valid_prices', 'c')
+    ),
+    missing AS (
+      SELECT format('table public.%I', required.table_name) AS object
+      FROM required_tables required
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_class table_class
+        JOIN pg_namespace namespace ON namespace.oid = table_class.relnamespace
+        WHERE namespace.nspname = 'public'
+          AND table_class.relname::text = required.table_name
+          AND table_class.relkind IN ('r', 'p')
+      )
+      UNION ALL
+      SELECT format(
+        'column public.%I.%I (%s, %s)',
+        required.table_name,
+        required.column_name,
+        required.data_type,
+        CASE WHEN required.not_null THEN 'required' ELSE 'nullable' END
+      )
+      FROM required_columns required
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_attribute attribute
+        JOIN pg_class table_class ON table_class.oid = attribute.attrelid
+        JOIN pg_namespace namespace ON namespace.oid = table_class.relnamespace
+        WHERE namespace.nspname = 'public'
+          AND table_class.relname::text = required.table_name
+          AND attribute.attname::text = required.column_name
+          AND attribute.attnum > 0
+          AND NOT attribute.attisdropped
+          AND format_type(attribute.atttypid, attribute.atttypmod) = required.data_type
+          AND attribute.attnotnull = required.not_null
+      )
+      UNION ALL
+      SELECT format('index public.%I on %I', required.index_name, required.table_name)
+      FROM required_indexes required
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_class index_class
+        JOIN pg_namespace namespace ON namespace.oid = index_class.relnamespace
+        JOIN pg_index index_details ON index_details.indexrelid = index_class.oid
+        JOIN pg_class table_class ON table_class.oid = index_details.indrelid
+        WHERE namespace.nspname = 'public'
+          AND index_class.relname::text = required.index_name
+          AND table_class.relname::text = required.table_name
+          AND index_details.indisvalid
+          AND index_details.indisready
+          AND index_details.indisunique = required.is_unique
+          AND (index_details.indpred IS NOT NULL) = required.has_predicate
+          AND (
+            SELECT array_agg(attribute.attname::text ORDER BY key.ordinality)
+            FROM unnest(index_details.indkey) WITH ORDINALITY AS key(attnum, ordinality)
+            JOIN pg_attribute attribute
+              ON attribute.attrelid = table_class.oid
+             AND attribute.attnum = key.attnum
+          ) = required.column_names
+      )
+      UNION ALL
+      SELECT format('constraint public.%I.%I', required.table_name, required.constraint_name)
+      FROM required_constraints required
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint constraint_details
+        JOIN pg_class table_class ON table_class.oid = constraint_details.conrelid
+        JOIN pg_namespace namespace ON namespace.oid = table_class.relnamespace
+        WHERE namespace.nspname = 'public'
+          AND table_class.relname::text = required.table_name
+          AND constraint_details.conname::text = required.constraint_name
+          AND constraint_details.contype = required.constraint_type::"char"
+          AND constraint_details.convalidated
+      )
+    )
+    SELECT COALESCE(array_agg(object ORDER BY object), ARRAY[]::text[]) AS missing
+    FROM missing
+  `;
 
-function runRuntimeMigration() {
-  const legacyCleanup = process.env.RUN_LEGACY_DB_CLEANUP === "1"
-    ? [
-        prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "XAccountUsageLog"'),
-        prisma.$executeRawUnsafe('DROP TABLE IF EXISTS "XAccount"'),
-        prisma.$executeRawUnsafe('UPDATE "Generation" SET "suggestions" = \'[]\'::jsonb WHERE "suggestions" <> \'[]\'::jsonb')
-      ]
-    : [];
+  if (schema.missing.length > 0) {
+    throw new Error(
+      `PAYG schema verification failed. Run Prisma migrations before serving requests. Missing or mismatched: ${schema.missing.join(", ")}`
+    );
+  }
 
-  return prisma.$transaction([
-    prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "googleId" TEXT'),
-    prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "authProvider" TEXT NOT NULL DEFAULT \'password\''),
-    prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "avatarUrl" TEXT'),
-    prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "chatReadAt" TIMESTAMP(3)'),
-    prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "referralCode" TEXT'),
-    prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "referredById" TEXT'),
-    prisma.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "referredAt" TIMESTAMP(3)'),
-    prisma.$executeRawUnsafe('ALTER TABLE "User" ALTER COLUMN "passwordHash" DROP NOT NULL'),
-    prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS "User_googleId_key" ON "User"("googleId")'),
-    prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS "User_referralCode_key" ON "User"("referralCode")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "User_referredById_idx" ON "User"("referredById")'),
-    prisma.$executeRawUnsafe(`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'User_referredById_fkey'
-        ) THEN
-          ALTER TABLE "User"
-            ADD CONSTRAINT "User_referredById_fkey"
-            FOREIGN KEY ("referredById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-        END IF;
-      END $$;
-    `),
-    prisma.$executeRawUnsafe('ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "providerPaymentId" TEXT'),
-    prisma.$executeRawUnsafe('ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "raw" JSONB'),
-    prisma.$executeRawUnsafe('ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "lastReconciledAt" TIMESTAMP(3)'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "Payment_providerPaymentId_idx" ON "Payment"("providerPaymentId")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "Payment_provider_status_lastReconciledAt_idx" ON "Payment"("provider", "status", "lastReconciledAt")'),
-    prisma.$executeRawUnsafe('ALTER TABLE "Subscription" ADD COLUMN IF NOT EXISTS "dailyLimit" INTEGER'),
-    prisma.$executeRawUnsafe('ALTER TABLE "Generation" ADD COLUMN IF NOT EXISTS "usageDetails" JSONB'),
-    prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "Announcement" (
-        "id" TEXT PRIMARY KEY,
-        "title" TEXT,
-        "body" TEXT NOT NULL,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "createdBy" TEXT
-      )
-    `),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "Announcement_createdAt_idx" ON "Announcement"("createdAt")'),
-    prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "AnnouncementRead" (
-        "id" TEXT PRIMARY KEY,
-        "announcementId" TEXT NOT NULL REFERENCES "Announcement"("id") ON DELETE CASCADE,
-        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-        "readAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `),
-    prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS "AnnouncementRead_announcementId_userId_key" ON "AnnouncementRead"("announcementId", "userId")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "AnnouncementRead_userId_readAt_idx" ON "AnnouncementRead"("userId", "readAt")'),
-    prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "ChatMessage" (
-        "id" TEXT PRIMARY KEY,
-        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-        "body" TEXT NOT NULL,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ChatMessage_createdAt_idx" ON "ChatMessage"("createdAt")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ChatMessage_userId_createdAt_idx" ON "ChatMessage"("userId", "createdAt")'),
-    prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "SubscriptionGift" (
-        "id" TEXT PRIMARY KEY,
-        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-        "subscriptionId" TEXT NOT NULL REFERENCES "Subscription"("id") ON DELETE CASCADE,
-        "adminId" TEXT,
-        "days" INTEGER NOT NULL,
-        "note" TEXT,
-        "active" BOOLEAN NOT NULL DEFAULT true,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "SubscriptionGift_userId_createdAt_idx" ON "SubscriptionGift"("userId", "createdAt")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "SubscriptionGift_subscriptionId_idx" ON "SubscriptionGift"("subscriptionId")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "SubscriptionGift_active_createdAt_idx" ON "SubscriptionGift"("active", "createdAt")'),
-    prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "WalletLedger" (
-        "id" TEXT PRIMARY KEY,
-        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-        "amountUSD" DECIMAL(65,30) NOT NULL,
-        "type" TEXT NOT NULL,
-        "sourceType" TEXT,
-        "sourceId" TEXT,
-        "note" TEXT,
-        "adminId" TEXT,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "WalletLedger_userId_createdAt_idx" ON "WalletLedger"("userId", "createdAt")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "WalletLedger_type_createdAt_idx" ON "WalletLedger"("type", "createdAt")'),
-    prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS "WalletLedger_sourceType_sourceId_key" ON "WalletLedger"("sourceType", "sourceId")'),
-    prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "WithdrawalRequest" (
-        "id" TEXT PRIMARY KEY,
-        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-        "amountUSD" DECIMAL(65,30) NOT NULL,
-        "network" TEXT NOT NULL DEFAULT 'BEP20_USDT',
-        "address" TEXT NOT NULL,
-        "status" TEXT NOT NULL DEFAULT 'pending',
-        "userNote" TEXT,
-        "adminNote" TEXT,
-        "txHash" TEXT,
-        "paidAt" TIMESTAMP(3),
-        "rejectedAt" TIMESTAMP(3),
-        "noticeSeenAt" TIMESTAMP(3),
-        "noticeClearAt" TIMESTAMP(3),
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "WithdrawalRequest_userId_createdAt_idx" ON "WithdrawalRequest"("userId", "createdAt")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "WithdrawalRequest_status_createdAt_idx" ON "WithdrawalRequest"("status", "createdAt")'),
-    prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "WithdrawalRequest_noticeClearAt_idx" ON "WithdrawalRequest"("noticeClearAt")'),
-    ...legacyCleanup
-  ]).then(() => undefined);
+  const [pricing] = await prisma.$queryRaw<Array<{ ready: boolean }>>`
+    SELECT EXISTS (SELECT 1 FROM "PaygPricing" WHERE "id" = 'default') AS ready
+  `;
+  if (!pricing.ready) {
+    throw new Error(
+      'PAYG schema verification failed. Run Prisma migrations before serving requests. Missing required PaygPricing row "default".'
+    );
+  }
 }
 
 export function ensureRuntimeSchema() {
-  schemaReady ??= verifyRuntimeSchema().catch(runRuntimeMigration);
+  schemaReady ??= verifyRuntimeSchema();
   return schemaReady.catch((error) => {
     schemaReady = null;
     throw error;

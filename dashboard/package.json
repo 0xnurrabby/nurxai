@@ -2,9 +2,12 @@
   "name": "nurxai-dashboard",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && npm run migrate:deploy && next build --webpack",
+    "build": "npm run validate:env && prisma generate && npm run migrate:deploy && next build --webpack",
     "cf:build": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "npm run migrate:deploy && opennextjs-cloudflare build && opennextjs-cloudflare deploy",
@@ -12,6 +15,8 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "start": "next start",
     "migrate:deploy": "node scripts/migrate-deploy.mjs",
+    "migrate:status": "prisma migrate status",
+    "validate:env": "node scripts/validate-env.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -84,7 +84,9 @@ const searchContextCache =
   globalThis.__nurxaiSearchContextCache ?? (globalThis.__nurxaiSearchContextCache = new Map());
 
 function getEnvInt(name: string, fallback: number, min: number, max: number) {
-  const raw = Number(process.env[name]);
+  const value = process.env[name]?.trim();
+  if (!value) return fallback;
+  const raw = Number(value);
   if (!Number.isFinite(raw)) return fallback;
   return Math.max(min, Math.min(max, Math.round(raw)));
 }

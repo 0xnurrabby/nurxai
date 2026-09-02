@@ -3,7 +3,7 @@
 <div align="center">
 
 ![Extension](https://img.shields.io/badge/Extension-Manifest+V3-C7D2FE?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
-[![Dashboard](https://img.shields.io/badge/Dashboard-Next.js+14-BBF7D0?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)](https://nurxai.xyz)
+[![Dashboard](https://img.shields.io/badge/Dashboard-Next.js+16-BBF7D0?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)](https://nurxai.xyz)
 ![Database](https://img.shields.io/badge/Database-Prisma-FDE68A?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
 ![AI](https://img.shields.io/badge/AI-GPT+%2B+Grok+%2B+Gemini-FBCFE8?style=for-the-badge&labelColor=1a1a1a&logoColor=1a1a1a)
 
@@ -54,49 +54,81 @@ Extension:
 
 ---
 
-## Setup
+## Vercel Deployment
 
-Dashboard env file:
+The dashboard is self-contained for a GitHub-to-Vercel deployment. Import this
+repository in Vercel and set **Root Directory** to `dashboard`. The repository
+pins Node.js 22 and the production build validates configuration, generates the
+Prisma client, applies pending migrations, and builds Next.js. A failed
+migration fails the deployment instead of serving code against an old schema.
 
-```env
-DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres?sslmode=require
-JWT_SECRET=generate_a_long_random_secret
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-PUBLIC_URL=http://localhost:3000
-AI_GATEWAY_API_KEY=vai_...
-AI_GATEWAY_MODEL=your_grok_model_id
-AI_GATEWAY_SEARCH_MODEL=your_gemini_model_id
-AI_GATEWAY_GENERATION_MODEL=your_gpt_model_id
-BASE_PAY_RECIPIENT=0x_your_usdc_receiver
-NOWPAYMENTS_API_KEY=
-NOWPAYMENTS_IPN_SECRET=
-# Optional: required to discover hosted invoice payments after a missed webhook
-NOWPAYMENTS_EMAIL=
-NOWPAYMENTS_PASSWORD=
-BILLING_RECONCILE_SECRET=
-ADMIN_EMAILS=owner@example.com,second-admin@example.com
-MIN_EXTENSION_VERSION=2.0.15
-EXTENSION_UPDATE_URL=https://chromewebstore.google.com/detail/odapbgkbdpalphekkmibliclmedgmlhb
-```
+1. Provision PostgreSQL and restore the current production backup if existing users, subscriptions, balances, and sessions must survive the move.
+2. Add the variables documented in `dashboard/.env.example` to the Vercel project. Store secrets in Vercel, never in Git.
+3. Add `nurxai.xyz` as the production domain. The published extension calls that exact origin, so a different domain does not support the current Store release.
+4. Add `https://nurxai.xyz` to the Google web client's Authorized JavaScript origins and set `NEXT_PUBLIC_GOOGLE_DIRECT_AUTH=true`.
+5. Set the NOWPayments IPN callback to `https://nurxai.xyz/api/billing/webhook` when NOWPayments billing is enabled.
+6. Deploy and verify `https://nurxai.xyz/api/health` returns `status: ok` before changing DNS or proxy traffic.
 
-If you do not need billing locally, leave NOWPayments values empty. `NOWPAYMENTS_KEY`
-is still accepted for older deployments, but `NOWPAYMENTS_API_KEY` is preferred.
+Use the same `JWT_SECRET` and database when moving an existing installation.
+Changing either invalidates Store-extension sessions. Keep
+`MIN_EXTENSION_VERSION` at or below the version currently approved in the
+Chrome Web Store. The published version is presently `2.0.17`.
 
-Set `MIN_EXTENSION_VERSION` only after that version is approved and live in the
-Chrome Web Store. Any extension request below that version is blocked before AI
-generation starts.
+Keep the apex `nurxai.xyz` origin live without redirecting its API or
+`/auth/extension` routes. If `www.nurxai.xyz` is configured, redirect `www` to
+the apex, not the reverse. Set `SESSION_COOKIE_DOMAIN=nurxai.xyz` during the
+cutover so cookies issued by the existing deployment can still be replaced and
+deleted.
 
-Production uses Supabase Postgres through Prisma. Point `DATABASE_URL` at the
-Supabase direct connection string, then run:
+Production migrations run automatically. Preview migrations are skipped by
+default to prevent schema changes. Do not expose a production database or
+production secrets to Preview deployments. Set `MIGRATE_ON_PREVIEW=true` only
+when Preview uses an isolated database.
+
+Before moving a database that previously relied on runtime-created tables, run
+`npm run migrate:status` against it and confirm its `_prisma_migrations` history
+is complete. Do not baseline unknown migrations automatically. The production
+deployment stops on migration drift so an incomplete database is never treated
+as a successful release.
+
+`vercel.json` schedules `/api/billing/reconcile` daily. Set `CRON_SECRET` in
+Vercel; Vercel sends it as the cron authorization bearer token. NOWPayments
+account credentials are optional but allow reconciliation to discover a hosted
+invoice after a missed webhook.
+
+`ADMIN_EMAILS` is authoritative for admin access. The database `isAdmin` field
+is display state and cannot grant access by itself.
+
+## Extension Cutover
+
+The published extension has `https://nurxai.xyz` compiled into
+`extension/scripts/config.js`. A server move therefore requires moving that
+domain to the new Vercel project, not editing the already-published extension.
+Keep `LEGACY_STORE_VERSION=2.0.17`, set `LEGACY_AUTH_FALLBACK_ENABLED=true`, and
+keep `LEGACY_AUTH_CHECK_URL` reachable while tokens issued by the previous
+Cloudflare authority remain active. Disable the fallback after those tokens
+have expired. The dashboard refuses to delegate back to its own origin.
+
+If Cloudflare remains in front of the domain, point its origin at the new Vercel
+deployment and preserve request headers. The repository's optional edge router
+has a deployment-specific `VERCEL_ORIGIN` in `wrangler.edge.jsonc`; update and
+redeploy it during a Vercel-project move. Alternatively, point DNS directly to
+Vercel and remove the Worker route.
+
+## Manual Database Setup
+
+For a non-Vercel production deployment, configure `DATABASE_URL` and run:
 
 ```powershell
 cd dashboard
-npx prisma migrate deploy
+npm ci
+npm run validate:env -- --strict
+npm run migrate:deploy
 npx prisma generate
+npm run build
 ```
 
-Cloudflare Workers deployment uses OpenNext from the `dashboard` directory:
+Cloudflare Workers remains an optional OpenNext target:
 
 ```powershell
 cd dashboard
@@ -104,19 +136,9 @@ npm run cf:build
 npm run deploy
 ```
 
-The paid `nurxai` Worker uses the `HYPERDRIVE` binding declared in
-`dashboard/wrangler.jsonc`. Production traffic first reaches the lightweight
-`nurxai-edge` Worker. Its KV-backed mode sends traffic to the Cloudflare app
-through a service binding while the paid runtime probe is healthy, or to the
-Vercel standby deployment when the account is on the Free plan. GitHub checks
-the isolated plan probe twice daily; production requests never run that check.
-All `/api/*` requests use Vercel as the single stateful authority. Static pages
-stay Cloudflare-primary, while auth, database, AI, and billing avoid
-cross-runtime retries and JWT/transaction drift during a mode switch.
-Runtime credentials belong in Worker secrets and must never be committed.
-
-Admin access is controlled by `ADMIN_EMAILS`; database `isAdmin` is only synced
-for display and cannot grant access by itself.
+The paid Worker uses the `HYPERDRIVE` binding declared in
+`dashboard/wrangler.jsonc`. Runtime credentials belong in Worker secrets and
+must never be committed.
 
 ---
 

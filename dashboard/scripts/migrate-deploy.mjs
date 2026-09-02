@@ -16,9 +16,30 @@ function sessionPoolUrl() {
   return null;
 }
 
-const databaseUrl = sessionPoolUrl() || process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL;
+if (process.env.VERCEL_ENV === "preview" && process.env.MIGRATE_ON_PREVIEW !== "true") {
+  console.log("Skipping Prisma migrations for Preview. Set MIGRATE_ON_PREVIEW=true only with an isolated preview database.");
+  process.exit(0);
+}
+
+const databaseUrl = process.env.DIRECT_DATABASE_URL
+  || sessionPoolUrl()
+  || process.env.POSTGRES_URL_NON_POOLING
+  || process.env.POSTGRES_URL
+  || process.env.POSTGRES_PRISMA_URL
+  || process.env.DATABASE_URL;
 if (!databaseUrl) {
-  console.log("Skipping Prisma migrations: no database URL is configured.");
+  if (process.env.SKIP_MIGRATIONS === "true") {
+    console.log("Skipping Prisma migrations because SKIP_MIGRATIONS=true.");
+    process.exit(0);
+  }
+  if (
+    process.env.VERCEL_ENV === "production"
+    || process.env.NODE_ENV === "production"
+    || process.env.STRICT_ENV_VALIDATION === "true"
+  ) {
+    throw new Error("A migration-capable database URL is required for Production.");
+  }
+  console.log("Skipping Prisma migrations outside Production: no database URL is configured.");
   process.exit(0);
 }
 

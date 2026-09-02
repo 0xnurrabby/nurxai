@@ -6,6 +6,7 @@ import { getSubscriptionDailyLimit } from "@/lib/subscription-limits";
 import { isAdminEmail } from "@/lib/admin";
 import { ensureReferralCode, getWalletSummary, REFERRAL_BONUS_RATE } from "@/lib/referrals";
 import { getCurrentSubscriptionForUser } from "@/lib/billing";
+import { getPublicAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -91,7 +92,7 @@ export async function GET(req: NextRequest) {
     referral: {
       code: referralCode || profile?.referralCode || null,
       link: referralCode || profile?.referralCode
-        ? `${(process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://nurxai.xyz").replace(/\/+$/, "")}/signup?ref=${encodeURIComponent(referralCode || profile!.referralCode!)}`
+        ? `${getPublicAppUrl()}/signup?ref=${encodeURIComponent(referralCode || profile!.referralCode!)}`
         : null,
       referredBy: profile?.referredBy || null,
       totalReferrals: profile?._count.referrals || 0,

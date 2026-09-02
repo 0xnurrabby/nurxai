@@ -13,12 +13,9 @@ import {
   normalizeReferralCode,
   REFERRAL_BONUS_RATE
 } from "@/lib/referrals";
+import { getPublicAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
-
-function publicUrl() {
-  return (process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://nurxai.xyz").replace(/\/+$/, "");
-}
 
 function serializeWithdrawal(row: any) {
   return {
@@ -75,7 +72,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     referral: {
       code: user.referralCode,
-      link: `${publicUrl()}/signup?ref=${encodeURIComponent(user.referralCode || "")}`,
+      link: `${getPublicAppUrl()}/signup?ref=${encodeURIComponent(user.referralCode || "")}`,
       referredBy: user.referredBy
         ? {
             email: user.referredBy.email,

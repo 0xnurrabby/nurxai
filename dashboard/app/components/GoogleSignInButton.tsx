@@ -23,7 +23,7 @@ type Props = {
 };
 
 const SCRIPT_ID = "google-identity-services";
-const GOOGLE_BRIDGE_ORIGIN = "https://nurxai.xyz";
+const GOOGLE_BRIDGE_ORIGIN = (process.env.NEXT_PUBLIC_GOOGLE_BRIDGE_ORIGIN || "").replace(/\/+$/, "");
 const GOOGLE_CALLBACK_PATH = "/auth/google-bridge/callback";
 
 function encodeOAuthState(value: Record<string, string>) {
@@ -62,8 +62,8 @@ export default function GoogleSignInButton({ label = "continue_with", referralCo
 
   useEffect(() => {
     if (forceDirect) return;
-    const productionHost = window.location.hostname === "nurxai.xyz" || window.location.hostname === "www.nurxai.xyz";
-    setUseBridge(productionHost && process.env.NEXT_PUBLIC_GOOGLE_DIRECT_AUTH !== "true");
+    const directAuth = process.env.NEXT_PUBLIC_GOOGLE_DIRECT_AUTH !== "false";
+    setUseBridge(!directAuth && Boolean(GOOGLE_BRIDGE_ORIGIN));
   }, [forceDirect]);
 
   useEffect(() => {

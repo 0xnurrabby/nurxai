@@ -14,6 +14,11 @@ function getGoogleClientId() {
   return process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
 }
 
+function getGoogleRedirectUri() {
+  const bridge = (process.env.NEXT_PUBLIC_GOOGLE_BRIDGE_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || "https://nurxai.xyz").replace(/\/+$/, "");
+  return `${bridge}/auth/google-bridge/callback`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     await ensureRuntimeSchema();
@@ -30,7 +35,7 @@ const { credential, code, referralCode } = await req.json().catch(() => ({}));
         console.error("Google auth failed: GOOGLE_CLIENT_SECRET is not configured.");
         return NextResponse.json({ error: "GOOGLE_NOT_CONFIGURED", message: "Google sign-in is not configured correctly on the server. Please check GOOGLE_CLIENT_SECRET." }, { status: 500 });
       }
-      const client = new OAuth2Client(clientId, clientSecret, "https://nurxai.xyz/auth/google-bridge/callback");
+      const client = new OAuth2Client(clientId, clientSecret, getGoogleRedirectUri());
       const { tokens } = await client.getToken(code);
       if (!tokens.id_token) return NextResponse.json({ error: "GOOGLE_AUTH_FAILED", message: "Google did not return a verified identity." }, { status: 401 });
       ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: clientId });

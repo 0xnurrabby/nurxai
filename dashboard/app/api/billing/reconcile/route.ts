@@ -5,10 +5,12 @@ import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { canDiscoverNowPaymentsByInvoice, reconcileNowPaymentsOrder } from "@/lib/nowpayments-billing";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function authorized(req: NextRequest) {
-  const secret = process.env.BILLING_RECONCILE_SECRET || process.env.CRON_SECRET;
-  return Boolean(secret && req.headers.get("authorization") === `Bearer ${secret}`);
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const secrets = [process.env.CRON_SECRET, process.env.BILLING_RECONCILE_SECRET].filter(Boolean);
+  return Boolean(token) && secrets.some((secret) => token === secret);
 }
 
 async function reconcile(req: NextRequest) {
