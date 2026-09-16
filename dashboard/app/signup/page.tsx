@@ -5,17 +5,18 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import AuthShell from "../components/AuthShell";
 import GoogleAuthButton from "../components/GoogleAuthButton";
+import PasswordInput from "../components/PasswordInput";
 
 const REF_STORAGE_KEY = "nurxai_referral_code";
 
 function authError(data: any) {
-  if (data?.error === "EMAIL_TAKEN") return "An account with this email already exists. Sign in instead.";
+  if (data?.error === "EMAIL_TAKEN") return data?.message || "An account with this email already exists. Sign in instead.";
   if (data?.error === "BAD_EMAIL") return "Enter a valid email address.";
   if (data?.error === "WEAK_PASSWORD") return "Use 8 or more characters and keep the password under 72 UTF-8 bytes.";
   if (data?.error === "INVALID_OTP") return "That code is invalid, expired, or has already been used.";
   if (data?.error === "RATE_LIMITED") return data.message || "Too many attempts. Try again later.";
   if (data?.error === "TERMS_REQUIRED") return data.message || "Please accept the Terms of Service and Privacy Policy.";
-  if (data?.error === "EMAIL_UNAVAILABLE") return "Email codes are temporarily unavailable. Please use Sign up with Google above, or contact support@nurxai.xyz.";
+  if (data?.error === "EMAIL_UNAVAILABLE") return "Email codes are temporarily unavailable. Please use Continue with Google above, or contact support@nurxai.xyz.";
   return data?.message || "Could not complete signup. Please try again.";
 }
 
@@ -132,7 +133,7 @@ function SignupForm() {
             </span>
           </label>
           <GoogleAuthButton
-            label="Sign up with Google"
+            label="Continue with Google"
             referralCode={referralCode}
             accepted={accepted}
             onBlocked={() => setErr("Please accept the Terms of Service and Privacy Policy first.")}
@@ -144,7 +145,7 @@ function SignupForm() {
               <div className="min-w-0"><label className="text-[12px] font-semibold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1 w-full min-w-0" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
             </div>
             <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-              <div className="min-w-0"><label className="text-[12px] font-semibold">Password</label><input type="password" required minLength={8} maxLength={128} autoComplete="new-password" className="nb-input mt-1 w-full min-w-0" value={password} onChange={(e) => setPassword(e.target.value)} /><p className="mt-1 text-[11px] opacity-55">Minimum 8 characters.</p></div>
+              <div className="min-w-0"><label className="text-[12px] font-semibold">Password</label><PasswordInput value={password} onChange={setPassword} required minLength={8} maxLength={128} autoComplete="new-password" /><p className="mt-1 text-[11px] opacity-55">Minimum 8 characters.</p></div>
               <div className="min-w-0"><label className="text-[12px] font-semibold">Referral code <span className="opacity-50">(optional)</span></label><input className="nb-input mt-1 w-full min-w-0 uppercase" value={referralCode} onChange={(e) => setReferralCode(e.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())} placeholder="FRIENDCODE" /></div>
             </div>
             {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}

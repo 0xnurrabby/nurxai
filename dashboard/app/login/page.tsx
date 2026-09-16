@@ -5,6 +5,7 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import AuthShell from "../components/AuthShell";
 import GoogleAuthButton from "../components/GoogleAuthButton";
+import PasswordInput from "../components/PasswordInput";
 
 function loginError(data: any) {
   if (data?.error === "USE_GOOGLE_LOGIN") return "This account uses Google sign-in.";
@@ -95,7 +96,7 @@ function LoginForm() {
 
         <form onSubmit={submit} className="space-y-3">
           <div><label className="text-[12px] font-semibold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1 w-full min-w-0" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div><div className="flex items-center justify-between"><label className="text-[12px] font-semibold">Password</label><Link href="/forgot-password" className="text-xs font-bold underline">Reset it</Link></div><input type="password" required autoComplete="current-password" className="nb-input mt-1 w-full min-w-0" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+          <div><div className="flex items-center justify-between"><label className="text-[12px] font-semibold">Password</label><Link href="/forgot-password" className="text-xs font-bold underline">Reset it</Link></div><PasswordInput value={password} onChange={setPassword} required autoComplete="current-password" /></div>
           {(err || redirectError) && <p role="alert" className="rounded-lg border border-[#b00020]/40 bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err || redirectError}</p>}
           <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy}>{busy ? "Signing in..." : "Enter workspace"}</button>
         </form>

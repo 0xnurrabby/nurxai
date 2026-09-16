@@ -1850,3 +1850,27 @@ tbody tr:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
   margin-top: 2px;
   color: color-mix(in srgb, var(--ink) 60%, transparent);
 }
+
+/* Password reveal toggle */
+.pass-toggle {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.pass-toggle:hover,
+.pass-toggle:focus-visible {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+}

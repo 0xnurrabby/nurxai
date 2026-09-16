@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isValidEmail, normalizeEmail } from "@/lib/auth-validation";
+import { prisma } from "@/lib/db";
+import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import {
   OTP_EXPIRES_SECONDS,
   OTP_RESEND_SECONDS,
@@ -18,6 +20,20 @@ export async function POST(req: NextRequest) {
     if (!isValidEmail(email)) return NextResponse.json({ error: "BAD_EMAIL" }, { status: 400 });
     if (purpose !== "signup" && purpose !== "password_reset") {
       return NextResponse.json({ error: "BAD_PURPOSE" }, { status: 400 });
+    }
+
+    if (purpose === "signup") {
+      await ensureRuntimeSchema();
+      const existing = await prisma.user.findUnique({
+        where: { email },
+        select: { passwordHash: true, googleId: true }
+      });
+      if (existing) {
+        const message = !existing.passwordHash && existing.googleId
+          ? "This email already has an account. Continue with Google to sign in."
+          : "An account with this email already exists. Sign in instead.";
+        return NextResponse.json({ error: "EMAIL_TAKEN", message }, { status: 409 });
+      }
     }
 
     await requestEmailOtp(req, email, purpose);
