@@ -13,6 +13,15 @@ function privateKey(scope: string, identity: string) {
 }
 
 export function trustedClientIp(req: NextRequest) {
+  if (process.env.RENDER) {
+    const cloudflare = req.headers.get("cf-connecting-ip")?.trim();
+    if (cloudflare) return cloudflare;
+    const forwarded = req.headers.get("x-forwarded-for")
+      ?.split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return forwarded?.[forwarded.length - 1] || "unknown";
+  }
   return req.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim()
     || req.headers.get("cf-connecting-ip")?.trim()
     || req.headers.get("x-real-ip")?.trim()

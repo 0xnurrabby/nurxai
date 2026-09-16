@@ -22,6 +22,15 @@ const buckets = globalThis.__nurxaiRateBuckets ?? (globalThis.__nurxaiRateBucket
 const MINUTE = 60 * 1000;
 
 function clientIp(req: NextRequest) {
+  if (process.env.RENDER) {
+    const cloudflare = req.headers.get("cf-connecting-ip")?.trim();
+    if (cloudflare) return cloudflare;
+    const forwarded = req.headers.get("x-forwarded-for")
+      ?.split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return forwarded?.[forwarded.length - 1] || "unknown";
+  }
   const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return forwarded || req.headers.get("x-real-ip") || req.headers.get("cf-connecting-ip") || "unknown";
 }
