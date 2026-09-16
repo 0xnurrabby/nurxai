@@ -13,6 +13,15 @@ function loginError(data: any) {
   return data?.message || "Could not sign in. Please try again.";
 }
 
+function redirectErrorText(code: string | null) {
+  if (!code || code === "GOOGLE_CANCELLED") return "";
+  if (code === "TERMS_REQUIRED") return "Please accept the Terms of Service and Privacy Policy first.";
+  if (code === "GOOGLE_ACCOUNT_MISMATCH") return "This email is already linked to a different Google account.";
+  if (code === "GOOGLE_EMAIL_NOT_VERIFIED") return "Google could not verify that email address.";
+  if (code === "GOOGLE_NOT_CONFIGURED") return "Google sign-in is not configured. Please use email instead.";
+  return "Google sign-in did not complete. Please try again or use email.";
+}
+
 function safeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f]/.test(value)) {
     return "/dashboard";
@@ -34,6 +43,7 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = safeNextPath(params.get("next"));
+  const redirectError = redirectErrorText(params.get("error"));
 
   const finishAuth = useCallback((token: string, user: any) => {
     try {
@@ -79,6 +89,12 @@ function LoginForm() {
           {" "}and{" "}
           <Link href="/privacy" className="underline" target="_blank">Privacy Policy</Link>.
         </p>
+        <a
+          href="/api/auth/google/start?accepted=1"
+          className="mx-auto mt-1.5 block text-center text-[11px] underline opacity-50"
+        >
+          Popup not opening? Continue with Google in this tab
+        </a>
         <div className="my-3 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50">
           <div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" />
         </div>
@@ -86,7 +102,7 @@ function LoginForm() {
         <form onSubmit={submit} className="space-y-3">
           <div><label className="text-[12px] font-semibold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1 w-full min-w-0" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <div><div className="flex items-center justify-between"><label className="text-[12px] font-semibold">Password</label><Link href="/forgot-password" className="text-xs font-bold underline">Reset it</Link></div><input type="password" required autoComplete="current-password" className="nb-input mt-1 w-full min-w-0" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-          {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
+          {(err || redirectError) && <p role="alert" className="rounded-lg border border-[#b00020]/40 bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err || redirectError}</p>}
           <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy}>{busy ? "Signing in..." : "Enter workspace"}</button>
         </form>
 

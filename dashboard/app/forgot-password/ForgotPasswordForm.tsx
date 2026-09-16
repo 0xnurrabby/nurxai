@@ -9,6 +9,7 @@ function resetError(data: any) {
   if (data?.error === "WEAK_PASSWORD") return "Use 8 or more characters and keep the password under 72 UTF-8 bytes.";
   if (data?.error === "INVALID_OTP") return "That code is invalid, expired, or has already been used.";
   if (data?.error === "RATE_LIMITED") return data.message || "Too many attempts. Try again later.";
+  if (data?.error === "EMAIL_UNAVAILABLE") return "Email codes are temporarily unavailable. Please contact support@nurxai.xyz.";
   return data?.message || "Could not complete the reset. Please try again.";
 }
 

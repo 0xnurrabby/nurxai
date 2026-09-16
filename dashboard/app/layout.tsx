@@ -32,7 +32,7 @@ const monoFont = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://nurxai.xyz"),
   title: {
-    default: "NurAi — AI reply drafts for X that sound like you",
+    default: "NurAi · AI reply drafts for X that sound like you",
     template: "%s | NurAi"
   },
   description:

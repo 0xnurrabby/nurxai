@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "nodejs";
-export const alt = "NurAi pricing — free trial, monthly plans, and x402 pay per use";
+export const alt = "NurAi pricing · free trial, monthly plans, and x402 pay per use";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -47,7 +47,7 @@ export default function PricingOpengraphImage() {
           >
             N
           </div>
-          <div style={{ marginLeft: 15, fontSize: 28, fontWeight: 700 }}>NurAi — Pricing</div>
+          <div style={{ marginLeft: 15, fontSize: 28, fontWeight: 700 }}>NurAi · Pricing</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", position: "relative" }}>

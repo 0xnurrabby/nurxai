@@ -7,7 +7,7 @@ import "./AuthScene.css";
 const VALUE_LINES = [
   "no auto-posting. ever.",
   "you type the final word.",
-  "four drafts, one voice — yours.",
+  "four drafts, one voice: yours.",
   "your judgment stays yours."
 ];
 

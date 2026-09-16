@@ -4,7 +4,7 @@ import "./AuthScene.css";
 
 export default function AuthShell({ children, mode }: { children: ReactNode; mode: "login" | "signup" | "reset" }) {
   const copy = mode === "signup"
-    ? { eyebrow: "HUMAN-IN-THE-LOOP", title: "Your voice.", accent: "Sharper replies.", body: "NurAi drafts the angles. You edit, ignore, or publish — the final click always stays with you." }
+    ? { eyebrow: "HUMAN-IN-THE-LOOP", title: "Your voice.", accent: "Sharper replies.", body: "NurAi drafts the angles. You edit, ignore, or publish. The final click always stays with you." }
     : mode === "reset"
       ? { eyebrow: "SECURE RECOVERY", title: "Back in.", accent: "No support ticket.", body: "A short-lived email code verifies ownership, resets the password, and closes every old session." }
       : { eyebrow: "OPERATOR CONSOLE", title: "Move fast.", accent: "Sound human.", body: "Generate grounded reply options inside X, keep your judgment, and ship only what feels right." };
