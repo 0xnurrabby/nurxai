@@ -41,7 +41,7 @@ export default function AuthScene() {
     }
     window.addEventListener("pointermove", onMove);
     return () => window.removeEventListener("pointermove", onMove);
-  }, [sceneRef]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -69,7 +69,7 @@ export default function AuthScene() {
       style={eyeShift}
       onClick={poke}
       role="img"
-      aria-label="Playful NurAi characters hovering around a chat bubble"
+      aria-label="Playful NurAi characters standing around a speech bubble"
     >
       <span className="auth-spark spark-a" aria-hidden="true" />
       <span className="auth-spark spark-b" aria-hidden="true" />
@@ -81,35 +81,37 @@ export default function AuthScene() {
         </span>
       </div>
 
-      <div className="a-char a-purple" aria-hidden="true">
-        <div className="a-eyes">
-          <span className="a-eye"><span className="a-pupil" /></span>
-          <span className="a-eye"><span className="a-pupil" /></span>
+      <div className="a-crew" aria-hidden="true">
+        <div className="a-char a-orange">
+          <div className="a-eyes">
+            <span className="a-eye a-eye-dark"><span className="a-pupil a-pupil-light" /></span>
+            <span className="a-eye a-eye-dark"><span className="a-pupil a-pupil-light" /></span>
+          </div>
+          <span className="a-smile" />
         </div>
-      </div>
 
-      <div className="a-char a-dark" aria-hidden="true">
-        <div className="a-eyes">
-          <span className="a-eye"><span className="a-pupil" /></span>
-          <span className="a-eye"><span className="a-pupil" /></span>
+        <div className="a-char a-purple">
+          <div className="a-eyes">
+            <span className="a-eye"><span className="a-pupil" /></span>
+            <span className="a-eye"><span className="a-pupil" /></span>
+          </div>
         </div>
-        <span className="a-line-mouth" />
-      </div>
 
-      <div className="a-char a-yellow" aria-hidden="true">
-        <div className="a-eyes">
-          <span className="a-eye a-eye-dark"><span className="a-pupil a-pupil-light" /></span>
-          <span className="a-eye a-eye-dark"><span className="a-pupil a-pupil-light" /></span>
+        <div className="a-char a-dark">
+          <div className="a-eyes">
+            <span className="a-eye"><span className="a-pupil" /></span>
+            <span className="a-eye"><span className="a-pupil" /></span>
+          </div>
+          <span className="a-line-mouth" />
         </div>
-        <span className="a-line-mouth" />
-      </div>
 
-      <div className="a-char a-orange" aria-hidden="true">
-        <div className="a-eyes">
-          <span className="a-eye a-eye-dark"><span className="a-pupil a-pupil-light" /></span>
-          <span className="a-eye a-eye-dark"><span className="a-pupil a-pupil-light" /></span>
+        <div className="a-char a-yellow">
+          <div className="a-eyes">
+            <span className="a-eye"><span className="a-pupil" /></span>
+            <span className="a-eye"><span className="a-pupil" /></span>
+          </div>
+          <span className="a-line-mouth" />
         </div>
-        <span className="a-smile" />
       </div>
     </div>
   );

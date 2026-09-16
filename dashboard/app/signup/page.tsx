@@ -134,7 +134,7 @@ function SignupForm() {
             <GoogleSignInButton label="signup_with" referralCode={referralCode} acceptedTerms={accepted} onSuccess={finishAuth} onError={setErr} />
           </div>
           <div className="my-5 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50"><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR VERIFIED EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /></div>
-          <form onSubmit={submitDetails} className="space-y-4">
+          <form onSubmit={submitDetails} className="space-y-3.5">
             <div><label className="text-sm font-bold">Name</label><input className="nb-input mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
             <div><label className="text-sm font-bold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
             <div><label className="text-sm font-bold">Password</label><input type="password" required minLength={8} maxLength={128} autoComplete="new-password" className="nb-input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /><p className="mt-1 text-xs opacity-55">Minimum 8 characters.</p></div>

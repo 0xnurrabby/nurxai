@@ -83,7 +83,7 @@ function LoginForm() {
           <div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" />
         </div>
 
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} className="space-y-3.5">
           <div><label className="text-sm font-bold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <div><div className="flex items-center justify-between"><label className="text-sm font-bold">Password</label><Link href="/forgot-password" className="text-xs font-bold underline">Reset it</Link></div><input type="password" required autoComplete="current-password" className="nb-input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
           {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
