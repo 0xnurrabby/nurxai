@@ -6,6 +6,7 @@ import Navbar from "../components/Navbar";
 import DashboardLiveWidgets from "../components/DashboardLiveWidgets";
 import PaygWalletCard from "../components/PaygWalletCard";
 import UsageChart from "../components/UsageChart";
+import ExtensionGate from "../components/ExtensionGate";
 import { clearBrowserSession, restoreBrowserSession } from "@/lib/client-session";
 
 type Me = {
@@ -269,6 +270,7 @@ export default function Dashboard() {
       <Navbar />
       <main className="max-w-5xl mx-auto px-5 py-10">
         {toast && <div className="premium-toast">{toast}</div>}
+        <ExtensionGate />
         <PaygWalletCard />
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div>

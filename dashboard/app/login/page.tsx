@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import AuthShell from "../components/AuthShell";
-import GoogleSignInButton from "../components/GoogleSignInButton";
+import GoogleAuthButton from "../components/GoogleAuthButton";
 
 function loginError(data: any) {
   if (data?.error === "USE_GOOGLE_LOGIN") return "This account uses Google sign-in.";
@@ -81,7 +81,7 @@ function LoginForm() {
         <p className="mt-1.5 text-[13px] leading-relaxed opacity-70">Open your reply workspace, billing, and extension controls.</p>
 
         <div className="mt-3">
-          <GoogleSignInButton label="signin_with" acceptedTerms onSuccess={finishAuth} onError={setErr} />
+          <GoogleAuthButton label="Continue with Google" />
         </div>
         <p className="mt-2 text-center text-[11px] leading-relaxed opacity-55">
           By continuing you agree to our{" "}
@@ -89,12 +89,6 @@ function LoginForm() {
           {" "}and{" "}
           <Link href="/privacy" className="underline" target="_blank">Privacy Policy</Link>.
         </p>
-        <a
-          href="/api/auth/google/start?accepted=1"
-          className="mx-auto mt-1.5 block text-center text-[11px] underline opacity-50"
-        >
-          Popup not opening? Continue with Google in this tab
-        </a>
         <div className="my-3 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50">
           <div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" />
         </div>
