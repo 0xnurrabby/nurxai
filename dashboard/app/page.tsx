@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Navbar from "./components/Navbar";
 import Reveal from "./components/Reveal";
@@ -136,6 +137,37 @@ function FeatureIcon({ name }: { name: string }) {
   );
 }
 
+function AnimatedHeadline({ text }: { text: string }) {
+  const words = text.split(" ");
+  let index = 0;
+  return (
+    <em className="h-wave">
+      <span className="sr-only">{text}</span>
+      <span aria-hidden="true">
+        {words.map((word, wordIndex) => (
+          <span key={`${word}-${wordIndex}`}>
+            <span className="h-wave-word">
+              {Array.from(word).map((letter) => {
+                const letterIndex = index++;
+                return (
+                  <span
+                    key={letterIndex}
+                    className="h-wave-letter"
+                    style={{ "--i": letterIndex } as CSSProperties}
+                  >
+                    {letter}
+                  </span>
+                );
+              })}
+            </span>
+            {wordIndex < words.length - 1 ? " " : null}
+          </span>
+        ))}
+      </span>
+    </em>
+  );
+}
+
 export default async function Home() {
   const pricing = await getPaygPricing().catch(() => ({
     regularPriceUSD: "0.009000",
@@ -211,8 +243,9 @@ export default async function Home() {
               <span className="h-pill-dot" />
               Built on Base · x402 USDC
             </span>
-            <h1 className="h-h1 h-anim h-d2">
-              Understand any X post. <em>Reply like yourself.</em>
+            <h1 className="h-h1">
+              <span className="h-line h-anim h-d2">Understand any X post.</span>
+              <AnimatedHeadline text="Reply like yourself." />
             </h1>
             <p className="h-sub h-anim h-d3">
               NurAi is a Chrome copilot for X. It reads the post you are replying to, including

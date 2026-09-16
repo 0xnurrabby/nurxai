@@ -138,18 +138,85 @@
   letter-spacing: -0.03em;
   line-height: 1.05;
   font-size: clamp(2.35rem, 6.4vw, 4.15rem);
-  max-width: 17ch;
+  max-width: 26ch;
   margin: 26px auto 0;
   text-wrap: balance;
 }
 
-.h-h1 em {
-  font-style: normal;
-  color: #0052ff;
+.h-line {
+  display: block;
 }
 
-.dark .h-h1 em {
-  color: #7fb0ff;
+/* Animated second line: per-letter color wave + gentle float */
+.h-wave {
+  display: block;
+  font-style: normal;
+}
+
+.h-wave-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.h-wave-letter {
+  display: inline-block;
+  color: #0052ff;
+  animation:
+    h-letter-in 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    h-letter-color 18s linear infinite,
+    h-letter-bob 3.6s ease-in-out infinite;
+  animation-delay:
+    calc(var(--i) * 55ms),
+    calc(var(--i) * -0.42s),
+    calc(var(--i) * -0.15s);
+}
+
+.dark .h-wave-letter {
+  text-shadow: 0 0 28px color-mix(in srgb, currentColor 32%, transparent);
+}
+
+@keyframes h-letter-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.45em) rotate(3deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes h-letter-bob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -0.055em; }
+}
+
+/* 21 brand palettes (Base, Stripe, Linear, Spotify, Netflix, Figma, ...)
+   cycling so every letter continuously travels the spectrum. */
+@keyframes h-letter-color {
+  0% { color: #0052ff; }
+  4.5% { color: #2563eb; }
+  9% { color: #3b82f6; }
+  13.5% { color: #0ea5e9; }
+  18% { color: #06b6d4; }
+  22.5% { color: #14b8a6; }
+  27% { color: #10b981; }
+  31.5% { color: #22c55e; }
+  36% { color: #65a30d; }
+  40.5% { color: #ca8a04; }
+  45% { color: #f59e0b; }
+  49.5% { color: #f97316; }
+  54% { color: #f24e1e; }
+  58.5% { color: #ef4444; }
+  63% { color: #e50914; }
+  67.5% { color: #f43f5e; }
+  72% { color: #ec4899; }
+  76.5% { color: #d946ef; }
+  81% { color: #a855f7; }
+  85.5% { color: #8b5cf6; }
+  90% { color: #6366f1; }
+  95% { color: #635bff; }
+  100% { color: #0052ff; }
 }
 
 .h-sub {
@@ -707,6 +774,14 @@
     opacity: 1;
     transform: none;
     transition: none;
+  }
+  .h-wave-letter {
+    animation: none;
+    color: #0052ff;
+  }
+  .dark .h-wave-letter {
+    color: #7fb0ff;
+    text-shadow: none;
   }
 }
 
