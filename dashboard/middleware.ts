@@ -29,7 +29,7 @@ function clientIp(req: NextRequest) {
       ?.split(",")
       .map((part) => part.trim())
       .filter(Boolean);
-    return forwarded?.[forwarded.length - 1] || "unknown";
+    return forwarded?.[0] || "unknown";
   }
   const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return forwarded || req.headers.get("x-real-ip") || req.headers.get("cf-connecting-ip") || "unknown";
@@ -51,7 +51,7 @@ function ratePolicy(pathname: string, method: string): RatePolicy {
     return { name: "webhook", windowMs: MINUTE, max: 120, bodyLimitBytes: 256 * 1024 };
   }
   if (pathname.startsWith("/api/auth/")) {
-    return { name: "auth", windowMs: 15 * MINUTE, max: 20, bodyLimitBytes: 32 * 1024 };
+    return { name: "auth", windowMs: 15 * MINUTE, max: 40, bodyLimitBytes: 32 * 1024 };
   }
   if (pathname === "/api/generate") {
     // High enough for multi-tab / multi-user reply bursts. Plan daily quota still gates usage.
