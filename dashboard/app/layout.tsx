@@ -1,5 +1,26 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono, Sora } from "next/font/google";
 import "./globals.css";
+
+const bodyFont = Inter({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap"
+});
+
+const displayFont = Sora({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-display",
+  display: "swap"
+});
+
+const monoFont = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-mono",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nurxai.xyz"),
@@ -74,7 +95,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable}`}
+    >
       <head>
         <meta name="base:app_id" content="6a842b93abf0a9eb2b3c722a" />
         <script

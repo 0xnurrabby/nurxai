@@ -19,8 +19,9 @@ const config: Config = {
         nightCard: "#222222"
       },
       fontFamily: {
-        sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
-        display: ['"Space Grotesk"', 'ui-sans-serif', 'system-ui']
+        sans: ['var(--font-body)', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['var(--font-display)', 'ui-sans-serif', 'system-ui'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
       },
       borderRadius: {
         nb: "12px"

@@ -1,0 +1,788 @@
+/* ─────────────────────────────────────────────────────────────
+   NurAi home page styles (scoped to .home-shell)
+   Clean typography, soft depth, subtle motion. Dark-mode aware
+   through the global CSS variables from globals.css.
+   ───────────────────────────────────────────────────────────── */
+
+.home-shell {
+  --h-radius: 18px;
+  --h-ring: color-mix(in srgb, var(--ink) 12%, transparent);
+  --h-ring-strong: color-mix(in srgb, var(--ink) 24%, transparent);
+  --h-soft: color-mix(in srgb, var(--ink) 5%, transparent);
+  --h-shadow: 0 30px 60px -42px color-mix(in srgb, var(--ink) 55%, transparent);
+  background: var(--paper);
+}
+
+.home-shell .h-container {
+  width: min(100%, 1120px);
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
+/* ── Header polish (home page only) ─────────────────────────── */
+.home-shell .site-header {
+  border-bottom: 1px solid var(--h-ring);
+  background: color-mix(in srgb, var(--paper) 84%, transparent);
+}
+
+.home-shell .site-header .nb-btn {
+  border-width: 1px;
+  border-color: transparent;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 9px 16px;
+  min-height: 42px;
+  color: var(--ink);
+}
+
+.home-shell .site-header .nb-btn:hover {
+  background: var(--h-soft);
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+
+.home-shell .site-header .nb-btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.home-shell .site-header .nb-btn-primary:hover {
+  background: color-mix(in srgb, var(--ink) 88%, var(--paper));
+  filter: none;
+}
+
+.home-shell .site-header .brand-mark {
+  border-width: 1px;
+  border-color: var(--h-ring);
+  border-radius: 10px;
+}
+
+/* ── Hero ───────────────────────────────────────────────────── */
+.h-hero {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: 88px 0 64px;
+}
+
+.h-hero-glow {
+  position: absolute;
+  inset: -18% -8% auto;
+  height: 640px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  filter: blur(48px);
+  background:
+    radial-gradient(560px 320px at 16% 32%, color-mix(in srgb, var(--accent) 62%, transparent), transparent 70%),
+    radial-gradient(520px 300px at 84% 24%, color-mix(in srgb, var(--accent3) 52%, transparent), transparent 72%),
+    radial-gradient(440px 280px at 52% 82%, color-mix(in srgb, var(--accent2) 42%, transparent), transparent 72%);
+}
+
+.dark .h-hero-glow {
+  opacity: 0.32;
+}
+
+.h-hero-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    linear-gradient(var(--h-ring) 1px, transparent 1px),
+    linear-gradient(90deg, var(--h-ring) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: radial-gradient(closest-side at 50% 24%, black, transparent 82%);
+  -webkit-mask-image: radial-gradient(closest-side at 50% 24%, black, transparent 82%);
+}
+
+.h-hero-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.h-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--h-ring);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.h-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #0052ff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #0052ff 22%, transparent);
+}
+
+.h-h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-size: clamp(2.35rem, 6.4vw, 4.15rem);
+  max-width: 17ch;
+  margin: 26px auto 0;
+  text-wrap: balance;
+}
+
+.h-h1 em {
+  font-style: normal;
+  background: linear-gradient(100deg, #0052ff 8%, #6f8f00 60%, #0f1419 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dark .h-h1 em {
+  background: linear-gradient(100deg, #7fb0ff 8%, #ffe873 60%, #ffffff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.h-sub {
+  max-width: 44rem;
+  margin: 22px auto 0;
+  font-size: clamp(1.02rem, 2.1vw, 1.18rem);
+  line-height: 1.72;
+  color: color-mix(in srgb, var(--ink) 74%, transparent);
+  text-wrap: pretty;
+}
+
+.h-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 34px;
+}
+
+.h-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 14px 28px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s, background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+
+.h-btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 18px 36px -20px color-mix(in srgb, var(--ink) 65%, transparent);
+}
+
+.h-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 44px -22px color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.h-btn-ghost {
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  color: var(--ink);
+  border-color: var(--h-ring);
+  backdrop-filter: blur(8px);
+}
+
+.h-btn-ghost:hover {
+  transform: translateY(-2px);
+  border-color: var(--h-ring-strong);
+}
+
+.h-micro {
+  margin-top: 18px;
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.h-micro a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.h-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 30px;
+}
+
+.h-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--h-ring);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--ink) 80%, transparent);
+}
+
+.h-chip svg {
+  width: 14px;
+  height: 14px;
+  color: #1a9e5c;
+}
+
+/* ── Product frame ──────────────────────────────────────────── */
+.h-frame-wrap {
+  position: relative;
+  margin-top: 58px;
+}
+
+.h-frame-glow {
+  position: absolute;
+  inset: -8% 4% -12%;
+  z-index: 0;
+  border-radius: 40px;
+  filter: blur(46px);
+  opacity: 0.5;
+  background: linear-gradient(115deg, color-mix(in srgb, var(--accent) 55%, transparent), color-mix(in srgb, var(--accent3) 40%, transparent) 55%, transparent 85%);
+}
+
+.dark .h-frame-glow {
+  opacity: 0.3;
+}
+
+.h-frame {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--h-radius);
+  border: 1px solid var(--h-ring);
+  background: var(--card);
+  box-shadow: var(--h-shadow);
+  overflow: hidden;
+}
+
+.h-frame-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 15px;
+  border-bottom: 1px solid var(--h-ring);
+  background: color-mix(in srgb, var(--paper) 65%, var(--card));
+}
+
+.h-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+.h-frame-url {
+  margin-left: 10px;
+  flex: 1;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--ink) 45%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Sections ───────────────────────────────────────────────── */
+.h-section {
+  padding: 84px 0;
+}
+
+.h-eyebrow {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+
+.h-h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  font-size: clamp(1.7rem, 4.1vw, 2.55rem);
+  margin-top: 14px;
+  text-wrap: balance;
+}
+
+.h-h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  font-size: 1.13rem;
+  line-height: 1.35;
+}
+
+.h-p {
+  margin-top: 14px;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+  text-wrap: pretty;
+}
+
+.h-grid-3 {
+  display: grid;
+  gap: 18px;
+  margin-top: 44px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.h-grid-2 {
+  display: grid;
+  gap: 18px;
+  margin-top: 44px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.h-card {
+  background: var(--card);
+  border: 1px solid var(--h-ring);
+  border-radius: var(--h-radius);
+  padding: 26px;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s, border-color 0.25s;
+}
+
+.h-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--h-ring-strong);
+  box-shadow: var(--h-shadow);
+}
+
+.h-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  margin-bottom: 18px;
+  background: color-mix(in srgb, var(--accent) 60%, var(--card));
+  color: var(--ink);
+}
+
+.h-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.h-icon-mint { background: color-mix(in srgb, var(--accent2) 60%, var(--card)); }
+.h-icon-sun { background: color-mix(in srgb, var(--accent3) 65%, var(--card)); }
+.h-icon-rose { background: color-mix(in srgb, var(--accent4) 60%, var(--card)); }
+
+.h-step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--h-ring);
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* ── Human control band ─────────────────────────────────────── */
+.h-band {
+  display: grid;
+  gap: 34px;
+  align-items: center;
+  grid-template-columns: 1.05fr 0.95fr;
+  border: 1px solid var(--h-ring);
+  border-radius: calc(var(--h-radius) + 6px);
+  background:
+    radial-gradient(640px 320px at 12% -20%, color-mix(in srgb, var(--accent2) 34%, transparent), transparent 70%),
+    var(--card);
+  padding: 46px;
+  box-shadow: var(--h-shadow);
+}
+
+.h-checks {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.h-check {
+  border: 1px solid var(--h-ring);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper) 55%, var(--card));
+  padding: 16px 18px;
+}
+
+.h-check strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.h-check span {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--ink) 62%, transparent);
+}
+
+/* ── Base x402 ──────────────────────────────────────────────── */
+.h-base {
+  border: 1px solid var(--h-ring);
+  border-radius: calc(var(--h-radius) + 6px);
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: var(--h-shadow);
+}
+
+.h-base-head {
+  display: grid;
+  gap: 26px;
+  align-items: start;
+  grid-template-columns: 1.25fr 0.75fr;
+  padding: 42px;
+  background:
+    radial-gradient(560px 300px at 88% -10%, color-mix(in srgb, #0052ff 16%, transparent), transparent 70%),
+    var(--card);
+}
+
+.h-base-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #0052ff;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.h-price {
+  border: 1px solid var(--h-ring);
+  border-radius: var(--h-radius);
+  background: color-mix(in srgb, var(--paper) 70%, var(--card));
+  padding: 26px;
+}
+
+.h-price-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.5rem;
+  letter-spacing: -0.03em;
+}
+
+.h-price-value small {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+
+.h-base-body {
+  border-top: 1px solid var(--h-ring);
+  padding: 34px 42px 42px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.h-point {
+  border-left: 2px solid color-mix(in srgb, #0052ff 55%, transparent);
+  padding-left: 16px;
+}
+
+.h-point strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.h-point span {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.87rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--ink) 62%, transparent);
+}
+
+/* ── Pricing strip ──────────────────────────────────────────── */
+.h-pricing {
+  display: grid;
+  gap: 18px;
+  margin-top: 40px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.h-pricing .h-card {
+  text-align: left;
+}
+
+.h-pricing-label {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+
+.h-pricing-value {
+  margin-top: 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.65rem;
+  letter-spacing: -0.02em;
+}
+
+.h-pricing-note {
+  margin-top: 6px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--ink) 62%, transparent);
+}
+
+/* ── FAQ ────────────────────────────────────────────────────── */
+.h-faq-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 40px;
+}
+
+.h-faq {
+  border: 1px solid var(--h-ring);
+  border-radius: 16px;
+  background: var(--card);
+  padding: 20px 22px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.h-faq[open] {
+  border-color: var(--h-ring-strong);
+  box-shadow: var(--h-shadow);
+}
+
+.h-faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  list-style: none;
+}
+
+.h-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.h-faq summary::after {
+  content: "+";
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  line-height: 1;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.h-faq[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.h-faq p {
+  margin-top: 14px;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  color: color-mix(in srgb, var(--ink) 68%, transparent);
+  max-width: 62ch;
+}
+
+/* ── Final CTA + footer ─────────────────────────────────────── */
+.h-cta {
+  border: 1px solid var(--h-ring);
+  border-radius: calc(var(--h-radius) + 8px);
+  text-align: center;
+  padding: 72px 32px;
+  background:
+    radial-gradient(620px 320px at 50% -30%, color-mix(in srgb, var(--accent) 42%, transparent), transparent 72%),
+    var(--card);
+  box-shadow: var(--h-shadow);
+}
+
+.home-shell footer {
+  border-top: 1px solid var(--h-ring);
+  margin-top: 84px;
+}
+
+.home-shell footer .h-footer-heading {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.home-shell footer a {
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+  text-decoration: none;
+  transition: color 0.18s;
+}
+
+.home-shell footer a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Motion ─────────────────────────────────────────────────── */
+@keyframes h-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+.h-anim {
+  animation: h-rise 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.h-d1 { animation-delay: 0.08s; }
+.h-d2 { animation-delay: 0.16s; }
+.h-d3 { animation-delay: 0.26s; }
+.h-d4 { animation-delay: 0.36s; }
+.h-d5 { animation-delay: 0.46s; }
+.h-d6 { animation-delay: 0.56s; }
+
+@keyframes h-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-11px); }
+}
+
+.h-float {
+  animation: h-float 9s ease-in-out infinite;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.75s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.75s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.reveal-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-anim,
+  .h-float {
+    animation: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .h-hero {
+    padding: 64px 0 46px;
+  }
+
+  .h-section {
+    padding: 60px 0;
+  }
+
+  .h-grid-3,
+  .h-grid-2,
+  .h-pricing,
+  .h-base-body {
+    grid-template-columns: 1fr;
+  }
+
+  .h-band {
+    grid-template-columns: 1fr;
+    padding: 30px 24px;
+  }
+
+  .h-base-head {
+    grid-template-columns: 1fr;
+    padding: 30px 24px;
+  }
+
+  .h-base-body {
+    padding: 26px 24px 32px;
+  }
+
+  .h-cta {
+    padding: 54px 22px;
+  }
+
+  .h-frame-wrap {
+    margin-top: 44px;
+  }
+}
+
+@media (max-width: 560px) {
+  .home-shell .h-container {
+    padding-inline: 18px;
+  }
+
+  .h-h1 {
+    font-size: clamp(2.05rem, 9.5vw, 2.6rem);
+  }
+
+  .h-actions .h-btn {
+    width: 100%;
+  }
+
+  .h-chips {
+    gap: 8px;
+  }
+
+  .h-chip {
+    font-size: 0.8rem;
+    padding: 7px 12px;
+  }
+
+  .h-checks {
+    grid-template-columns: 1fr;
+  }
+
+  .h-card {
+    padding: 22px;
+  }
+}
