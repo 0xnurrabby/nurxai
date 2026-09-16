@@ -52,6 +52,26 @@ if (skipped.length) console.log("skipped (not on target):", skipped.join(", "));
 const untouched = [...targetTables].filter((t) => !sourceTables.includes(t));
 if (untouched.length) console.log("left untouched on target (not on source):", untouched.join(", "));
 
+async function columnsOf(client, table) {
+  const result = await client.query(
+    "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position",
+    [table]
+  );
+  return result.rows.map((row) => row.column_name);
+}
+
+const columnPlan = {};
+for (const t of copyable) {
+  const sourceCols = await columnsOf(src, t);
+  const targetSet = new Set(await columnsOf(dst, t));
+  const common = sourceCols.filter((c) => targetSet.has(c));
+  const dropped = sourceCols.filter((c) => !targetSet.has(c));
+  const added = [...targetSet].filter((c) => !sourceCols.includes(c));
+  columnPlan[t] = { copiableColumns: common.length, sourceNotOnTarget: dropped, targetOnlyDefaults: added };
+}
+console.log("column plan:");
+console.log(JSON.stringify(columnPlan, null, 2));
+
 if (!APPLY) {
   console.log("dry run complete — no writes performed.");
   await src.end();
@@ -73,10 +93,18 @@ for (const t of copyable) {
 console.log(`truncated ${copyable.length} target tables`);
 
 for (const t of copyable) {
-  const out = src.query(copyTo(`COPY public.${ident(t)} TO STDOUT`));
-  const inn = dst.query(copyFrom(`COPY public.${ident(t)} FROM STDIN`));
+  const sourceCols = await columnsOf(src, t);
+  const targetSet = new Set(await columnsOf(dst, t));
+  const columns = sourceCols.filter((c) => targetSet.has(c));
+  if (!columns.length) {
+    console.log(`skipped ${t} (no shared columns)`);
+    continue;
+  }
+  const colList = columns.map(ident).join(", ");
+  const out = src.query(copyTo(`COPY public.${ident(t)} (${colList}) TO STDOUT`));
+  const inn = dst.query(copyFrom(`COPY public.${ident(t)} (${colList}) FROM STDIN`));
   await pipeline(out, inn);
-  console.log(`copied ${t} (${sourceCounts[t]} rows)`);
+  console.log(`copied ${t} (${sourceCounts[t]} rows, ${columns.length} columns)`);
 }
 
 let fkFailures = 0;
