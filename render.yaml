@@ -1,7 +1,8 @@
 # Render Blueprint for the NurXai dashboard.
-# The dashboard service lives in the dashboard/ subdirectory.
-# Secrets are intentionally not stored here; values marked sync: false are
-# entered once in the Render Dashboard and kept outside Git.
+# The dashboard lives in the dashboard/ subdirectory. Secrets are not stored
+# here; keys marked sync: false are entered once in the Render Dashboard.
+# Optional tuning variables (AI timeouts, x402/PAYG keys, dev grants) are
+# intentionally omitted because the code falls back to safe defaults.
 
 services:
   - type: web
@@ -15,24 +16,28 @@ services:
     buildCommand: npm ci && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health
+    domains:
+      - nurxai.xyz
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: nurxai-db
-          property: connectionString
+      # URLs and environment flags.
       - key: PUBLIC_URL
-        value: https://nurxai-dashboard.onrender.com
+        value: https://nurxai.xyz
       - key: NEXT_PUBLIC_APP_URL
-        value: https://nurxai-dashboard.onrender.com
+        value: https://nurxai.xyz
       - key: SESSION_COOKIE_DOMAIN
-        value: nurxai-dashboard.onrender.com
-      - key: SESSION_COOKIE_SECURE
-        value: "true"
+        value: nurxai.xyz
       - key: STRICT_ENV_VALIDATION
         value: "true"
+      - key: NEXT_PUBLIC_GOOGLE_DIRECT_AUTH
+        value: "true"
 
-      # Auth and email secrets. Replace the generated values with the
-      # existing production values when moving extension sessions.
+      # Database (runtime + migration connections).
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_DATABASE_URL
+        sync: false
+
+      # Auth and email secrets.
       - key: JWT_SECRET
         sync: false
       - key: AUTH_RATE_LIMIT_PEPPER
@@ -46,55 +51,30 @@ services:
       - key: RESEND_FROM_EMAIL
         sync: false
 
-      # Google sign-in (direct OAuth flow).
-      - key: NEXT_PUBLIC_GOOGLE_DIRECT_AUTH
-        value: "true"
+      # Google sign-in (direct flow).
       - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
         sync: false
 
       # AI Gateway.
       - key: AI_GATEWAY_API_KEY
         sync: false
-      - key: AI_GATEWAY_GENERATION_MODEL
-        value: openai/gpt-5.4-mini
-      - key: AI_GATEWAY_MODEL
-        value: xai/grok-4.20-non-reasoning
-      - key: AI_GATEWAY_SEARCH_MODEL
-        value: google/gemini-3.1-flash-lite
-      - key: AI_GATEWAY_SEARCH_MODE
-        value: auto
-      - key: MAX_REPLY_CHARS
-        value: "150"
 
-      # Published Chrome Web Store release compatibility.
-      - key: LEGACY_STORE_VERSION
-        value: 2.0.17
-      - key: MIN_EXTENSION_VERSION
-        value: 2.0.17
-      - key: LEGACY_AUTH_FALLBACK_ENABLED
-        value: "false"
-      - key: EXTENSION_UPDATE_URL
-        value: https://chromewebstore.google.com/detail/odapbgkbdpalphekkmibliclmedgmlhb
-
-      # Billing and pay-as-you-go stay disabled until explicitly configured.
-      - key: PAYG_X402_ENABLED
-        value: "false"
-      - key: NEXT_PUBLIC_PAYG_ENABLED
-        value: "false"
+      # Billing.
+      - key: NOWPAYMENTS_API_KEY
+        sync: false
+      - key: NOWPAYMENTS_IPN_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: BASE_PAY_RECIPIENT
+        sync: false
       - key: BASE_RPC_URL
         value: https://mainnet.base.org
 
-      # Migrations run during the production build.
-      - key: MIGRATE_ON_PREVIEW
+      # Chrome Web Store release compatibility.
+      - key: LEGACY_STORE_VERSION
+        value: 2.0.17
+      - key: LEGACY_AUTH_FALLBACK_ENABLED
         value: "false"
-      - key: SKIP_MIGRATIONS
-        value: "false"
-
-databases:
-  - name: nurxai-db
-    region: singapore
-    plan: free
+      - key: MIN_EXTENSION_VERSION
+        value: 2.0.14
