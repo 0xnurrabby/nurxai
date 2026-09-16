@@ -1681,3 +1681,107 @@ tbody tr:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
 .dark .border-nightInk\/20 { border-color: color-mix(in srgb, var(--ink) 13%, transparent) !important; }
 .dark .border-nightInk\/30 { border-color: color-mix(in srgb, var(--ink) 18%, transparent) !important; }
 .dark .border-nightInk\/40 { border-color: color-mix(in srgb, var(--ink) 24%, transparent) !important; }
+
+/* Nav menu trigger: clean circular icon button (desktop + mobile) */
+.nav-menu-trigger,
+.mobile-nav-trigger {
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ring);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 0;
+  letter-spacing: 0;
+  line-height: 0;
+}
+.nav-menu-trigger svg,
+.mobile-nav-trigger svg {
+  width: 18px;
+  height: 18px;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+.nav-menu-trigger:hover,
+.nav-menu-trigger:focus-visible,
+.mobile-nav-trigger:hover,
+.mobile-nav-trigger:focus-visible {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Dropdown: stacked, airy items */
+.nav-menu-panel {
+  min-width: 264px;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 18px;
+}
+.nav-menu-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 11px 13px;
+}
+.nav-menu-item small {
+  max-width: none;
+  text-align: left;
+  font-size: 12px;
+}
+.nav-menu-item span {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+/* Dashboard notices (gifts, withdrawals) — quiet and minimal */
+.nb-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 15px 18px;
+  border: 1px solid var(--ring);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent2) 26%, var(--card));
+  animation: rise-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.nb-notice-gift {
+  background: color-mix(in srgb, var(--accent3) 26%, var(--card));
+}
+.nb-notice-wallet {
+  background: color-mix(in srgb, var(--accent) 24%, var(--card));
+}
+.nb-notice-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--ring);
+  font-size: 17px;
+  font-weight: 700;
+}
+.nb-notice-body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.nb-notice-body p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.nb-notice-body strong {
+  font-weight: 600;
+}
+.nb-notice-body span {
+  color: color-mix(in srgb, var(--ink) 62%, transparent);
+}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import DashboardLiveWidgets from "../components/DashboardLiveWidgets";
 import PaygWalletCard from "../components/PaygWalletCard";
+import UsageChart from "../components/UsageChart";
 import { clearBrowserSession, restoreBrowserSession } from "@/lib/client-session";
 
 type Me = {
@@ -67,22 +68,19 @@ const DASHBOARD_CACHE_KEY = "nurxai_dashboard_cache_v1";
 
 function GiftHeadline({ gifts }: { gifts: NonNullable<Me["subscriptionGifts"]> }) {
   if (!gifts.length) return null;
-  const headlines = gifts.slice(0, 3).map((gift) => {
-    const note = gift.note?.trim() || "Admin gifted extra premium days to your account.";
-    return `Admin gift: +${gift.days} days - ${note}`;
-  });
-  const headlineText = headlines.join("   |   ");
 
   return (
-    <section className="gift-news-banner" aria-label="Subscription gift">
-      <div className="gift-news-label" aria-hidden="true">
-        <span className="gift-news-emoji">🎁</span>
-      </div>
-      <div className="gift-news-window">
-        <div className="gift-news-track">
-          <span>{headlineText}</span>
-          <span aria-hidden="true">{headlineText}</span>
-        </div>
+    <section className="nb-notice nb-notice-gift" aria-label="Subscription gift">
+      <span className="nb-notice-icon" aria-hidden="true">
+        🎁
+      </span>
+      <div className="nb-notice-body">
+        {gifts.slice(0, 3).map((gift) => (
+          <p key={gift.id}>
+            <strong>Admin gift · +{gift.days} days</strong>
+            <span>{gift.note?.trim() || "Extra premium days were added to your account."}</span>
+          </p>
+        ))}
       </div>
     </section>
   );
@@ -90,23 +88,29 @@ function GiftHeadline({ gifts }: { gifts: NonNullable<Me["subscriptionGifts"]> }
 
 function WithdrawalHeadline({ notices, onSeen }: { notices: NonNullable<Me["withdrawalNotices"]>; onSeen: (id: string) => void }) {
   if (!notices.length) return null;
-  const headlines = notices.slice(0, 3).map((item) => {
-    const note = item.adminNote?.trim();
-    if (item.status === "paid") return `Withdrawal paid: $${item.amountUSD.toFixed(2)}${note ? ` - ${note}` : ""}`;
-    return `Withdrawal update: $${item.amountUSD.toFixed(2)} request rejected${note ? ` - ${note}` : ""}`;
-  });
-  const headlineText = headlines.join("   |   ");
 
   return (
-    <section className="gift-news-banner wallet-news-banner" aria-label="Withdrawal update" onMouseEnter={() => notices.forEach((n) => onSeen(n.id))}>
-      <div className="gift-news-label" aria-hidden="true">
-        <span className="gift-news-emoji">USDT</span>
-      </div>
-      <div className="gift-news-window">
-        <div className="gift-news-track">
-          <span>{headlineText}</span>
-          <span aria-hidden="true">{headlineText}</span>
-        </div>
+    <section
+      className="nb-notice nb-notice-wallet"
+      aria-label="Withdrawal update"
+      onMouseEnter={() => notices.forEach((notice) => onSeen(notice.id))}
+    >
+      <span className="nb-notice-icon" aria-hidden="true">
+        {notices[0].status === "paid" ? "✓" : "!"}
+      </span>
+      <div className="nb-notice-body">
+        {notices.slice(0, 3).map((item) => {
+          const note = item.adminNote?.trim();
+          const isPaid = item.status === "paid";
+          return (
+            <p key={item.id}>
+              <strong>
+                {isPaid ? "Withdrawal paid" : "Withdrawal rejected"} · ${item.amountUSD.toFixed(2)}
+              </strong>
+              {note ? <span>{note}</span> : null}
+            </p>
+          );
+        })}
       </div>
     </section>
   );
@@ -319,7 +323,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div>
             <h1 className="font-display font-black text-4xl">
-              Hey, {data.user.name || data.user.email.split("@")[0]}
+              Hey, <span className="h-accent">{data.user.name || data.user.email.split("@")[0]}</span>
             </h1>
             <p className="opacity-70 mt-1">{data.user.email}</p>
           </div>
@@ -341,36 +345,36 @@ export default function Dashboard() {
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-5 mt-8">
           <div className="nb-card p-6">
-            <div className="text-sm font-bold opacity-70">Today's usage</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] opacity-60">Today's usage</div>
             <div className="mt-2 font-display font-black text-4xl">{usedToday}</div>
             <div className="mt-1 text-sm opacity-70">
               of {limit > 0 ? `${limit} daily limit` : "no plan"}
             </div>
             {limit > 0 && (
-              <div className="mt-3 w-full h-3 border-2 border-ink dark:border-nightInk rounded-full overflow-hidden">
+              <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full" style={{ background: "color-mix(in srgb, var(--ink) 8%, transparent)" }}>
                 <div
-                  className="h-full transition-all"
+                  className="h-full rounded-full transition-all"
                   style={{
                     width: `${pct}%`,
                     background:
                       pct > 90
-                        ? "#ffd1dc"
+                        ? "linear-gradient(90deg, #fda4af, #f43f5e)"
                         : pct > 70
-                        ? "var(--accent3)"
-                        : "var(--accent2)"
+                        ? "linear-gradient(90deg, #fde68a, #f59e0b)"
+                        : "linear-gradient(90deg, #86efac, #22c55e)"
                   }}
                 />
               </div>
             )}
           </div>
 
-          <div className="nb-card p-6" style={{ background: "var(--accent3)" }}>
-            <div className="text-sm font-bold opacity-70">Comments left today</div>
+          <div className="nb-card p-6" style={{ background: "color-mix(in srgb, var(--accent3) 32%, var(--card))" }}>
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] opacity-60">Comments left today</div>
             <div className="mt-2 font-display font-black text-4xl">{remaining}</div>
             <div className="mt-1 text-sm opacity-70">resets at 00:00 UTC</div>
           </div>
 
-          <div className="nb-card p-6" style={{ background: "var(--accent2)" }}>
+          <div className="nb-card p-6" style={{ background: "color-mix(in srgb, var(--accent2) 32%, var(--card))" }}>
             <div className="text-sm font-bold opacity-70">Plan expires in</div>
             <div className="mt-2 font-display font-black text-4xl">
               {sub ? `${daysLeft}d` : "-"}
@@ -388,7 +392,7 @@ export default function Dashboard() {
             {sub ? (
               <>
                 <div className="mt-3 flex flex-wrap items-baseline gap-2">
-                  <span className="nb-tag" style={{ background: "var(--accent2)" }}>
+                  <span className="nb-tag" style={{ background: "color-mix(in srgb, var(--accent2) 45%, var(--card))" }}>
                     {sub.plan.toUpperCase()}
                   </span>
                   <span className="text-sm opacity-70">
@@ -460,7 +464,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-5 mt-5">
-          <div className="nb-card p-6" style={{ background: "var(--accent3)" }}>
+          <div className="nb-card p-6" style={{ background: "color-mix(in srgb, var(--accent3) 32%, var(--card))" }}>
             <h3 className="font-display font-black text-xl">Referral wallet</h3>
             <div className="mt-3 font-display font-black text-4xl">${(data.wallet?.balanceUSD || 0).toFixed(2)}</div>
             <p className="text-sm opacity-75 mt-1">
@@ -485,7 +489,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <button className="nb-btn nb-btn-primary" onClick={copyReferralLink}>Copy link</button>
-              <span className="nb-box-badge" style={{ background: "var(--accent2)" }}>{data.referral?.totalReferrals || 0} signups</span>
+              <span className="nb-box-badge" style={{ background: "color-mix(in srgb, var(--accent2) 45%, var(--card))" }}>{data.referral?.totalReferrals || 0} signups</span>
             </div>
           </div>
         </div>
@@ -493,37 +497,11 @@ export default function Dashboard() {
         {/* Usage history */}
         {data.usageHistory && data.usageHistory.length > 0 && (
           <div className="nb-card p-6 mt-5">
-            <h3 className="font-display font-black text-xl">Last 14 days</h3>
-            <div className="mt-4 grid grid-cols-7 md:grid-cols-14 gap-2">
-              {data.usageHistory
-                .slice(0, 14)
-                .reverse()
-                .map((d) => {
-                  const intensity = limit > 0 ? Math.min(1, d.count / limit) : 0;
-                  return (
-                    <div
-                      key={d.day}
-                      className="aspect-square border-2 border-ink dark:border-nightInk rounded text-xs grid place-items-center"
-                      title={`${d.day}: ${d.count} comments`}
-                      style={{
-                        background:
-                          intensity > 0
-                            ? `rgba(196,240,194,${0.3 + intensity * 0.7})`
-                            : "transparent"
-                      }}
-                    >
-                      {d.count}
-                    </div>
-                  );
-                })}
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <h3 className="font-display font-black text-xl">Usage history</h3>
+              <span className="text-xs font-semibold uppercase tracking-[0.08em] opacity-55">Animated preview</span>
             </div>
-            <p className="mt-3 text-xs opacity-70">
-              Total comments generated:{" "}
-              <strong>
-                {data.totalUsage ||
-                  data.usageHistory.reduce((a, b) => a + b.count, 0)}
-              </strong>
-            </p>
+            <UsageChart data={data.usageHistory} total={data.totalUsage} />
           </div>
         )}
         <DashboardLiveWidgets

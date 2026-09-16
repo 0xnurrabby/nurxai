@@ -107,7 +107,11 @@ export default function Navbar() {
               aria-haspopup="menu"
               onClick={() => setMenuOpen((open) => !open)}
             >
-              <span aria-hidden="true">...</span>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="12" r="1.9" />
+                <circle cx="12" cy="12" r="1.9" />
+                <circle cx="19" cy="12" r="1.9" />
+              </svg>
             </button>
 
             <div
@@ -176,7 +180,11 @@ export default function Navbar() {
           aria-haspopup="menu"
           onClick={() => setMenuOpen((open) => !open)}
         >
-          <span aria-hidden="true">...</span>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.9" />
+            <circle cx="12" cy="12" r="1.9" />
+            <circle cx="19" cy="12" r="1.9" />
+          </svg>
         </button>
 
         <div

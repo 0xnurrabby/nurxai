@@ -148,11 +148,11 @@ export default function PaygWalletCard() {
   const ready = Boolean(extension?.ready);
   const discounted = config.discounted === true;
   return (
-    <section className="nb-card p-4 mb-6" style={{ background: "var(--accent2)" }}>
+    <section className="nb-card p-4 mb-6" style={{ background: "color-mix(in srgb, var(--accent2) 34%, var(--card))" }}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="nb-tag" style={{ background: ready ? "#86efac" : "#fff" }}>
+            <span className="nb-tag" style={{ background: ready ? "color-mix(in srgb, #86efac 60%, var(--card))" : "color-mix(in srgb, var(--card) 80%, transparent)" }}>
               {ready ? "READY" : "BASE"}
             </span>
             <h2 className="font-display font-black text-xl">Pay As You Go</h2>
