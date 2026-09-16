@@ -110,13 +110,13 @@ function SignupForm() {
 
   return (
     <AuthShell mode="signup">
-      <div className="nb-card border-0 p-1 sm:p-3">
+      <div className="w-full">
         <div className="flex items-center justify-between gap-4"><span className="nb-tag">3-DAY TRIAL</span><span className="text-xs font-black opacity-50">STEP {phase === "details" ? "1" : "2"} / 2</span></div>
-        <h1 className="mt-5 font-display text-4xl font-black tracking-tight">Build your edge.</h1>
+        <h1 className="mt-4 font-display text-4xl font-black tracking-tight">Build your edge.</h1>
         <p className="mt-2 text-sm leading-relaxed opacity-70">Verify your email, then your reply workspace is ready.</p>
 
         {phase === "details" ? <>
-          <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--ring,transparent)] p-3 text-sm" style={{ background: "color-mix(in srgb, var(--ink) 4%, transparent)" }}>
+          <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--ring,transparent)] p-3 text-sm" style={{ background: "color-mix(in srgb, var(--ink) 4%, transparent)" }}>
             <input
               type="checkbox"
               className="mt-0.5 h-4 w-4 accent-[#0052ff]"
@@ -130,10 +130,10 @@ function SignupForm() {
               <Link href="/privacy" className="font-semibold underline" target="_blank">Privacy Policy</Link>.
             </span>
           </label>
-          <div className={`mt-6 ${accepted ? "" : "pointer-events-none opacity-45"}`}>
+          <div className={`mt-5 ${accepted ? "" : "pointer-events-none opacity-45"}`}>
             <GoogleSignInButton label="signup_with" referralCode={referralCode} acceptedTerms={accepted} onSuccess={finishAuth} onError={setErr} />
           </div>
-          <div className="my-6 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50"><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR VERIFIED EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /></div>
+          <div className="my-5 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50"><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR VERIFIED EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /></div>
           <form onSubmit={submitDetails} className="space-y-4">
             <div><label className="text-sm font-bold">Name</label><input className="nb-input mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
             <div><label className="text-sm font-bold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
@@ -142,7 +142,7 @@ function SignupForm() {
             {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
             <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy || !accepted}>{busy ? "Sending secure code..." : accepted ? "Verify email" : "Accept terms to continue"}</button>
           </form>
-        </> : <form onSubmit={completeSignup} className="mt-7 space-y-5">
+        </> : <form onSubmit={completeSignup} className="mt-5 space-y-4">
           <div className="rounded-xl border-2 border-ink bg-[var(--accent3)] p-4 text-sm text-ink"><strong>Code sent if eligible</strong><p className="mt-1 opacity-75">Check {maskEmail(email)}. The code expires in 10 minutes.</p></div>
           <div><label className="text-sm font-bold">6-digit code</label><input autoFocus required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} className="nb-input mt-1 text-center font-mono text-2xl font-black tracking-[.35em]" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} /></div>
           {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
@@ -150,7 +150,7 @@ function SignupForm() {
           <div className="flex items-center justify-between gap-3 text-sm"><button type="button" className="font-bold underline" onClick={() => { setPhase("details"); setOtp(""); setErr(""); }}>Edit details</button><button type="button" className="font-bold underline disabled:opacity-40" disabled={busy || countdown > 0} onClick={requestCode}>{countdown > 0 ? `Resend in ${countdown}s` : "Resend code"}</button></div>
         </form>}
 
-        <p className="mt-6 border-t-2 border-ink/10 pt-5 text-sm dark:border-nightInk/10">Already operating? <Link href="/login" className="font-black underline">Sign in</Link></p>
+        <p className="mt-5 border-t border-ink/10 pt-4 text-sm dark:border-nightInk/10">Already operating? <Link href="/login" className="font-black underline">Sign in</Link></p>
       </div>
     </AuthShell>
   );
