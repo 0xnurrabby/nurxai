@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import type { Metadata } from "next";
 import Navbar from "./components/Navbar";
 import FlipWord from "./components/FlipWord";
@@ -203,7 +203,7 @@ export default async function Home() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
       <main>
-        {/* â”€â”€ Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* -- Hero ----------------------------------------------- */}
         <section className="h-hero">
           <div className="h-hero-glow" aria-hidden="true" />
           <div className="h-hero-grid" aria-hidden="true" />
@@ -227,7 +227,7 @@ export default async function Home() {
               </a>
             </div>
             <p className="h-micro h-anim h-d5">
-              3-day free trial Â· No credit card Â· Nothing is ever auto-posted
+              3-day free trial · No credit card · Nothing is ever auto-posted
             </p>
             <div className="h-chips h-anim h-d5">
               {trustChips.map((chip) => (
@@ -245,7 +245,7 @@ export default async function Home() {
                   <span className="h-dot" />
                   <span className="h-dot" />
                   <span className="h-dot" />
-                  <span className="h-frame-url">x.com Â· reply composer + NurAi panel</span>
+                  <span className="h-frame-url">x.com · reply composer + NurAi panel</span>
                 </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -265,12 +265,12 @@ export default async function Home() {
                   <rect x="6.4" y="10.6" width="11.2" height="2.9" rx="1.45" fill="#ffffff" />
                 </svg>
               </span>
-              <span>Built on Base Â· x402 USDC</span>
+              <span>Built on Base · x402 USDC</span>
             </div>
           </div>
         </section>
 
-        {/* â”€â”€ How it works â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* -- How it works --------------------------------------- */}
         <section id="how" className="h-section scroll-mt-24">
           <div className="h-container">
             <Reveal>
@@ -291,7 +291,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* â”€â”€ Features â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* -- Features ------------------------------------------- */}
         <section className="h-section" style={{ paddingTop: 0 }}>
           <div className="h-container">
             <Reveal>
@@ -312,7 +312,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* â”€â”€ Human control band â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* -- Human control band --------------------------------- */}
         <section className="h-section" style={{ paddingTop: 0 }}>
           <div className="h-container">
             <Reveal className="h-band">
@@ -339,7 +339,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* â”€â”€ Base x402 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* -- Base x402 ------------------------------------------ */}
         <section id="base-x402" className="h-section scroll-mt-24" style={{ paddingTop: 0 }}>
           <div className="h-container">
             <Reveal className="h-base">
@@ -381,7 +381,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* â”€â”€ Pricing strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* -- Pricing strip -------------------------------------- */}
         <section className="h-section" style={{ paddingTop: 0 }}>
           <div className="h-container">
             <Reveal>
@@ -413,7 +413,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* â”€â”€ FAQ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* -- FAQ ------------------------------------------------ */}
         <section className="h-section" style={{ paddingTop: 0 }}>
           <div className="h-container" style={{ maxWidth: 820 }}>
             <Reveal>
@@ -431,7 +431,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* â”€â”€ Final CTA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* -- Final CTA ------------------------------------------ */}
         <section className="h-section" style={{ paddingTop: 0 }}>
           <div className="h-container">
             <Reveal className="h-cta">
@@ -486,7 +486,7 @@ export default async function Home() {
         </div>
         <div className="border-t" style={{ borderColor: "var(--h-ring)" }}>
           <div className="h-container py-5 text-center text-sm" style={{ color: "color-mix(in srgb, var(--ink) 55%, transparent)" }}>
-            Copyright {new Date().getFullYear()} NurAi Â· x402 USDC settlement on Base mainnet
+            Copyright {new Date().getFullYear()} NurAi · x402 USDC settlement on Base mainnet
           </div>
         </div>
       </footer>

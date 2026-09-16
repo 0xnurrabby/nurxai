@@ -6,9 +6,9 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 const plans = [
-  { label: "Free trial", value: "3 days" },
-  { label: "Monthly plans", value: "from $5" },
-  { label: "Pay as you go", value: "$0.009 / reply" }
+  { label: "Free trial", value: "3 days", color: "#b8e1ff" },
+  { label: "Monthly plans", value: "from $5", color: "#c4f0c2" },
+  { label: "Pay as you go", value: "$0.009 / reply", color: "#fff89c" }
 ];
 
 export default function PricingOpengraphImage() {
@@ -21,14 +21,14 @@ export default function PricingOpengraphImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          backgroundColor: "#0b0d12",
-          color: "#f7f7f4",
-          padding: "64px 72px",
+          backgroundColor: "#fafaf7",
+          color: "#0f1419",
+          padding: "58px 68px",
           position: "relative"
         }}
       >
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 16% 12%, rgba(16,185,129,0.42), transparent 55%)" }} />
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 86% 88%, rgba(0,82,255,0.4), transparent 58%)" }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 8% 8%, rgba(196,240,194,0.9), transparent 52%)" }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 94% 96%, rgba(184,225,255,0.9), transparent 52%)" }} />
 
         <div style={{ display: "flex", alignItems: "center", position: "relative" }}>
           <div
@@ -41,20 +41,21 @@ export default function PricingOpengraphImage() {
               alignItems: "center",
               justifyContent: "center",
               fontSize: 24,
-              fontWeight: 700
+              fontWeight: 700,
+              color: "#ffffff"
             }}
           >
             N
           </div>
-          <div style={{ marginLeft: 16, fontSize: 28, fontWeight: 700 }}>NurAi — Pricing</div>
+          <div style={{ marginLeft: 15, fontSize: 28, fontWeight: 700 }}>NurAi — Pricing</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", position: "relative" }}>
-          <div style={{ fontSize: 76, fontWeight: 800, letterSpacing: -2 }}>Simple, honest pricing.</div>
-          <div style={{ display: "flex", marginTop: 24, fontSize: 27, color: "rgba(247,247,244,0.74)", maxWidth: 900 }}>
+          <div style={{ fontSize: 66, fontWeight: 800, letterSpacing: -1.6 }}>Simple, honest pricing.</div>
+          <div style={{ display: "flex", marginTop: 18, fontSize: 25, color: "rgba(15,20,25,0.68)", maxWidth: 900 }}>
             Start free, stay flexible, and pay only when you need Premium context.
           </div>
-          <div style={{ display: "flex", marginTop: 44 }}>
+          <div style={{ display: "flex", marginTop: 36 }}>
             {plans.map((plan) => (
               <div
                 key={plan.label}
@@ -62,20 +63,25 @@ export default function PricingOpengraphImage() {
                   display: "flex",
                   flexDirection: "column",
                   marginRight: 18,
-                  padding: "22px 28px",
+                  width: 300,
                   borderRadius: 22,
-                  backgroundColor: "rgba(255,255,255,0.07)",
-                  border: "1px solid rgba(255,255,255,0.15)"
+                  backgroundColor: "#ffffff",
+                  border: "1px solid rgba(15,20,25,0.12)",
+                  boxShadow: "0 30px 60px -46px rgba(15,20,25,0.5)",
+                  overflow: "hidden"
                 }}
               >
-                <div style={{ fontSize: 20, color: "rgba(247,247,244,0.66)" }}>{plan.label}</div>
-                <div style={{ marginTop: 8, fontSize: 34, fontWeight: 700 }}>{plan.value}</div>
+                <div style={{ height: 10, backgroundColor: plan.color }} />
+                <div style={{ display: "flex", flexDirection: "column", padding: "20px 24px 24px" }}>
+                  <div style={{ fontSize: 19, color: "rgba(15,20,25,0.62)" }}>{plan.label}</div>
+                  <div style={{ marginTop: 8, fontSize: 31, fontWeight: 700 }}>{plan.value}</div>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div style={{ display: "flex", position: "relative", fontSize: 22, color: "rgba(247,247,244,0.6)" }}>
+        <div style={{ display: "flex", position: "relative", fontSize: 21, color: "rgba(15,20,25,0.55)" }}>
           USDC settlement on Base mainnet · no auto-renew
         </div>
       </div>
