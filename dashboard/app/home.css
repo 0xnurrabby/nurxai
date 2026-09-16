@@ -131,12 +131,27 @@
   text-shadow: 0 0 32px color-mix(in srgb, currentColor 14%, transparent);
   animation:
     h-line-in 1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.24s both,
-    h-cycle-color 40s linear infinite,
+    h-cycle-color 22s linear infinite,
+    h-cycle-pop 1s ease-in-out infinite,
     h-line-float 7.5s ease-in-out infinite;
+}
+
+/* Elegant serif-italic accent inside display headings */
+.h-accent {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .dark .h-cycle {
   text-shadow: 0 0 34px color-mix(in srgb, currentColor 32%, transparent);
+}
+
+@keyframes h-cycle-pop {
+  0% { scale: 1.016; }
+  60% { scale: 1; }
+  100% { scale: 1; }
 }
 
 @keyframes h-line-in {
@@ -781,11 +796,11 @@
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .h-hero {
-    padding: 64px 0 46px;
+    padding: 54px 0 42px;
   }
 
   .h-section {
-    padding: 60px 0;
+    padding: 54px 0;
   }
 
   .h-grid-3,
@@ -824,7 +839,13 @@
   }
 
   .h-h1 {
-    font-size: clamp(2.05rem, 9.5vw, 2.6rem);
+    font-size: clamp(2.1rem, 10.4vw, 2.75rem);
+    line-height: 1.06;
+  }
+
+  .h-sub {
+    font-size: 1rem;
+    line-height: 1.7;
   }
 
   .h-actions .h-btn {
@@ -832,12 +853,16 @@
   }
 
   .h-chips {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
 
   .h-chip {
-    font-size: 0.8rem;
-    padding: 7px 12px;
+    justify-content: center;
+    font-size: 0.78rem;
+    padding: 8px 10px;
+    white-space: nowrap;
   }
 
   .h-checks {
@@ -846,5 +871,10 @@
 
   .h-card {
     padding: 22px;
+  }
+
+  .h-built {
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
   }
 }

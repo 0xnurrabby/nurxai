@@ -209,12 +209,13 @@ export default async function Home() {
           <div className="h-container h-hero-inner">
             <h1 className="h-h1">
               <span className="h-line h-anim h-d1">Understand any X post.</span>
-              <em className="h-cycle">Reply like yourself.</em>
+              <em className="h-cycle">
+                Reply like <span className="h-accent">yourself</span>.
+              </em>
             </h1>
             <p className="h-sub h-anim h-d3">
-              NurAi is a Chrome copilot for X. It reads the post you are replying to, including
-              text, quotes, and images, then drafts four thoughtful replies in your voice. You
-              choose, edit, and publish.
+              NurAi is a Chrome copilot for X that reads the post you are replying to and drafts four
+              thoughtful replies in your voice. You pick, edit, and publish.
             </p>
             <div className="h-actions h-anim h-d4">
               <Link href="/signup" className="h-btn h-btn-primary">
@@ -273,7 +274,9 @@ export default async function Home() {
           <div className="h-container">
             <Reveal>
               <span className="h-eyebrow">How it works</span>
-              <h2 className="h-h2">Three steps. You stay in charge.</h2>
+              <h2 className="h-h2">
+                Three steps. You stay <span className="h-accent">in charge</span>.
+              </h2>
             </Reveal>
             <div className="h-grid-3">
               {steps.map((step, index) => (
@@ -314,7 +317,9 @@ export default async function Home() {
             <Reveal className="h-band">
               <div>
                 <span className="h-eyebrow">Human in the loop</span>
-                <h2 className="h-h2">A copilot, never an autopilot.</h2>
+                <h2 className="h-h2">
+                  A copilot, never an <span className="h-accent">autopilot</span>.
+                </h2>
                 <p className="h-p">
                   NurAi prepares. You decide. It never posts, likes, follows, or messages on your behalf,
                   and it never asks for your X password. Think of it as a sharp colleague who drafts,
@@ -340,7 +345,9 @@ export default async function Home() {
               <div className="h-base-head">
                 <div>
                   <span className="h-base-badge">Base-native access</span>
-                  <h2 className="h-h2">Pay only when you use it.</h2>
+                  <h2 className="h-h2">
+                    Pay only when you <span className="h-accent">use it</span>.
+                  </h2>
                   <p className="h-p">
                     Premium generations unlock through x402, the open payment standard on Base.
                     You see the exact price, authorize that exact USDC amount from a self-custodial app
@@ -429,7 +436,7 @@ export default async function Home() {
             <Reveal className="h-cta">
               <span className="h-eyebrow">Live on Base mainnet</span>
               <h2 className="h-h2" style={{ maxWidth: "22ch", marginInline: "auto" }}>
-                Ready to reply with real context?
+                Ready to reply with <span className="h-accent">real context</span>?
               </h2>
               <p className="h-p" style={{ maxWidth: "46ch", marginInline: "auto" }}>
                 Install the extension, start free, and keep every final decision in your hands.

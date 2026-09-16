@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Sora } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Serif, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 const bodyFont = Inter({
@@ -8,10 +8,17 @@ const bodyFont = Inter({
   display: "swap"
 });
 
-const displayFont = Sora({
+const displayFont = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
   variable: "--font-display",
+  display: "swap"
+});
+
+const serifFont = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-serif",
   display: "swap"
 });
 
@@ -98,7 +105,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable}`}
+      className={`${bodyFont.variable} ${displayFont.variable} ${serifFont.variable} ${monoFont.variable}`}
     >
       <head>
         <meta name="base:app_id" content="6a842b93abf0a9eb2b3c722a" />
