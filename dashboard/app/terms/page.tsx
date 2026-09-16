@@ -1,4 +1,4 @@
-import Navbar from "../components/Navbar";
+﻿import Navbar from "../components/Navbar";
 
 export default function Terms() {
   return (
@@ -84,7 +84,7 @@ export default function Terms() {
 
           <h2 className="font-bold text-xl mt-6">10. Contact</h2>
           <p className="mt-2">
-            Email <strong>probably.nothing.to.say@gmail.com</strong> or Telegram <strong>@Nur_Xai</strong>.
+            Email <strong>support@nurxai.xyz</strong> or Telegram <strong>@Nur_Xai</strong>.
           </p>
         </div>
       </main>

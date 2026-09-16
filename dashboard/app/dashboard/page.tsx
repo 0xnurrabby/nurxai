@@ -66,56 +66,6 @@ const PLAN_RANK: Record<string, number> = {
 };
 const DASHBOARD_CACHE_KEY = "nurxai_dashboard_cache_v1";
 
-function GiftHeadline({ gifts }: { gifts: NonNullable<Me["subscriptionGifts"]> }) {
-  if (!gifts.length) return null;
-
-  return (
-    <section className="nb-notice nb-notice-gift" aria-label="Subscription gift">
-      <span className="nb-notice-icon" aria-hidden="true">
-        🎁
-      </span>
-      <div className="nb-notice-body">
-        {gifts.slice(0, 3).map((gift) => (
-          <p key={gift.id}>
-            <strong>Admin gift · +{gift.days} days</strong>
-            <span>{gift.note?.trim() || "Extra premium days were added to your account."}</span>
-          </p>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function WithdrawalHeadline({ notices, onSeen }: { notices: NonNullable<Me["withdrawalNotices"]>; onSeen: (id: string) => void }) {
-  if (!notices.length) return null;
-
-  return (
-    <section
-      className="nb-notice nb-notice-wallet"
-      aria-label="Withdrawal update"
-      onMouseEnter={() => notices.forEach((notice) => onSeen(notice.id))}
-    >
-      <span className="nb-notice-icon" aria-hidden="true">
-        {notices[0].status === "paid" ? "✓" : "!"}
-      </span>
-      <div className="nb-notice-body">
-        {notices.slice(0, 3).map((item) => {
-          const note = item.adminNote?.trim();
-          const isPaid = item.status === "paid";
-          return (
-            <p key={item.id}>
-              <strong>
-                {isPaid ? "Withdrawal paid" : "Withdrawal rejected"} · ${item.amountUSD.toFixed(2)}
-              </strong>
-              {note ? <span>{note}</span> : null}
-            </p>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 export default function Dashboard() {
   const [data, setData] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
@@ -339,8 +289,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <GiftHeadline gifts={data.subscriptionGifts || []} />
-        <WithdrawalHeadline notices={data.withdrawalNotices || []} onSeen={markWithdrawalSeen} />
+        
 
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-5 mt-8">
@@ -405,6 +354,17 @@ export default function Dashboard() {
                   <li>✓ {daysLeft} days remaining</li>
                   {sub.plan === "premium" && <li>✓ Premium-quality generation</li>}
                 </ul>
+                {data.subscriptionGifts?.length ? (
+                  <div className="dash-note">
+                    <span className="dash-note-icon" aria-hidden="true">🎁</span>
+                    <div>
+                      <strong>
+                        Plan bonus · +{data.subscriptionGifts.reduce((running, gift) => running + gift.days, 0)} days
+                      </strong>
+                      {data.subscriptionGifts[0].note?.trim() ? <span>{data.subscriptionGifts[0].note.trim()}</span> : null}
+                    </div>
+                  </div>
+                ) : null}
                 {data.scheduledSubscription && (
                   <div className="mt-4 rounded-xl border-2 border-ink dark:border-nightInk p-3 text-sm">
                     <strong>{data.scheduledSubscription.plan.toUpperCase()}</strong> is purchased and scheduled for{" "}
@@ -475,6 +435,23 @@ export default function Dashboard() {
               <div><strong>${(data.wallet?.pendingWithdrawUSD || 0).toFixed(2)}</strong><br />pending</div>
               <div><strong>${(data.wallet?.withdrawnUSD || 0).toFixed(2)}</strong><br />paid</div>
             </div>
+            {data.withdrawalNotices?.length ? (
+              <div
+                className="dash-note"
+                onMouseEnter={() => data.withdrawalNotices!.forEach((notice) => markWithdrawalSeen(notice.id))}
+              >
+                <span className="dash-note-icon" aria-hidden="true">
+                  {data.withdrawalNotices[0].status === "paid" ? "✓" : "!"}
+                </span>
+                <div>
+                  <strong>
+                    {data.withdrawalNotices[0].status === "paid" ? "Withdrawal paid" : "Withdrawal update"} · $
+                    {data.withdrawalNotices[0].amountUSD.toFixed(2)}
+                  </strong>
+                  {data.withdrawalNotices[0].adminNote?.trim() ? <span>{data.withdrawalNotices[0].adminNote.trim()}</span> : null}
+                </div>
+              </div>
+            ) : null}
             <div className="mt-5 flex flex-wrap gap-2">
               <Link href="/pricing" className="nb-btn nb-btn-primary">Use balance</Link>
               <Link href="/settings#referrals" className="nb-btn">Withdraw</Link>

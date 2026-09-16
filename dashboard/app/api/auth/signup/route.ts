@@ -9,6 +9,7 @@ import { applyReferralCode, ensureReferralCode } from "@/lib/referrals";
 import { setSessionCookie } from "@/lib/session-cookie";
 import { cleanName, isValidEmail, isValidPassword, normalizeEmail } from "@/lib/auth-validation";
 import { consumeEmailOtp } from "@/lib/email-otp";
+import { TERMS_VERSION } from "@/lib/legal";
 import { Prisma } from "@prisma/client";
 import { consumeAuthRateLimit, trustedClientIp } from "@/lib/auth-rate-limit";
 
@@ -17,7 +18,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     await ensureRuntimeSchema();
-    const { email, password, name, referralCode, otp } = await req.json();
+    const { email, password, name, referralCode, otp, acceptedTerms } = await req.json();
     if (typeof email !== "string" || typeof password !== "string") {
       return NextResponse.json({ error: "MISSING" }, { status: 400 });
     }
@@ -25,6 +26,12 @@ export async function POST(req: NextRequest) {
     if (!isValidEmail(e)) return NextResponse.json({ error: "BAD_EMAIL" }, { status: 400 });
     if (!isValidPassword(password)) return NextResponse.json({ error: "WEAK_PASSWORD" }, { status: 400 });
     if (typeof otp !== "string") return NextResponse.json({ error: "OTP_REQUIRED" }, { status: 400 });
+    if (acceptedTerms !== true) {
+      return NextResponse.json(
+        { error: "TERMS_REQUIRED", message: "Please accept the Terms of Service and Privacy Policy to continue." },
+        { status: 400 }
+      );
+    }
 
     const ipLimit = await consumeAuthRateLimit({
       scope: "signup-complete-ip",
@@ -56,6 +63,13 @@ export async function POST(req: NextRequest) {
         }
       }
       await tx.auditLog.create({ data: { userId: created.id, event: "signup" } });
+      await tx.auditLog.create({
+        data: {
+          userId: created.id,
+          event: "terms_accepted",
+          meta: { version: TERMS_VERSION, source: "signup" } as any
+        }
+      });
       await createTrialSubscription(tx, created.id);
       return created;
     });

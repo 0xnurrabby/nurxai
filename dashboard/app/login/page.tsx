@@ -71,8 +71,14 @@ function LoginForm() {
         <p className="mt-2 text-sm leading-relaxed opacity-70">Open your reply workspace, billing, and extension controls.</p>
 
         <div className="mt-7">
-          <GoogleSignInButton label="signin_with" onSuccess={finishAuth} onError={setErr} />
+          <GoogleSignInButton label="signin_with" acceptedTerms onSuccess={finishAuth} onError={setErr} />
         </div>
+        <p className="mt-3 text-center text-xs leading-relaxed opacity-55">
+          By continuing you agree to our{" "}
+          <Link href="/terms" className="underline" target="_blank">Terms of Service</Link>
+          {" "}and{" "}
+          <Link href="/privacy" className="underline" target="_blank">Privacy Policy</Link>.
+        </p>
         <div className="my-6 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50">
           <div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" />
         </div>

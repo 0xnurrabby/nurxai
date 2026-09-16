@@ -17,6 +17,7 @@ declare global {
 type Props = {
   label?: "signin_with" | "signup_with" | "continue_with";
   referralCode?: string;
+  acceptedTerms?: boolean;
   onSuccess: (token: string, user: any) => void;
   onError: (message: string) => void;
   forceDirect?: boolean;
@@ -53,7 +54,7 @@ function loadGoogleScript() {
   });
 }
 
-export default function GoogleSignInButton({ label = "continue_with", referralCode, onSuccess, onError, forceDirect = false }: Props) {
+export default function GoogleSignInButton({ label = "continue_with", referralCode, acceptedTerms, onSuccess, onError, forceDirect = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const popupRef = useRef<Window | null>(null);
   const bridgeStateRef = useRef("");
@@ -113,7 +114,7 @@ export default function GoogleSignInButton({ label = "continue_with", referralCo
               const r = await fetch("/api/auth/google", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ credential: response.credential, referralCode })
+                body: JSON.stringify({ credential: response.credential, referralCode, acceptedTerms: acceptedTerms === true })
               });
               const d = await r.json().catch(() => ({}));
               if (!r.ok) {

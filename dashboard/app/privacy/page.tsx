@@ -1,4 +1,4 @@
-import Navbar from "../components/Navbar";
+﻿import Navbar from "../components/Navbar";
 
 export default function Privacy() {
   return (
@@ -66,7 +66,7 @@ export default function Privacy() {
           <h2 className="font-bold text-xl mt-6">Your rights</h2>
           <p className="mt-2">
             You can request access to, correction of, or deletion of your data
-            by emailing <strong>probably.nothing.to.say@gmail.com</strong>.
+            by emailing <strong>support@nurxai.xyz</strong>.
           </p>
 
           <h2 className="font-bold text-xl mt-6">Security</h2>
@@ -78,7 +78,7 @@ export default function Privacy() {
 
           <h2 className="font-bold text-xl mt-6">Contact</h2>
           <p className="mt-2">
-            Questions? Email <strong>probably.nothing.to.say@gmail.com</strong> or message us
+            Questions? Email <strong>support@nurxai.xyz</strong> or message us
             on Telegram <strong>@Nur_Xai</strong>.
           </p>
         </div>

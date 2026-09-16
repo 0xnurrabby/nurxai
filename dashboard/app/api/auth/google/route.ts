@@ -6,6 +6,7 @@ import { isAdminEmail } from "@/lib/admin";
 import { ensureRuntimeSchema } from "@/lib/schema-guard";
 import { createTrialSubscription } from "@/lib/trial";
 import { applyReferralCode, ensureReferralCode } from "@/lib/referrals";
+import { TERMS_VERSION } from "@/lib/legal";
 import { setSessionCookie } from "@/lib/session-cookie";
 
 export const runtime = "nodejs";
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "GOOGLE_NOT_CONFIGURED" }, { status: 500 });
     }
 
-const { credential, code, referralCode } = await req.json().catch(() => ({}));
+const { credential, code, referralCode, acceptedTerms } = await req.json().catch(() => ({}));
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     let ticket;
     if (typeof code === "string" && code) {
@@ -58,6 +59,12 @@ const { credential, code, referralCode } = await req.json().catch(() => ({}));
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing?.googleId && existing.googleId !== googleId) {
       return NextResponse.json({ error: "GOOGLE_ACCOUNT_MISMATCH" }, { status: 409 });
+    }
+    if (!existing && acceptedTerms !== true) {
+      return NextResponse.json(
+        { error: "TERMS_REQUIRED", message: "Please accept the Terms of Service and Privacy Policy to create your account." },
+        { status: 400 }
+      );
     }
     const user = existing
       ? await prisma.user.update({
@@ -91,6 +98,13 @@ const { credential, code, referralCode } = await req.json().catch(() => ({}));
             }
           }
           await createTrialSubscription(tx, created.id);
+          await tx.auditLog.create({
+            data: {
+              userId: created.id,
+              event: "terms_accepted",
+              meta: { version: TERMS_VERSION, source: "google" } as any
+            }
+          });
           return created;
         });
 

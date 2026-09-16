@@ -32,11 +32,11 @@ const monoFont = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://nurxai.xyz"),
   title: {
-    default: "NurAi - Human-in-the-Loop X Copilot on Base",
+    default: "NurAi — AI reply drafts for X that sound like you",
     template: "%s | NurAi"
   },
   description:
-    "NurAi is a human-in-the-loop communication copilot for X with context-aware drafting and x402 USDC pay-per-use access on Base.",
+    "NurAi reads the X post you are replying to and drafts four thoughtful replies in your voice. You review, edit, and publish. Free 3-day trial with optional USDC pay-per-use on Base.",
   applicationName: "NurAi",
   authors: [{ name: "NurAi" }],
   creator: "NurAi",
@@ -75,28 +75,13 @@ export const metadata: Metadata = {
     apple: "/icon.png"
   },
   openGraph: {
-    title: "NurAi - Human-in-the-Loop X Copilot on Base",
-    description:
-      "Context-aware communication assistance with human approval and x402 USDC access on Base.",
     url: "https://nurxai.xyz",
     siteName: "NurAi",
     type: "website",
-    locale: "en_US",
-    images: [
-      {
-        url: "/product/reply-panel-context.webp",
-        width: 1280,
-        height: 709,
-        alt: "NurAi human-in-the-loop communication copilot working beside X"
-      }
-    ]
+    locale: "en_US"
   },
   twitter: {
-    card: "summary_large_image",
-    title: "NurAi - Human-in-the-Loop X Copilot on Base",
-    description:
-      "Human-approved drafting with Base-native x402 USDC access.",
-    images: ["/product/reply-panel-context.webp"]
+    card: "summary_large_image"
   }
 };
 

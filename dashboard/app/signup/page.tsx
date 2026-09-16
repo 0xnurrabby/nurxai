@@ -14,6 +14,7 @@ function authError(data: any) {
   if (data?.error === "WEAK_PASSWORD") return "Use 8 or more characters and keep the password under 72 UTF-8 bytes.";
   if (data?.error === "INVALID_OTP") return "That code is invalid, expired, or has already been used.";
   if (data?.error === "RATE_LIMITED") return data.message || "Too many attempts. Try again later.";
+  if (data?.error === "TERMS_REQUIRED") return data.message || "Please accept the Terms of Service and Privacy Policy.";
   return data?.message || "Could not complete signup. Please try again.";
 }
 
@@ -29,6 +30,7 @@ function SignupForm() {
   const [name, setName] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [otp, setOtp] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [phase, setPhase] = useState<"details" | "code">("details");
   const [countdown, setCountdown] = useState(0);
   const [err, setErr] = useState("");
@@ -94,7 +96,7 @@ function SignupForm() {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, referralCode, otp })
+        body: JSON.stringify({ email, password, name, referralCode, otp, acceptedTerms: accepted })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) return setErr(authError(data));
@@ -114,7 +116,23 @@ function SignupForm() {
         <p className="mt-2 text-sm leading-relaxed opacity-70">Verify your email, then your reply workspace is ready.</p>
 
         {phase === "details" ? <>
-          <div className="mt-7"><GoogleSignInButton label="signup_with" referralCode={referralCode} onSuccess={finishAuth} onError={setErr} /></div>
+          <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--ring,transparent)] p-3 text-sm" style={{ background: "color-mix(in srgb, var(--ink) 4%, transparent)" }}>
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-[#0052ff]"
+              checked={accepted}
+              onChange={(event) => setAccepted(event.target.checked)}
+            />
+            <span className="leading-relaxed opacity-80">
+              I agree to the{" "}
+              <Link href="/terms" className="font-semibold underline" target="_blank">Terms of Service</Link>
+              {" "}and{" "}
+              <Link href="/privacy" className="font-semibold underline" target="_blank">Privacy Policy</Link>.
+            </span>
+          </label>
+          <div className={`mt-6 ${accepted ? "" : "pointer-events-none opacity-45"}`}>
+            <GoogleSignInButton label="signup_with" referralCode={referralCode} acceptedTerms={accepted} onSuccess={finishAuth} onError={setErr} />
+          </div>
           <div className="my-6 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50"><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR VERIFIED EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /></div>
           <form onSubmit={submitDetails} className="space-y-4">
             <div><label className="text-sm font-bold">Name</label><input className="nb-input mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
@@ -122,7 +140,7 @@ function SignupForm() {
             <div><label className="text-sm font-bold">Password</label><input type="password" required minLength={8} maxLength={128} autoComplete="new-password" className="nb-input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /><p className="mt-1 text-xs opacity-55">Minimum 8 characters.</p></div>
             <div><label className="text-sm font-bold">Referral code <span className="opacity-50">(optional)</span></label><input className="nb-input mt-1 uppercase" value={referralCode} onChange={(e) => setReferralCode(e.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())} placeholder="FRIENDCODE" /></div>
             {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
-            <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy}>{busy ? "Sending secure code..." : "Verify email"}</button>
+            <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy || !accepted}>{busy ? "Sending secure code..." : accepted ? "Verify email" : "Accept terms to continue"}</button>
           </form>
         </> : <form onSubmit={completeSignup} className="mt-7 space-y-5">
           <div className="rounded-xl border-2 border-ink bg-[var(--accent3)] p-4 text-sm text-ink"><strong>Code sent if eligible</strong><p className="mt-1 opacity-75">Check {maskEmail(email)}. The code expires in 10 minutes.</p></div>
