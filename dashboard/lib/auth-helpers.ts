@@ -6,8 +6,7 @@ import { verifyToken, type SessionToken } from "./jwt";
 
 export const COOKIE_NAME = "nurxai_session";
 const LEGACY_STORE_VERSION = process.env.LEGACY_STORE_VERSION?.trim() || "2.0.17";
-const LEGACY_AUTH_CHECK_URL = process.env.LEGACY_AUTH_CHECK_URL?.trim()
-  || "https://nurxai.nurw3b.workers.dev/api/announcements";
+const LEGACY_AUTH_CHECK_URL = process.env.LEGACY_AUTH_CHECK_URL?.trim() || "";
 
 type Session = SessionToken;
 

@@ -54,70 +54,47 @@ Extension:
 
 ---
 
-## Vercel Deployment
+## Render Deployment
 
-The dashboard is self-contained for a GitHub-to-Vercel deployment. Import this
-repository in Vercel and set **Root Directory** to `dashboard`. The repository
-pins Node.js 22 and the production build validates configuration, generates the
-Prisma client, applies pending migrations, and builds Next.js. A failed
-migration fails the deployment instead of serving code against an old schema.
+The dashboard deploys to Render as a Node web service plus Render Postgres.
+`render.yaml` in the repository root describes both resources and the required
+environment variables. Push to `main` triggers an automatic deploy.
 
 1. Provision PostgreSQL and restore the current production backup if existing users, subscriptions, balances, and sessions must survive the move.
-2. Add the variables documented in `dashboard/.env.example` to the Vercel project. Store secrets in Vercel, never in Git.
-3. Add `nurxai.xyz` as the production domain. The published extension calls that exact origin, so a different domain does not support the current Store release.
+2. Add the variables documented in `dashboard/.env.example` in the Render Dashboard. Store secrets in Render, never in Git.
+3. Add `nurxai.xyz` as a custom domain, then move DNS from the previous host. The published extension calls that exact origin, so a different domain does not support the current Store release.
 4. Add `https://nurxai.xyz` to the Google web client's Authorized JavaScript origins and set `NEXT_PUBLIC_GOOGLE_DIRECT_AUTH=true`.
 5. Set the NOWPayments IPN callback to `https://nurxai.xyz/api/billing/webhook` when NOWPayments billing is enabled.
-6. Deploy and verify `https://nurxai.xyz/api/health` returns `status: ok` before changing DNS or proxy traffic.
+6. Verify `https://nurxai.xyz/api/health` returns `status: ok` before changing DNS or proxy traffic.
+7. Billing reconciliation must be scheduled separately (for example a Render cron job) with `Authorization: Bearer $CRON_SECRET` against `/api/billing/reconcile`.
 
 Use the same `JWT_SECRET` and database when moving an existing installation.
 Changing either invalidates Store-extension sessions. Keep
 `MIN_EXTENSION_VERSION` at or below the version currently approved in the
 Chrome Web Store. The published version is presently `2.0.17`.
 
-Keep the apex `nurxai.xyz` origin live without redirecting its API or
-`/auth/extension` routes. If `www.nurxai.xyz` is configured, redirect `www` to
-the apex, not the reverse. Set `SESSION_COOKIE_DOMAIN=nurxai.xyz` during the
-cutover so cookies issued by the existing deployment can still be replaced and
-deleted.
+Free Render Postgres instances expire after 30 days; use a paid database plan
+or an external PostgreSQL provider for production data. Free web services spin
+down after inactivity, so ping `/api/health` periodically (UptimeRobot or a
+similar monitor) to keep the API warm.
 
-Production migrations run automatically. Preview migrations are skipped by
-default to prevent schema changes. Do not expose a production database or
-production secrets to Preview deployments. Set `MIGRATE_ON_PREVIEW=true` only
-when Preview uses an isolated database.
-
-Before moving a database that previously relied on runtime-created tables, run
-`npm run migrate:status` against it and confirm its `_prisma_migrations` history
-is complete. Do not baseline unknown migrations automatically. The production
-deployment stops on migration drift so an incomplete database is never treated
-as a successful release.
-
-`vercel.json` schedules `/api/billing/reconcile` daily. Set `CRON_SECRET` in
-Vercel; Vercel sends it as the cron authorization bearer token. NOWPayments
-account credentials are optional but allow reconciliation to discover a hosted
-invoice after a missed webhook.
-
-`ADMIN_EMAILS` is authoritative for admin access. The database `isAdmin` field
-is display state and cannot grant access by itself.
+Production migrations run automatically during the Render build. Do not expose
+a production database or production secrets to preview environments.
 
 ## Extension Cutover
 
 The published extension has `https://nurxai.xyz` compiled into
 `extension/scripts/config.js`. A server move therefore requires moving that
-domain to the new Vercel project, not editing the already-published extension.
-Keep `LEGACY_STORE_VERSION=2.0.17`, set `LEGACY_AUTH_FALLBACK_ENABLED=true`, and
-keep `LEGACY_AUTH_CHECK_URL` reachable while tokens issued by the previous
-Cloudflare authority remain active. Disable the fallback after those tokens
-have expired. The dashboard refuses to delegate back to its own origin.
-
-If Cloudflare remains in front of the domain, point its origin at the new Vercel
-deployment and preserve request headers. The repository's optional edge router
-has a deployment-specific `VERCEL_ORIGIN` in `wrangler.edge.jsonc`; update and
-redeploy it during a Vercel-project move. Alternatively, point DNS directly to
-Vercel and remove the Worker route.
+domain to the new deployment, not editing the already-published extension.
+Keep the same `JWT_SECRET` and database so tokens issued by the previous
+deployment remain valid; then `LEGACY_AUTH_FALLBACK_ENABLED=false` is safe.
+Set `LEGACY_AUTH_FALLBACK_ENABLED=true` and point `LEGACY_AUTH_CHECK_URL` at
+the old authority only if it must stay reachable for legacy tokens during a
+gradual move.
 
 ## Manual Database Setup
 
-For a non-Vercel production deployment, configure `DATABASE_URL` and run:
+For a Render or other production deployment, configure `DATABASE_URL` and run:
 
 ```powershell
 cd dashboard
@@ -127,18 +104,6 @@ npm run migrate:deploy
 npx prisma generate
 npm run build
 ```
-
-Cloudflare Workers remains an optional OpenNext target:
-
-```powershell
-cd dashboard
-npm run cf:build
-npm run deploy
-```
-
-The paid Worker uses the `HYPERDRIVE` binding declared in
-`dashboard/wrangler.jsonc`. Runtime credentials belong in Worker secrets and
-must never be committed.
 
 ---
 
@@ -152,7 +117,6 @@ nurxai/
   dashboard/             -> Next.js dashboard
   dashboard/app/api/     -> auth, billing, extension, generate APIs
   dashboard/prisma/      -> Prisma schema
-  cloudflare/             -> edge router and isolated plan probe
 ```
 
 ---
