@@ -38,7 +38,7 @@ const features = [
     icon: "context",
     tone: "",
     title: "Real context",
-    text: "Text, quotes, links, and screenshots — drafts are grounded in the actual conversation, not a template."
+    text: "Text, quotes, links, and screenshots. Drafts are grounded in the actual conversation, not a template."
   },
   {
     icon: "angles",
@@ -89,7 +89,7 @@ function buildFaqs(currentPrice: string) {
     },
     {
       q: "Why is Base and x402 part of this?",
-      a: `x402 makes payment part of the request itself on Base. Premium generations cost ${currentPrice} USDC per use, shown exactly before you authorize — no subscription required.`
+      a: `x402 makes payment part of the request itself on Base. Premium generations cost ${currentPrice} USDC per use, shown exactly before you authorize, with no subscription required.`
     },
     {
       q: "Can I use NurAi without crypto?",
@@ -215,8 +215,9 @@ export default async function Home() {
               Understand any X post. <em>Reply like yourself.</em>
             </h1>
             <p className="h-sub h-anim h-d3">
-              NurAi is a Chrome copilot for X. It reads the post you are replying to — text, quotes,
-              and images — then drafts four thoughtful replies in your voice. You choose, edit, and publish.
+              NurAi is a Chrome copilot for X. It reads the post you are replying to, including
+              text, quotes, and images, then drafts four thoughtful replies in your voice. You
+              choose, edit, and publish.
             </p>
             <div className="h-actions h-anim h-d4">
               <Link href="/signup" className="h-btn h-btn-primary">
@@ -245,7 +246,7 @@ export default async function Home() {
                   <span className="h-dot" />
                   <span className="h-dot" />
                   <span className="h-dot" />
-                  <span className="h-frame-url">x.com — reply composer + NurAi panel</span>
+                  <span className="h-frame-url">x.com · reply composer + NurAi panel</span>
                 </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -309,7 +310,7 @@ export default async function Home() {
                 <h2 className="h-h2">A copilot, never an autopilot.</h2>
                 <p className="h-p">
                   NurAi prepares. You decide. It never posts, likes, follows, or messages on your behalf,
-                  and it never asks for your X password. Think of it as a sharp colleague who drafts —
+                  and it never asks for your X password. Think of it as a sharp colleague who drafts,
                   while you keep the keys.
                 </p>
               </div>
@@ -334,7 +335,7 @@ export default async function Home() {
                   <span className="h-base-badge">Base-native access</span>
                   <h2 className="h-h2">Pay only when you use it.</h2>
                   <p className="h-p">
-                    Premium generations unlock through x402 — the open payment standard on Base.
+                    Premium generations unlock through x402, the open payment standard on Base.
                     You see the exact price, authorize that exact USDC amount from a self-custodial app
                     account, and your drafts arrive once settlement completes.
                   </p>

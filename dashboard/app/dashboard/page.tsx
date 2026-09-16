@@ -373,7 +373,7 @@ export default function Dashboard() {
           <div className="nb-card p-6" style={{ background: "var(--accent2)" }}>
             <div className="text-sm font-bold opacity-70">Plan expires in</div>
             <div className="mt-2 font-display font-black text-4xl">
-              {sub ? `${daysLeft}d` : "—"}
+              {sub ? `${daysLeft}d` : "-"}
             </div>
             <div className="mt-1 text-sm opacity-70">
               {sub ? new Date(sub.endsAt).toLocaleDateString() : "no active plan"}
@@ -448,7 +448,7 @@ export default function Dashboard() {
               </li>
               <li>Click the NurAi icon in your toolbar.</li>
               <li>It auto-links to this account.</li>
-              <li>Open a tweet reply on X — suggestions appear automatically.</li>
+              <li>Open a tweet reply on X and suggestions appear automatically.</li>
             </ol>
             <Link
               href="/auth/extension"
