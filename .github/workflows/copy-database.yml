@@ -1,0 +1,49 @@
+name: Copy production data
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Write data into the target database?"
+        type: choice
+        required: true
+        default: "no"
+        options:
+          - "no"
+          - "yes"
+
+permissions:
+  contents: read
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Prepare copy tool
+        run: |
+          mkdir -p copy-tool
+          cp dashboard/scripts/copy-database.mjs copy-tool/
+          cd copy-tool
+          npm init -y >/dev/null
+          npm install pg pg-copy-streams --no-audit --no-fund
+
+      - name: Copy data
+        env:
+          SOURCE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TARGET_DATABASE_URL: ${{ secrets.TARGET_DATABASE_URL }}
+        run: |
+          test -n "$SOURCE_DATABASE_URL"
+          test -n "$TARGET_DATABASE_URL"
+          cd copy-tool
+          if [ "${{ inputs.apply }}" = "yes" ]; then
+            node copy-database.mjs --apply
+          else
+            node copy-database.mjs
+          fi
