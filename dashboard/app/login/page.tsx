@@ -67,19 +67,19 @@ function LoginForm() {
     <AuthShell mode="login">
       <div className="w-full">
         <span className="nb-tag">SECURE ACCESS</span>
-        <h1 className="mt-4 font-display text-4xl font-black tracking-tight">Welcome back.</h1>
-        <p className="mt-2 text-sm leading-relaxed opacity-70">Open your reply workspace, billing, and extension controls.</p>
+        <h1 className="mt-3 font-display text-3xl font-black tracking-tight">Welcome back.</h1>
+        <p className="mt-1.5 text-[13px] leading-relaxed opacity-70">Open your reply workspace, billing, and extension controls.</p>
 
-        <div className="mt-5">
+        <div className="mt-4">
           <GoogleSignInButton label="signin_with" acceptedTerms onSuccess={finishAuth} onError={setErr} />
         </div>
-        <p className="mt-3 text-center text-xs leading-relaxed opacity-55">
+        <p className="mt-2.5 text-center text-[11px] leading-relaxed opacity-55">
           By continuing you agree to our{" "}
           <Link href="/terms" className="underline" target="_blank">Terms of Service</Link>
           {" "}and{" "}
           <Link href="/privacy" className="underline" target="_blank">Privacy Policy</Link>.
         </p>
-        <div className="my-5 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50">
+        <div className="my-4 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50">
           <div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" />
         </div>
 
@@ -90,7 +90,7 @@ function LoginForm() {
           <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy}>{busy ? "Signing in..." : "Enter workspace"}</button>
         </form>
 
-        <p className="mt-5 border-t border-ink/10 pt-4 text-sm dark:border-nightInk/10">New here? <Link href="/signup" className="font-black underline">Create your account</Link></p>
+        <p className="mt-4 border-t border-ink/10 pt-3 text-[13px] dark:border-nightInk/10">New here? <Link href="/signup" className="font-black underline">Create your account</Link></p>
       </div>
     </AuthShell>
   );

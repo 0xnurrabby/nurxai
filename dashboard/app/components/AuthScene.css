@@ -14,7 +14,7 @@
 
 .auth-shell {
   width: min(100%, 1040px);
-  max-height: calc(100svh - 108px);
+  max-height: calc(100svh - 100px);
   display: grid;
   grid-template-columns: 1.02fr 0.98fr;
   background: var(--card);
@@ -24,11 +24,16 @@
   box-shadow: var(--soft-shadow, 0 26px 52px -40px rgba(15, 20, 25, 0.65));
 }
 
+.auth-visual,
+.auth-form {
+  min-height: 0;
+}
+
 .auth-visual {
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 30px 30px 0;
+  padding: 24px 26px 0;
   border-right: 1px solid var(--ring, rgba(15, 20, 25, 0.12));
   background:
     radial-gradient(520px 300px at 12% 0%, color-mix(in srgb, var(--accent3) 42%, transparent), transparent 68%),
@@ -42,27 +47,61 @@
 }
 
 .auth-title {
-  margin-top: 14px;
+  margin-top: 12px;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(1.7rem, 2.6vw, 2.35rem);
+  font-size: clamp(1.6rem, 2.4vw, 2.2rem);
   line-height: 1.04;
   letter-spacing: -0.03em;
 }
 
 .auth-body {
-  margin-top: 10px;
+  margin-top: 8px;
   max-width: 32ch;
-  font-size: 0.93rem;
-  line-height: 1.6;
+  font-size: 0.9rem;
+  line-height: 1.55;
   color: color-mix(in srgb, var(--ink) 66%, transparent);
+}
+
+.auth-signals {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  position: relative;
+  z-index: 2;
+}
+
+.auth-signal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--ring, rgba(15, 20, 25, 0.12));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+}
+
+.auth-signal b {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 10.5px;
 }
 
 .auth-form {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 26px 30px;
+  padding: 22px 26px;
   overflow-y: auto;
 }
 
@@ -80,7 +119,7 @@
 
 .auth-scene {
   position: relative;
-  height: 258px;
+  height: 224px;
   margin-top: auto;
   cursor: pointer;
   overflow: hidden;
@@ -89,7 +128,7 @@
 .auth-bubble {
   position: absolute;
   left: 50%;
-  bottom: 172px;
+  bottom: 158px;
   transform: translateX(-50%);
   z-index: 5;
   padding: 9px 15px;
@@ -313,6 +352,7 @@
   }
 
   .auth-copy { display: none; }
+  .auth-signals { display: none; }
 
   .auth-scene {
     height: 172px;

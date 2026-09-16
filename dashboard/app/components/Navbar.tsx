@@ -107,10 +107,10 @@ export default function Navbar() {
               aria-haspopup="menu"
               onClick={() => setMenuOpen((open) => !open)}
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="5" cy="12" r="1.9" />
-                <circle cx="12" cy="12" r="1.9" />
-                <circle cx="19" cy="12" r="1.9" />
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-dots">
+                <circle cx="5" cy="12" r="2.1" fill="#0052ff" />
+                <circle cx="12" cy="12" r="2.1" fill="#ec4899" />
+                <circle cx="19" cy="12" r="2.1" fill="#22c55e" />
               </svg>
             </button>
 
@@ -180,10 +180,10 @@ export default function Navbar() {
           aria-haspopup="menu"
           onClick={() => setMenuOpen((open) => !open)}
         >
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <circle cx="5" cy="12" r="1.9" />
-            <circle cx="12" cy="12" r="1.9" />
-            <circle cx="19" cy="12" r="1.9" />
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-dots">
+            <circle cx="5" cy="12" r="2.1" fill="#0052ff" />
+            <circle cx="12" cy="12" r="2.1" fill="#ec4899" />
+            <circle cx="19" cy="12" r="2.1" fill="#22c55e" />
           </svg>
         </button>
 

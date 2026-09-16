@@ -20,6 +20,11 @@ export default function AuthShell({ children, mode }: { children: ReactNode; mod
             </h2>
             <p className="auth-body">{copy.body}</p>
           </div>
+          <div className="auth-signals" aria-hidden="true">
+            <div className="auth-signal"><b>01</b> Context-aware drafts</div>
+            <div className="auth-signal"><b>02</b> Your language and tone</div>
+            <div className="auth-signal"><b>03</b> You make the final call</div>
+          </div>
           <AuthScene />
         </aside>
         <section className="auth-form">{children}</section>

@@ -1713,6 +1713,37 @@ tbody tr:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
   box-shadow: none;
 }
 
+/* Bigger, tri-color animated menu dots */
+.nav-menu-trigger,
+.mobile-nav-trigger {
+  width: 46px;
+  height: 46px;
+  min-height: 46px;
+}
+
+.nav-menu-trigger svg,
+.mobile-nav-trigger svg {
+  width: 22px;
+  height: 22px;
+}
+
+.nav-dots circle {
+  transform-origin: center;
+  animation: nav-dot 1.9s ease-in-out infinite;
+}
+
+.nav-dots circle:nth-child(2) { animation-delay: 0.18s; }
+.nav-dots circle:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes nav-dot {
+  0%, 100% { transform: translateY(0); opacity: 0.85; }
+  50% { transform: translateY(-2.6px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-dots circle { animation: none; }
+}
+
 /* Dropdown: stacked, airy items */
 .nav-menu-panel {
   min-width: 264px;
