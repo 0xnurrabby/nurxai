@@ -1329,3 +1329,348 @@ body {
   .payg-discount-price,
   .payg-discount-badge { animation: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Premium theme layer
+   Applies the home page design language to every route
+   (dashboard, pricing, auth, admin, settings, legal pages).
+   Loaded last so it softly overrides the earlier component styles.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --ring: color-mix(in srgb, var(--ink) 12%, transparent);
+  --ring-strong: color-mix(in srgb, var(--ink) 24%, transparent);
+  --soft-shadow: 0 26px 52px -40px color-mix(in srgb, var(--ink) 65%, transparent);
+  --lift-shadow: 0 16px 30px -22px color-mix(in srgb, var(--ink) 60%, transparent);
+}
+
+/* Typography: display font on every heading, calmer "black" weight */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.font-black {
+  font-weight: 700;
+}
+
+/* Elegant serif-italic accent, shareable across every page */
+.h-accent {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Gentle entrance for every route */
+main {
+  animation: page-enter 0.5s ease both;
+}
+
+@keyframes page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Soft borders: 1px everywhere instead of hard 2px ink outlines */
+.border-2,
+.border-4 { border-width: 1px; }
+.border-t-2 { border-top-width: 1px; }
+.border-b-2 { border-bottom-width: 1px; }
+.border-l-2 { border-left-width: 1px; }
+.border-r-2 { border-right-width: 1px; }
+.border-ink { border-color: var(--ring); }
+.dark .border-nightInk { border-color: var(--ring); }
+.border-ink\/20 { border-color: color-mix(in srgb, var(--ink) 13%, transparent); }
+.dark .border-nightInk\/20 { border-color: color-mix(in srgb, var(--ink) 13%, transparent); }
+
+/* Cards */
+.nb-card {
+  border: 1px solid var(--ring);
+  border-radius: 18px;
+  box-shadow: var(--soft-shadow);
+}
+.nb-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--ring-strong);
+  box-shadow: var(--lift-shadow);
+}
+.dark .nb-card:hover {
+  box-shadow: var(--lift-shadow);
+}
+
+/* Buttons */
+.nb-btn {
+  border: 1px solid var(--ring);
+  border-radius: 999px;
+  font-weight: 600;
+}
+.nb-btn:hover {
+  transform: translateY(-1px);
+  filter: none;
+  box-shadow: var(--lift-shadow);
+}
+.nb-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+.dark .nb-btn:hover { filter: none; }
+.nb-btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.dark .nb-btn-primary { color: var(--paper); }
+.nb-btn-success { background: color-mix(in srgb, var(--accent2) 68%, var(--card)); }
+.nb-btn-warn { background: color-mix(in srgb, var(--accent3) 68%, var(--card)); }
+.nb-btn-danger { background: color-mix(in srgb, var(--accent4) 68%, var(--card)); }
+.dark .nb-btn-success,
+.dark .nb-btn-warn,
+.dark .nb-btn-danger { color: #fff; }
+
+/* Inputs */
+.nb-input {
+  border: 1px solid var(--ring);
+  border-radius: 12px;
+  background: var(--card);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.nb-input:focus {
+  background: var(--card);
+  color: var(--ink);
+  border-color: #0052ff;
+  box-shadow: 0 0 0 4px color-mix(in srgb, #0052ff 15%, transparent);
+}
+.dark .nb-input:focus {
+  background: var(--card);
+  color: var(--ink);
+}
+
+/* Tags and small badges */
+.nb-tag {
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 45%, var(--card));
+  padding: 5px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.dark .nb-tag { color: var(--ink); }
+.nb-box-badge {
+  border: 1px solid var(--ring);
+  border-radius: 999px;
+  font-weight: 600;
+  min-height: 44px;
+}
+.nb-divider { border-top: 1px solid var(--ring); }
+
+/* Featured / current plan cards */
+.nb-featured {
+  background: color-mix(in srgb, var(--accent3) 40%, var(--card)) !important;
+  border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent) !important;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent3) 30%, transparent), var(--soft-shadow);
+  color: var(--ink) !important;
+}
+.nb-current {
+  background: color-mix(in srgb, var(--accent2) 40%, var(--card)) !important;
+  border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent) !important;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent2) 30%, transparent), var(--soft-shadow);
+  color: var(--ink) !important;
+}
+.dark .nb-featured,
+.dark .nb-current {
+  background: color-mix(in srgb, var(--accent3) 26%, var(--card)) !important;
+  color: var(--ink) !important;
+}
+.dark .nb-current {
+  background: color-mix(in srgb, var(--accent2) 26%, var(--card)) !important;
+}
+.dark .nb-featured *,
+.dark .nb-current * { color: var(--ink) !important; }
+
+/* Header and navigation */
+.site-header {
+  border-bottom: 1px solid var(--ring);
+  background: color-mix(in srgb, var(--paper) 85%, transparent);
+}
+.brand-mark {
+  border: 1px solid var(--ring) !important;
+  border-radius: 10px;
+}
+.nav-menu-panel {
+  border: 1px solid var(--ring);
+  border-radius: 16px;
+  box-shadow: var(--soft-shadow);
+}
+.nav-menu-item {
+  border-radius: 12px;
+}
+.nav-menu-item:hover,
+.nav-menu-item:focus-visible {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border-color: transparent;
+  transform: none;
+}
+.nav-menu-item span { font-weight: 600; }
+.nav-menu-divider { border-top: 1px solid var(--ring); }
+.nav-menu-warn:hover,
+.nav-menu-warn:focus-visible {
+  background: color-mix(in srgb, var(--accent3) 40%, transparent);
+}
+
+/* Auth screens (login, signup, password reset, bridge) */
+.auth-stage {
+  background:
+    radial-gradient(720px 420px at 12% -6%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%),
+    radial-gradient(560px 360px at 92% 6%, color-mix(in srgb, var(--accent3) 38%, transparent), transparent 72%),
+    var(--paper);
+}
+.auth-grid {
+  border: 1px solid var(--ring) !important;
+  border-radius: 26px;
+  box-shadow: var(--soft-shadow);
+  background: var(--card);
+}
+.auth-manifest {
+  background:
+    radial-gradient(560px 320px at 18% -10%, color-mix(in srgb, var(--accent3) 48%, transparent), transparent 70%),
+    color-mix(in srgb, var(--paper) 70%, var(--card));
+  color: var(--ink);
+  border-right: 1px solid var(--ring) !important;
+}
+.auth-kicker {
+  border: 1px solid var(--ring);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+.auth-signal {
+  border: 1px solid var(--ring);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper) 55%, var(--card));
+  font-weight: 600;
+}
+.auth-orbit {
+  border: 1px dashed var(--ring);
+  opacity: 0.9;
+}
+
+/* Floating widgets, chat, announcements */
+.live-icon-btn {
+  border: 1px solid var(--ring);
+  border-radius: 16px;
+  box-shadow: var(--soft-shadow);
+  font-weight: 700;
+}
+.live-icon-btn strong {
+  border: 0;
+  background: #ff3b3b;
+}
+.live-panel {
+  border: 1px solid var(--ring);
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: 0 34px 66px -44px color-mix(in srgb, var(--ink) 75%, transparent);
+}
+.live-panel-head {
+  border-bottom: 1px solid var(--ring);
+  background: color-mix(in srgb, var(--accent3) 34%, var(--card));
+}
+.live-panel-head h2 {
+  font-weight: 700;
+  font-size: 18px;
+}
+.announcement-item {
+  border: 1px solid var(--ring);
+  border-radius: 14px;
+}
+.announcement-item.unread { background: color-mix(in srgb, var(--accent3) 48%, var(--card)); }
+.announcement-item.read { border-color: var(--ring); }
+.announcement-item h3 { font-weight: 600; }
+.announcement-item span {
+  border: 0;
+  background: color-mix(in srgb, var(--accent2) 60%, var(--card));
+  font-weight: 600;
+}
+.announcement-item.unread span { background: color-mix(in srgb, var(--accent4) 65%, var(--card)); }
+.chat-bubble {
+  border: 1px solid var(--ring);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--lift-shadow);
+}
+.chat-message.mine .chat-bubble { background: color-mix(in srgb, var(--accent) 55%, var(--card)); }
+.chat-message.admin .chat-bubble {
+  background: var(--ink);
+  color: var(--paper);
+}
+.chat-avatar {
+  border: 1px solid var(--ring);
+  background: color-mix(in srgb, var(--accent) 60%, var(--card));
+  font-weight: 600;
+}
+.chat-author { font-weight: 600; }
+.chat-compose { border-top: 1px solid var(--ring); }
+.admin-badge,
+.spark-badge {
+  border: 1px solid var(--ring);
+  font-weight: 600;
+}
+
+/* Admin panels */
+.admin-summary-box,
+.admin-detail-group {
+  border: 1px solid var(--ring);
+  border-radius: 14px;
+}
+.admin-summary-box span {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.admin-summary-box strong { font-weight: 700; }
+.admin-detail-group summary {
+  border-bottom: 1px solid transparent;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 22%, var(--card));
+}
+.admin-detail-group[open] summary { border-bottom-color: var(--ring); }
+
+/* Skeletons and toasts */
+.nb-skeleton {
+  border: 1px solid var(--ring);
+  border-radius: 12px;
+}
+.premium-toast {
+  border: 1px solid var(--ring);
+  border-radius: 14px;
+  box-shadow: var(--soft-shadow);
+  font-weight: 600;
+}
+
+/* Tables (dashboard + admin) */
+table { border-color: var(--ring); }
+td,
+th { border-color: var(--ring); }
+thead th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+tbody tr { transition: background 0.16s ease; }
+tbody tr:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  main { animation: none; }
+}

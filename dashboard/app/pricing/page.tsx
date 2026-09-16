@@ -89,7 +89,7 @@ export default function Pricing() {
       <Navbar />
       <main className="max-w-6xl mx-auto px-5 py-12">
         <h1 className="font-display font-black text-4xl md:text-5xl text-center">
-          Pick your plan
+          Pick your <span className="h-accent">plan.</span>
         </h1>
         <p className="mt-3 text-center max-w-2xl mx-auto">
           Start with a free 3-day trial, buy 30 days of predictable access, or
