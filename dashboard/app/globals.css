@@ -716,8 +716,8 @@ body {
 .spark-badge {
   display: inline-grid;
   place-items: center;
-  min-width: 22px;
-  height: 22px;
+  min-width: 26px;
+  height: 26px;
   border: 2px solid currentColor;
   border-radius: 999px;
   padding: 0 7px;
@@ -1716,15 +1716,15 @@ tbody tr:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
 /* Bigger, tri-color animated menu dots */
 .nav-menu-trigger,
 .mobile-nav-trigger {
-  width: 46px;
-  height: 46px;
-  min-height: 46px;
+  width: 50px;
+  height: 50px;
+  min-height: 50px;
 }
 
 .nav-menu-trigger svg,
 .mobile-nav-trigger svg {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
 }
 
 .nav-dots circle {

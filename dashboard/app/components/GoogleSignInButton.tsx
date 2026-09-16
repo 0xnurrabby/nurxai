@@ -45,7 +45,7 @@ function loadGoogleScript() {
     }
     const script = document.createElement("script");
     script.id = SCRIPT_ID;
-    script.src = "https://accounts.google.com/gsi/client";
+    script.src = "https://accounts.google.com/gsi/client?hl=en";
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
@@ -107,6 +107,7 @@ export default function GoogleSignInButton({ label = "continue_with", referralCo
         if (cancelled || !ref.current || !window.google?.accounts?.id) return;
         window.google.accounts.id.initialize({
           client_id: clientId,
+          locale: "en",
           ux_mode: "popup",
           auto_select: false,
           callback: async (response: any) => {

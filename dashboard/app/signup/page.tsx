@@ -116,7 +116,7 @@ function SignupForm() {
         <p className="mt-1.5 text-[13px] leading-relaxed opacity-70">Verify your email, then your reply workspace is ready.</p>
 
         {phase === "details" ? <>
-          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--ring,transparent)] p-2.5 text-[13px]" style={{ background: "color-mix(in srgb, var(--ink) 4%, transparent)" }}>
+          <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--ring,transparent)] p-2 text-[12.5px]" style={{ background: "color-mix(in srgb, var(--ink) 4%, transparent)" }}>
             <input
               type="checkbox"
               className="mt-0.5 h-4 w-4 accent-[#0052ff]"
@@ -130,18 +130,18 @@ function SignupForm() {
               <Link href="/privacy" className="font-semibold underline" target="_blank">Privacy Policy</Link>.
             </span>
           </label>
-          <div className={`mt-4 ${accepted ? "" : "pointer-events-none opacity-45"}`}>
+          <div className={`mt-3 ${accepted ? "" : "pointer-events-none opacity-45"}`}>
             <GoogleSignInButton label="signup_with" referralCode={referralCode} acceptedTerms={accepted} onSuccess={finishAuth} onError={setErr} />
           </div>
-          <div className="my-4 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50"><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR VERIFIED EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /></div>
-          <form onSubmit={submitDetails} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div><label className="text-[13px] font-semibold">Name</label><input className="nb-input mt-1" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
-              <div><label className="text-[13px] font-semibold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div className="my-3 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50"><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR VERIFIED EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /></div>
+          <form onSubmit={submitDetails} className="space-y-2.5">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+              <div className="min-w-0"><label className="text-[12px] font-semibold">Name</label><input className="nb-input mt-1 w-full min-w-0" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+              <div className="min-w-0"><label className="text-[12px] font-semibold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1 w-full min-w-0" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div><label className="text-[13px] font-semibold">Password</label><input type="password" required minLength={8} maxLength={128} autoComplete="new-password" className="nb-input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /><p className="mt-1 text-[11px] opacity-55">Minimum 8 characters.</p></div>
-              <div><label className="text-[13px] font-semibold">Referral code <span className="opacity-50">(optional)</span></label><input className="nb-input mt-1 uppercase" value={referralCode} onChange={(e) => setReferralCode(e.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())} placeholder="FRIENDCODE" /></div>
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+              <div className="min-w-0"><label className="text-[12px] font-semibold">Password</label><input type="password" required minLength={8} maxLength={128} autoComplete="new-password" className="nb-input mt-1 w-full min-w-0" value={password} onChange={(e) => setPassword(e.target.value)} /><p className="mt-1 text-[11px] opacity-55">Minimum 8 characters.</p></div>
+              <div className="min-w-0"><label className="text-[12px] font-semibold">Referral code <span className="opacity-50">(optional)</span></label><input className="nb-input mt-1 w-full min-w-0 uppercase" value={referralCode} onChange={(e) => setReferralCode(e.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase())} placeholder="FRIENDCODE" /></div>
             </div>
             {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
             <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy || !accepted}>{busy ? "Sending secure code..." : accepted ? "Verify email" : "Accept terms to continue"}</button>
@@ -154,7 +154,7 @@ function SignupForm() {
           <div className="flex items-center justify-between gap-3 text-sm"><button type="button" className="font-bold underline" onClick={() => { setPhase("details"); setOtp(""); setErr(""); }}>Edit details</button><button type="button" className="font-bold underline disabled:opacity-40" disabled={busy || countdown > 0} onClick={requestCode}>{countdown > 0 ? `Resend in ${countdown}s` : "Resend code"}</button></div>
         </form>}
 
-        <p className="mt-4 border-t border-ink/10 pt-3 text-[13px] dark:border-nightInk/10">Already operating? <Link href="/login" className="font-black underline">Sign in</Link></p>
+        <p className="mt-3 border-t border-ink/10 pt-2.5 text-[13px] dark:border-nightInk/10">Already operating? <Link href="/login" className="font-black underline">Sign in</Link></p>
       </div>
     </AuthShell>
   );

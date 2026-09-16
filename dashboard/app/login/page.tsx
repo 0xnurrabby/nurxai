@@ -70,27 +70,27 @@ function LoginForm() {
         <h1 className="mt-3 font-display text-3xl font-black tracking-tight">Welcome back.</h1>
         <p className="mt-1.5 text-[13px] leading-relaxed opacity-70">Open your reply workspace, billing, and extension controls.</p>
 
-        <div className="mt-4">
+        <div className="mt-3">
           <GoogleSignInButton label="signin_with" acceptedTerms onSuccess={finishAuth} onError={setErr} />
         </div>
-        <p className="mt-2.5 text-center text-[11px] leading-relaxed opacity-55">
+        <p className="mt-2 text-center text-[11px] leading-relaxed opacity-55">
           By continuing you agree to our{" "}
           <Link href="/terms" className="underline" target="_blank">Terms of Service</Link>
           {" "}and{" "}
           <Link href="/privacy" className="underline" target="_blank">Privacy Policy</Link>.
         </p>
-        <div className="my-4 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50">
+        <div className="my-3 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50">
           <div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" />
         </div>
 
-        <form onSubmit={submit} className="space-y-3.5">
-          <div><label className="text-sm font-bold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div><div className="flex items-center justify-between"><label className="text-sm font-bold">Password</label><Link href="/forgot-password" className="text-xs font-bold underline">Reset it</Link></div><input type="password" required autoComplete="current-password" className="nb-input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+        <form onSubmit={submit} className="space-y-3">
+          <div><label className="text-[12px] font-semibold">Email</label><input type="email" required autoComplete="email" className="nb-input mt-1 w-full min-w-0" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div><div className="flex items-center justify-between"><label className="text-[12px] font-semibold">Password</label><Link href="/forgot-password" className="text-xs font-bold underline">Reset it</Link></div><input type="password" required autoComplete="current-password" className="nb-input mt-1 w-full min-w-0" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
           {err && <p role="alert" className="rounded-lg border-2 border-[#b00020] bg-red-50 p-3 text-sm font-semibold text-[#b00020] dark:bg-transparent">{err}</p>}
           <button className="nb-btn nb-btn-primary min-h-[48px] w-full" disabled={busy}>{busy ? "Signing in..." : "Enter workspace"}</button>
         </form>
 
-        <p className="mt-4 border-t border-ink/10 pt-3 text-[13px] dark:border-nightInk/10">New here? <Link href="/signup" className="font-black underline">Create your account</Link></p>
+        <p className="mt-3 border-t border-ink/10 pt-2.5 text-[13px] dark:border-nightInk/10">New here? <Link href="/signup" className="font-black underline">Create your account</Link></p>
       </div>
     </AuthShell>
   );
