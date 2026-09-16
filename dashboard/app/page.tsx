@@ -1,5 +1,4 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Navbar from "./components/Navbar";
 import Reveal from "./components/Reveal";
@@ -137,37 +136,6 @@ function FeatureIcon({ name }: { name: string }) {
   );
 }
 
-function AnimatedHeadline({ text }: { text: string }) {
-  const words = text.split(" ");
-  let index = 0;
-  return (
-    <em className="h-wave">
-      <span className="sr-only">{text}</span>
-      <span aria-hidden="true">
-        {words.map((word, wordIndex) => (
-          <span key={`${word}-${wordIndex}`}>
-            <span className="h-wave-word">
-              {Array.from(word).map((letter) => {
-                const letterIndex = index++;
-                return (
-                  <span
-                    key={letterIndex}
-                    className="h-wave-letter"
-                    style={{ "--i": letterIndex } as CSSProperties}
-                  >
-                    {letter}
-                  </span>
-                );
-              })}
-            </span>
-            {wordIndex < words.length - 1 ? " " : null}
-          </span>
-        ))}
-      </span>
-    </em>
-  );
-}
-
 export default async function Home() {
   const pricing = await getPaygPricing().catch(() => ({
     regularPriceUSD: "0.009000",
@@ -239,13 +207,9 @@ export default async function Home() {
           <div className="h-hero-glow" aria-hidden="true" />
           <div className="h-hero-grid" aria-hidden="true" />
           <div className="h-container h-hero-inner">
-            <span className="h-pill h-anim h-d1">
-              <span className="h-pill-dot" />
-              Built on Base · x402 USDC
-            </span>
             <h1 className="h-h1">
-              <span className="h-line h-anim h-d2">Understand any X post.</span>
-              <AnimatedHeadline text="Reply like yourself." />
+              <span className="h-line h-anim h-d1">Understand any X post.</span>
+              <em className="h-cycle">Reply like yourself.</em>
             </h1>
             <p className="h-sub h-anim h-d3">
               NurAi is a Chrome copilot for X. It reads the post you are replying to, including
@@ -272,7 +236,7 @@ export default async function Home() {
               ))}
             </div>
 
-            <div className="h-frame-wrap h-anim h-d6">
+            <div className="h-frame-wrap h-anim h-d5">
               <div className="h-frame-glow" aria-hidden="true" />
               <figure className="h-frame h-float">
                 <div className="h-frame-bar">
@@ -290,6 +254,16 @@ export default async function Home() {
                   loading="eager"
                 />
               </figure>
+            </div>
+
+            <div className="h-built h-anim h-d5">
+              <span className="h-base-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="12" fill="#0052ff" />
+                  <rect x="6.4" y="10.6" width="11.2" height="2.9" rx="1.45" fill="#ffffff" />
+                </svg>
+              </span>
+              <span>Built on Base · x402 USDC</span>
             </div>
           </div>
         </section>
