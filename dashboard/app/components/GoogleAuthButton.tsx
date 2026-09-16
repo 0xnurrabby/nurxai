@@ -30,7 +30,7 @@ export default function GoogleAuthButton({ label, referralCode, accepted = true,
 
   if (!accepted) {
     return (
-      <button type="button" className="nb-btn w-full opacity-60" onClick={onBlocked}>
+      <button type="button" className="nb-btn flex w-full opacity-60" onClick={onBlocked}>
         {content}
       </button>
     );
@@ -38,7 +38,7 @@ export default function GoogleAuthButton({ label, referralCode, accepted = true,
 
   const href = `/api/auth/google/start?accepted=1${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ""}`;
   return (
-    <a href={href} className="nb-btn w-full">
+    <a href={href} className="nb-btn flex w-full">
       {content}
     </a>
   );

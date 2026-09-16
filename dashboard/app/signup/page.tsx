@@ -132,12 +132,14 @@ function SignupForm() {
               <Link href="/privacy" className="font-semibold underline" target="_blank">Privacy Policy</Link>.
             </span>
           </label>
-          <GoogleAuthButton
-            label="Continue with Google"
-            referralCode={referralCode}
-            accepted={accepted}
-            onBlocked={() => setErr("Please accept the Terms of Service and Privacy Policy first.")}
-          />
+          <div className="mt-3">
+            <GoogleAuthButton
+              label="Continue with Google"
+              referralCode={referralCode}
+              accepted={accepted}
+              onBlocked={() => setErr("Please accept the Terms of Service and Privacy Policy first.")}
+            />
+          </div>
           <div className="my-3 flex items-center gap-3 text-[11px] font-black tracking-[.14em] opacity-50"><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /><span>OR VERIFIED EMAIL</span><div className="h-px flex-1 bg-ink/40 dark:bg-nightInk/40" /></div>
           <form onSubmit={submitDetails} className="space-y-2.5">
             <div className="grid min-w-0 gap-3 sm:grid-cols-2">
