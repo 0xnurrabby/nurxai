@@ -132,8 +132,41 @@
   animation:
     h-line-in 1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.24s both,
     h-cycle-color 22s linear infinite,
-    h-cycle-pop 1s ease-in-out infinite,
     h-line-float 7.5s ease-in-out infinite;
+}
+
+/* Rotating last word: flips up while the line softly cycles color */
+.h-flip {
+  display: inline-grid;
+  justify-items: center;
+  vertical-align: baseline;
+}
+
+.h-flip-word {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  transition:
+    opacity 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.55s ease;
+}
+
+.h-flip-idle {
+  opacity: 0;
+  transform: translateY(0.62em) scale(0.96);
+  filter: blur(9px);
+}
+
+.h-flip-active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+.h-flip-leaving {
+  opacity: 0;
+  transform: translateY(-0.62em) scale(0.96);
+  filter: blur(9px);
 }
 
 /* Elegant serif-italic accent inside display headings */
@@ -146,12 +179,6 @@
 
 .dark .h-cycle {
   text-shadow: 0 0 34px color-mix(in srgb, currentColor 32%, transparent);
-}
-
-@keyframes h-cycle-pop {
-  0% { scale: 1.016; }
-  60% { scale: 1; }
-  100% { scale: 1; }
 }
 
 @keyframes h-line-in {
@@ -790,6 +817,9 @@
   .dark .h-cycle {
     color: #7fb0ff;
     text-shadow: none;
+  }
+  .h-flip-word {
+    transition: none;
   }
 }
 

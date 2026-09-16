@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import Navbar from "./components/Navbar";
+import FlipWord from "./components/FlipWord";
 import Reveal from "./components/Reveal";
 import { formatPaygPrice, getPaygPricing, isPaygDiscounted, paygDiscountPercent } from "@/lib/payg-pricing";
 import "./home.css";
@@ -210,7 +211,7 @@ export default async function Home() {
             <h1 className="h-h1">
               <span className="h-line h-anim h-d1">Understand any X post.</span>
               <em className="h-cycle">
-                Reply like <span className="h-accent">yourself</span>.
+                Reply like <FlipWord />
               </em>
             </h1>
             <p className="h-sub h-anim h-d3">
