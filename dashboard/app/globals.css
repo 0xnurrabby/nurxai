@@ -1674,3 +1674,10 @@ tbody tr:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
 @media (prefers-reduced-motion: reduce) {
   main { animation: none; }
 }
+
+/* Tailwind emits dark: variants after this layer, so pin the soft rings. */
+.dark .border-nightInk { border-color: var(--ring) !important; }
+.dark .border-nightInk\/10 { border-color: color-mix(in srgb, var(--ink) 8%, transparent) !important; }
+.dark .border-nightInk\/20 { border-color: color-mix(in srgb, var(--ink) 13%, transparent) !important; }
+.dark .border-nightInk\/30 { border-color: color-mix(in srgb, var(--ink) 18%, transparent) !important; }
+.dark .border-nightInk\/40 { border-color: color-mix(in srgb, var(--ink) 24%, transparent) !important; }
