@@ -89,8 +89,8 @@ export default function ExtensionGate() {
     try { sessionStorage.setItem(DISMISS_KEY, "1"); } catch {}
   }
 
-  if (status === "checking") {
-    return <div className="mt-4 h-14 nb-skeleton" aria-hidden="true" />;
+  if (mobile || status === "checking") {
+    return null;
   }
 
   if (status === "connected") {
@@ -118,20 +118,16 @@ export default function ExtensionGate() {
           <p className="mt-1.5 max-w-xl text-sm leading-relaxed opacity-75">
             NurAi lives in your X reply box. Install it once, come back to this tab, and your suggestions are ready.
           </p>
-          {mobile ? (
-            <p className="mt-2 text-xs opacity-60">Extensions run on desktop Chrome. Open this page on your computer to finish setup.</p>
-          ) : (
-            <p className="mt-2 text-xs opacity-60">
-              Taking you to the Chrome Web Store in {countdown}s. If nothing happens, use the install button.
-            </p>
-          )}
+          <p className="mt-2 text-xs opacity-60">
+            Taking you to the Chrome Web Store in {countdown}s. If nothing happens, use the install button.
+          </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <a className="nb-btn nb-btn-primary" href={STORE_URL} target="_blank" rel="noopener noreferrer">
             Install free extension
           </a>
           <button type="button" className="nb-btn" onClick={() => void check()}>I installed it</button>
-          {!mobile && <button type="button" className="nb-btn" onClick={dismiss}>Not now</button>}
+          <button type="button" className="nb-btn" onClick={dismiss}>Not now</button>
         </div>
       </div>
     </div>
