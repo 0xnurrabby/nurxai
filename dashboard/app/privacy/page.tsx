@@ -1,4 +1,18 @@
+import type { Metadata } from "next";
 import Navbar from "../components/Navbar";
+import SiteFooter from "../components/SiteFooter";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "What NurAi collects, what it never collects, how reply context is processed, and how your account data is handled.",
+  alternates: { canonical: "/privacy" },
+  openGraph: {
+    url: "/privacy",
+    title: "Privacy Policy | NurAi",
+    description: "What NurAi collects, what it never collects, and how your data is handled."
+  }
+};
 
 export default function Privacy() {
   return (
@@ -7,7 +21,7 @@ export default function Privacy() {
       <main className="max-w-3xl mx-auto px-5 py-12">
         <div className="nb-card p-8">
           <h1 className="font-display font-black text-4xl">Privacy Policy</h1>
-          <p className="opacity-70 mt-2">Last updated: August 2026</p>
+          <p className="opacity-70 mt-2">Last updated: September 2026</p>
 
           <h2 className="font-bold text-xl mt-6">What we collect</h2>
           <ul className="list-disc pl-6 mt-2 space-y-1">
@@ -46,11 +60,12 @@ export default function Privacy() {
 
           <h2 className="font-bold text-xl mt-6">Third-party services</h2>
           <ul className="list-disc pl-6 mt-2 space-y-1">
-            <li><strong>Vercel</strong> - hosts our application and AI gateway.</li>
-            <li><strong>AI providers</strong> - generate and ground reply suggestions through Vercel AI Gateway.</li>
+            <li><strong>Render</strong> - hosts our application and API.</li>
+            <li><strong>Vercel AI Gateway</strong> - routes generation requests to AI model providers.</li>
+            <li><strong>Resend</strong> - delivers transactional email such as login codes and billing notices.</li>
+            <li><strong>Neon</strong> - provides our managed PostgreSQL database.</li>
             <li><strong>NOWPayments</strong> - processes crypto subscription payments.</li>
             <li><strong>Base, Base Account, and the x402 facilitator</strong> - provide self-custodial account access, USDC authorization, verification, and onchain settlement.</li>
-            <li><strong>Supabase</strong> - provides our PostgreSQL database.</li>
           </ul>
 
           <h2 className="font-bold text-xl mt-6">Data retention</h2>
@@ -83,6 +98,7 @@ export default function Privacy() {
           </p>
         </div>
       </main>
+      <SiteFooter />
     </>
   );
 }

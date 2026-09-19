@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar";
 import FlipWord from "./components/FlipWord";
 import Reveal from "./components/Reveal";
 import { formatPaygPrice, getPaygPricing, isPaygDiscounted, paygDiscountPercent } from "@/lib/payg-pricing";
+import { howToSchema } from "@/lib/seo";
 import "./home.css";
 
 export const dynamic = "force-dynamic";
@@ -196,11 +197,32 @@ export default async function Home() {
     }))
   };
 
+  const howToJsonLd = howToSchema({
+    name: "How to draft an X reply with NurAi",
+    description:
+      "NurAi drafts four context-aware replies for any X post. You choose one, edit it, and publish it yourself.",
+    steps: [
+      {
+        name: "Open any reply on X",
+        text: "Open the reply composer on any X post. NurAi appears right where you write."
+      },
+      {
+        name: "Get four drafts, not one",
+        text: "NurAi reads the post and offers four different reply angles in your voice."
+      },
+      {
+        name: "Publish the one you like",
+        text: "Edit the draft you prefer and post it yourself. Nothing is published automatically."
+      }
+    ]
+  });
+
   return (
     <div className="home-shell">
       <Navbar />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }} />
 
       <main>
         {/* -- Hero ----------------------------------------------- */}
@@ -457,7 +479,7 @@ export default async function Home() {
 
       <footer>
         <div className="h-container" style={{ paddingTop: 40, paddingBottom: 32 }}>
-          <div className="grid gap-8 md:grid-cols-[1.4fr_1fr_1fr]">
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
             <div>
               <div className="font-display text-lg font-bold">NurAi</div>
               <p className="h-pricing-note" style={{ maxWidth: "34ch" }}>
@@ -468,15 +490,26 @@ export default async function Home() {
               <div className="h-footer-heading">Product</div>
               <ul className="mt-3 space-y-2 text-sm">
                 <li><Link href="/pricing">Pricing and access</Link></li>
+                <li><Link href="/x-reply-extension">AI reply extension</Link></li>
                 <li><Link href="/signup">Create account</Link></li>
                 <li><a href={chromeStoreUrl} target="_blank" rel="noopener noreferrer">Chrome extension</a></li>
                 <li><a href="https://www.x402.org/" target="_blank" rel="noopener noreferrer">About x402</a></li>
               </ul>
             </div>
             <div>
+              <div className="h-footer-heading">Learn</div>
+              <ul className="mt-3 space-y-2 text-sm">
+                <li><Link href="/guides">All guides</Link></li>
+                <li><Link href="/guides/how-to-reply-on-x">How to reply on X</Link></li>
+                <li><Link href="/guides/reply-guy-strategy">Reply guy strategy</Link></li>
+                <li><Link href="/guides/is-ai-replying-safe-on-x">Is AI replying safe?</Link></li>
+                <li><Link href="/guides/best-ai-reply-tools-for-x">Best AI reply tools</Link></li>
+              </ul>
+            </div>
+            <div>
               <div className="h-footer-heading">Trust and support</div>
               <ul className="mt-3 space-y-2 text-sm">
-                <li>support@nurxai.xyz</li>
+                <li><a href="mailto:support@nurxai.xyz">support@nurxai.xyz</a></li>
                 <li>Telegram: @Nur_Xai</li>
                 <li><Link href="/privacy">Privacy Policy</Link></li>
                 <li><Link href="/terms">Terms of Service</Link></li>

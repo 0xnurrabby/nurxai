@@ -1,4 +1,18 @@
+import type { Metadata } from "next";
 import Navbar from "../components/Navbar";
+import SiteFooter from "../components/SiteFooter";
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description:
+    "The rules for using NurAi: acceptable use, subscriptions and x402 pay-per-use payments, referrals, and account responsibilities.",
+  alternates: { canonical: "/terms" },
+  openGraph: {
+    url: "/terms",
+    title: "Terms of Service | NurAi",
+    description: "The rules for using NurAi, including payments, referrals, and acceptable use."
+  }
+};
 
 export default function Terms() {
   return (
@@ -88,6 +102,7 @@ export default function Terms() {
           </p>
         </div>
       </main>
+      <SiteFooter />
     </>
   );
 }

@@ -1,0 +1,30 @@
+# NurAi
+
+> NurAi (NurXai) is a human-in-the-loop AI reply assistant for X and Twitter. It reads the post you are replying to and drafts four context-aware replies in your voice. The user reviews, edits, and publishes, so nothing is ever posted automatically. It ships as a Chrome extension that works inside x.com and twitter.com, plus a web dashboard.
+
+Key facts:
+- Product: AI reply drafts for X (Twitter) with mandatory human approval.
+- Four different reply angles per post: insight, question, counterpoint, example.
+- No auto-posting, no mass replies, no scraping. Every reply is posted by the user.
+- Platforms: Chrome, Edge, Brave, and other Chromium browsers.
+- Trial: 3 days free with a daily generation limit.
+- Pricing: pay per generation in USDC on Base (no daily limit), or fixed-duration plans.
+- Support: support@nurxai.xyz
+
+Key pages:
+- Home: https://nurxai.xyz/
+- AI reply extension for X: https://nurxai.xyz/x-reply-extension
+- Pricing: https://nurxai.xyz/pricing
+- Guides hub: https://nurxai.xyz/guides
+- Sign up: https://nurxai.xyz/signup
+
+Guides:
+- How to reply on X to grow your account: https://nurxai.xyz/guides/how-to-reply-on-x
+- The reply guy strategy: https://nurxai.xyz/guides/reply-guy-strategy
+- Is using AI to reply on X safe?: https://nurxai.xyz/guides/is-ai-replying-safe-on-x
+- Best AI reply tools for X in 2026: https://nurxai.xyz/guides/best-ai-reply-tools-for-x
+- How long should an X reply be?: https://nurxai.xyz/guides/x-reply-length
+
+Policies:
+- Terms of Service: https://nurxai.xyz/terms
+- Privacy Policy: https://nurxai.xyz/privacy

@@ -1,26 +1,26 @@
 import type { MetadataRoute } from "next";
+import { GUIDES } from "@/lib/guides";
 
 const siteUrl = "https://nurxai.xyz";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
-  const routes: Array<{
-    path: string;
-    priority: number;
-    changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
-  }> = [
-    { path: "/", priority: 1, changeFrequency: "weekly" },
-    { path: "/pricing", priority: 0.9, changeFrequency: "weekly" },
-    { path: "/signup", priority: 0.8, changeFrequency: "monthly" },
-    { path: "/login", priority: 0.4, changeFrequency: "monthly" },
-    { path: "/privacy", priority: 0.3, changeFrequency: "yearly" },
-    { path: "/terms", priority: 0.3, changeFrequency: "yearly" }
+  const core: MetadataRoute.Sitemap = [
+    { url: `${siteUrl}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
+    { url: `${siteUrl}/x-reply-extension`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${siteUrl}/pricing`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${siteUrl}/guides`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${siteUrl}/signup`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${siteUrl}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${siteUrl}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 }
   ];
 
-  return routes.map((route) => ({
-    url: `${siteUrl}${route.path}`,
-    lastModified: now,
-    changeFrequency: route.changeFrequency,
-    priority: route.priority
+  const guideEntries: MetadataRoute.Sitemap = GUIDES.map((guide) => ({
+    url: `${siteUrl}/guides/${guide.slug}`,
+    lastModified: new Date(guide.updated),
+    changeFrequency: "monthly",
+    priority: 0.7
   }));
+
+  return [...core, ...guideEntries];
 }

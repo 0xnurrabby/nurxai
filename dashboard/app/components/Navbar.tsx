@@ -128,6 +128,14 @@ export default function Navbar() {
                   <span>Pricing</span>
                   <small>Plans and billing</small>
                 </Link>
+                <Link href="/guides" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+                  <span>Guides</span>
+                  <small>Grow with better replies</small>
+                </Link>
+                <Link href="/x-reply-extension" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+                  <span>X reply extension</span>
+                  <small>How the tool works</small>
+                </Link>
 
                 {mounted && loggedIn ? (
                   <>
@@ -200,6 +208,14 @@ export default function Navbar() {
             <Link href="/pricing" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
               <span>Pricing</span>
               <small>Plans and billing</small>
+            </Link>
+            <Link href="/guides" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+              <span>Guides</span>
+              <small>Grow with better replies</small>
+            </Link>
+            <Link href="/x-reply-extension" className="nav-menu-item" role="menuitem" onClick={closeMenu}>
+              <span>X reply extension</span>
+              <small>How the tool works</small>
             </Link>
 
             {mounted && loggedIn ? (
