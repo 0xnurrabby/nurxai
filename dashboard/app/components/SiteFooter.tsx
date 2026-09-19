@@ -20,6 +20,7 @@ export default function SiteFooter() {
           <div className="font-black uppercase tracking-[0.12em] opacity-55">Product</div>
           <ul className="mt-3 space-y-2">
             <li><Link className="underline decoration-1 underline-offset-2 opacity-80 hover:opacity-100" href="/">Home</Link></li>
+            <li><Link className="underline decoration-1 underline-offset-2 opacity-80 hover:opacity-100" href="/about">About NurAi</Link></li>
             <li><Link className="underline decoration-1 underline-offset-2 opacity-80 hover:opacity-100" href="/x-reply-extension">AI reply extension</Link></li>
             <li><Link className="underline decoration-1 underline-offset-2 opacity-80 hover:opacity-100" href="/pricing">Pricing</Link></li>
             <li><Link className="underline decoration-1 underline-offset-2 opacity-80 hover:opacity-100" href="/signup">Start free trial</Link></li>

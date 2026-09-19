@@ -13,10 +13,12 @@ Key facts:
 
 Key pages:
 - Home: https://nurxai.xyz/
+- About NurAi: https://nurxai.xyz/about
 - AI reply extension for X: https://nurxai.xyz/x-reply-extension
 - Pricing: https://nurxai.xyz/pricing
 - Guides hub: https://nurxai.xyz/guides
 - Sign up: https://nurxai.xyz/signup
+- Full reference text for language models: https://nurxai.xyz/llms-full.txt
 
 Guides:
 - How to reply on X to grow your account: https://nurxai.xyz/guides/how-to-reply-on-x

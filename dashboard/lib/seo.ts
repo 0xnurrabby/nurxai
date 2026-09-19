@@ -24,7 +24,7 @@ export function organizationSchema(): Json {
       width: 512,
       height: 512
     },
-    sameAs: [CHROME_STORE_URL],
+    sameAs: [CHROME_STORE_URL, "https://t.me/Nur_Xai"],
     contactPoint: [
       {
         "@type": "ContactPoint",
